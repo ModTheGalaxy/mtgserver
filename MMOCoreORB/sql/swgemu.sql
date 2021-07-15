@@ -272,6 +272,7 @@ CREATE TABLE  `swgemu`.`deleted_characters` (
   `gender` tinyint(1) NOT NULL DEFAULT '0',
   `template` tinytext NOT NULL,
   `creation_date` TIMESTAMP NOT NULL,
+  `db_deleted` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`character_oid`),
   KEY `acc_idx` (`account_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
