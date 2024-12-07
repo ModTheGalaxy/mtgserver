@@ -29,7 +29,7 @@ template<> bool CheckDestination::check(AiAgent* agent) const {
 }
 
 template<> bool CheckMovementState::check(AiAgent* agent) const {
-	return agent->getMovementState() == checkVar;
+	return  agent->getMovementState() == checkVar;
 }
 
 template<> bool CheckHasFollow::check(AiAgent* agent) const {
@@ -579,8 +579,9 @@ template<> bool CheckHealChance::check(AiAgent* agent) const {
 		return false;
 	}
 
-	if (System::random(100) < 98)
+	if (System::random(100) < 98) {
 		return false;
+	}
 
 	return true;
 }
@@ -698,7 +699,7 @@ template<> bool CheckStopResting::check(AiAgent* agent) const {
 	if (agent == nullptr)
 		return false;
 
-	if (agent->isInCombat() || agent->getFollowObject() != nullptr)
+	if (agent->isInCombat() || agent->getFollowObject() != nullptr || agent->getMovementState() == AiAgent::STALKING)
 		return true;
 
 	Time* restDelay = agent->getRestDelay();

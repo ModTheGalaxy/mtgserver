@@ -29,7 +29,9 @@
 #include "server/zone/objects/installation/components/TurretZoneComponent.h"
 #include "server/zone/objects/installation/components/MinefieldZoneComponent.h"
 #include "server/zone/objects/installation/components/MinefieldContainerComponent.h"
+#include "server/zone/objects/installation/components/TurretContainerComponent.h"
 #include "server/zone/objects/installation/components/ScannerZoneComponent.h"
+#include "server/zone/objects/intangible/components/WarrenDiskContainerComponent.h"
 #include "server/zone/objects/tangible/components/vendor/AuctionTerminalDataComponent.h"
 #include "server/zone/objects/player/components/PlayerZoneComponent.h"
 #include "server/zone/objects/player/components/PlayerSpaceZoneComponent.h"
@@ -65,7 +67,6 @@
 #include "server/zone/objects/tangible/components/generic/LootSchematicAttributeListComponent.h"
 #include "server/zone/objects/tangible/components/generic/XpPurchaseAttributeListComponent.h"
 #include "server/zone/objects/tangible/components/generic/XpPurchaseMenuComponent.h"
-#include "server/zone/objects/tangible/components/PersonnelPerkZoneComponent.h"
 #include "server/zone/objects/tangible/components/RingObjectMenuComponent.h"
 #include "server/zone/objects/tangible/components/HeroRingMenuComponent.h"
 #include "server/zone/objects/tangible/components/HeroRingAttributeListComponent.h"
@@ -90,6 +91,7 @@
 #include "server/zone/objects/installation/components/InstallationObjectMenuComponent.h"
 #include "server/zone/objects/installation/components/FactoryObjectMenuComponent.h"
 #include "server/zone/objects/installation/components/MinefieldMenuComponent.h"
+#include "server/zone/objects/installation/components/TurretMenuComponent.h"
 #include "server/zone/GroundZoneContainerComponent.h"
 #include "server/zone/SpaceZoneContainerComponent.h"
 #include "server/zone/objects/ship/components/ShipContainerComponent.h"
@@ -133,8 +135,11 @@
 #include "server/zone/objects/tangible/components/generic/CoaMessageDataComponent.h"
 #include "server/zone/objects/tangible/components/generic/CoaEncodedDiskMenuComponent.h"
 #include "server/zone/objects/creature/components/FactionRecruiterContainerComponent.h"
+#include "server/zone/objects/tangible/components/PersonnelPerkZoneComponent.h"
 #include "server/zone/objects/tangible/components/EventPerkDataComponent.h"
 #include "server/zone/objects/tangible/components/EventPerkMenuComponent.h"
+#include "server/zone/objects/tangible/components/EventPerkActorMenuComponent.h"
+#include "server/zone/objects/tangible/components/EventPerkActorContainerComponent.h"
 #include "server/zone/objects/tangible/components/FlagGameDataComponent.h"
 #include "server/zone/objects/tangible/components/FlagGameMenuComponent.h"
 #include "server/zone/objects/tangible/components/EventPerkAttributeListComponent.h"
@@ -157,8 +162,9 @@
 #include "server/zone/objects/tangible/components/droid/DroidTrapModuleDataComponent.h"
 #include "server/zone/objects/tangible/components/droid/DroidHarvestModuleDataComponent.h"
 #include "server/zone/objects/tangible/components/droid/DroidPersonalityModuleDataComponent.h"
-#include "server/zone/objects/tangible/components/StarshipTextureKitObjectMenuComponent.h"
 #include "server/zone/objects/tangible/components/PobShipObjectMenuComponent.h"
+#include "server/zone/objects/tangible/components/StarshipPaintKitObjectMenuComponent.h"
+#include "server/zone/objects/tangible/components/StarshipTextureKitObjectMenuComponent.h"
 
 ComponentManager::ComponentManager() {
 	components.put("ContainerComponent", new ContainerComponent());
@@ -226,6 +232,7 @@ ComponentManager::ComponentManager() {
 	components.put("StructureTerminalMenuComponent", new StructureTerminalMenuComponent());
 	components.put("FactoryObjectMenuComponent", new FactoryObjectMenuComponent());
 	components.put("MinefieldMenuComponent", new MinefieldMenuComponent());
+	components.put("TurretMenuComponent", new TurretMenuComponent());
 	components.put("InstallationObjectMenuComponent", new InstallationObjectMenuComponent());
 
 	components.put("ShipPermissionTerminalMenuComponent", new ShipPermissionTerminalMenuComponent());
@@ -243,10 +250,10 @@ ComponentManager::ComponentManager() {
 	components.put("VendorMenuComponent", new VendorMenuComponent());
 	components.put("VendorZoneComponent", new VendorZoneComponent());
 	components.put("TurretZoneComponent", new TurretZoneComponent());
+	components.put("TurretContainerComponent", new TurretContainerComponent());
 	components.put("MinefieldZoneComponent", new MinefieldZoneComponent());
 	components.put("MinefieldContainerComponent", new MinefieldContainerComponent());
 	components.put("ScannerZoneComponent", new ScannerZoneComponent());
-	components.put("PersonnelPerkZoneComponent", new PersonnelPerkZoneComponent());
 
 	dataObjectFactory.registerObject<VendorDataComponent>("VendorDataComponent");
 	dataObjectFactory.registerObject<AuctionTerminalDataComponent>("AuctionTerminalDataComponent");
@@ -335,12 +342,19 @@ ComponentManager::ComponentManager() {
 	dataObjectFactory.registerObject<CoaMessageDataComponent>("CoaMessageDataComponent");
 	components.put("CoaEncodedDiskMenuComponent", new CoaEncodedDiskMenuComponent());
 
-	components.put("EventPerkMenuComponent", new EventPerkMenuComponent() );
-	components.put("EventPerkAttributeListComponent", new EventPerkAttributeListComponent() );
+	// Event Perks
+	components.put("EventPerkMenuComponent", new EventPerkMenuComponent());
+
+	components.put("EventPerkActorMenuComponent", new EventPerkActorMenuComponent());
+	components.put("EventPerkActorContainerComponent", new EventPerkActorContainerComponent());
+
+	components.put("EventPerkAttributeListComponent", new EventPerkAttributeListComponent());
 	dataObjectFactory.registerObject<EventPerkDataComponent>("EventPerkDataComponent");
 
 	components.put("FlagGameMenuComponent", new FlagGameMenuComponent() );
 	dataObjectFactory.registerObject<FlagGameDataComponent>("FlagGameDataComponent");
+
+	components.put("PersonnelPerkZoneComponent", new PersonnelPerkZoneComponent());
 
 	// Droid components
 	dataObjectFactory.registerObject<DroidMaintenanceModuleDataComponent>("DroidMaintenanceModuleDataComponent");
@@ -361,7 +375,11 @@ ComponentManager::ComponentManager() {
 	dataObjectFactory.registerObject<DroidHarvestModuleDataComponent>("DroidHarvestModuleDataComponent");
 	dataObjectFactory.registerObject<DroidPersonalityModuleDataComponent>("DroidPersonalityModuleDataComponent");
 
-	//JtL component
-	components.put("StarshipTextureKitObjectMenuComponent", new StarshipTextureKitObjectMenuComponent());
+	// Warren Disks
+	components.put("WarrenDiskContainerComponent", new WarrenDiskContainerComponent());
+
+	//JtL components
 	components.put("PobShipObjectMenuComponent", new PobShipObjectMenuComponent());
+	components.put("StarshipPaintKitObjectMenuComponent", new StarshipPaintKitObjectMenuComponent());
+	components.put("StarshipTextureKitObjectMenuComponent", new StarshipTextureKitObjectMenuComponent());
 }

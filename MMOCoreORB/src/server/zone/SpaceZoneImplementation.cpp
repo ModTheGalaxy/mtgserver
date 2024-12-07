@@ -16,7 +16,7 @@
 
 SpaceZoneImplementation::SpaceZoneImplementation(ZoneProcessServer* serv, const String& name) : ZoneImplementation(serv, name) {
 	areaOctree = new server::zone::ActiveAreaOctree(-8192, -8192, -8192, 8192, 8192, 8192);
-	octTree = new server::zone::OctTree(-8192, -8192, -8192, 8192, 8192, 8192);
+	octree = new server::zone::Octree(-8192, -8192, -8192, 8192, 8192, 8192);
 
 	spaceManager = nullptr;
 
@@ -79,7 +79,7 @@ void SpaceZoneImplementation::stopManagers() {
 	processor = nullptr;
 	server = nullptr;
 	objectMap = nullptr;
-	octTree = nullptr;
+	octree = nullptr;
 	areaOctree = nullptr;
 }
 
@@ -123,7 +123,7 @@ void SpaceZoneImplementation::insert(TreeEntry* entry) {
 
 	Locker locker(_this.getReferenceUnsafeStaticCast());
 
-	octTree->insert(entry);
+	octree->insert(entry);
 
 	/*
 	SceneObject* sceneO = cast<SceneObject*>(entry);
@@ -137,7 +137,7 @@ void SpaceZoneImplementation::remove(TreeEntry* entry) {
 	Locker locker(_this.getReferenceUnsafeStaticCast());
 
 	if (entry->isInOctree()) {
-		octTree->remove(entry);
+		octree->remove(entry);
 
 		/*
 		SceneObject* sceneO = cast<SceneObject*>(entry);
@@ -158,27 +158,25 @@ void SpaceZoneImplementation::update(TreeEntry* entry) {
 
 	Locker locker(_this.getReferenceUnsafeStaticCast());
 
-	octTree->update(entry);
+	octree->update(entry);
 }
 
 void SpaceZoneImplementation::inRange(TreeEntry* entry, float range) {
 	/*
 	SceneObject* sceneO = cast<SceneObject*>(entry);
 
-	if (sceneO != nullptr)
-		info(true) << "SpaceZoneImplementation::inRange - zone check: " + sceneO->getDisplayedName() << " ID: " << sceneO->getObjectID();
+	if (sceneO != nullptr) {
+		info(true) << "SpaceZoneImplementation::inRange - zone check: " << sceneO->getDisplayedName() << " ID: " << sceneO->getObjectID() << " Range: " << range;
+	}
 	*/
 
-	octTree->safeInRange(entry, range);
+	octree->safeInRange(entry, range);
 }
 
 void SpaceZoneImplementation::updateActiveAreas(TangibleObject* tano) {
-	if (tano == nullptr || !tano->isShipObject())
+	if (tano == nullptr) {
 		return;
-
-#ifdef DEBUG_SPACE_AA
-	info(true) << "\n---------- SpaceZoneImplementation::updateActiveAreas called: " << tano->getDisplayedName() << " ----------";
-#endif
+	}
 
 	Locker _alocker(tano->getContainerLock());
 
@@ -187,6 +185,10 @@ void SpaceZoneImplementation::updateActiveAreas(TangibleObject* tano) {
 	_alocker.release();
 
 	Vector3 worldPos = tano->getWorldPosition();
+
+#ifdef DEBUG_SPACE_AA
+	info(true) << "\n---------- SpaceZoneImplementation::updateActiveAreas called: " << tano->getDisplayedName() << " WorldPosition: " << worldPos.toString() << " ----------";
+#endif
 
 	SortedVector<ActiveArea*> entryObjects;
 
@@ -239,7 +241,7 @@ void SpaceZoneImplementation::updateActiveAreas(TangibleObject* tano) {
 		info(true) << "updateActiveAreas -- entryObjects size: " << entryObjects.size();
 #endif
 
-		// we update the ones in octtree.
+		// we update the ones in octree.
 		for (int i = 0; i < entryObjects.size(); ++i) {
 			//update in new ones
 			ActiveArea* activeArea = static_cast<ActiveArea*>(entryObjects.getUnsafe(i));
@@ -296,7 +298,7 @@ int SpaceZoneImplementation::getInRangeSolidObjects(float x, float z, float y, f
 	try {
 		_this.getReferenceUnsafeStaticCast()->rlock(readlock);
 
-		octTree->inRange(x, y, z, range, *objects);
+		octree->inRange(x, y, z, range, *objects);
 
 		_this.getReferenceUnsafeStaticCast()->runlock(readlock);
 	} catch (...) {
@@ -341,7 +343,7 @@ int SpaceZoneImplementation::getInRangeObjects(float x, float z, float y, float 
 	try {
 		_this.getReferenceUnsafeStaticCast()->rlock(readlock);
 
-		octTree->inRange(x, y, z, range, *objects);
+		octree->inRange(x, y, z, range, *objects);
 
 		_this.getReferenceUnsafeStaticCast()->runlock(readlock);
 	} catch (...) {
@@ -359,7 +361,7 @@ int SpaceZoneImplementation::getInRangeObjects(float x, float z, float y, float 
 	try {
 		_this.getReferenceUnsafeStaticCast()->rlock(readlock);
 
-		octTree->inRange(x, y, z, range, *objects);
+		octree->inRange(x, y, z, range, *objects);
 
 		_this.getReferenceUnsafeStaticCast()->runlock(readlock);
 	} catch (...) {
@@ -454,7 +456,7 @@ float SpaceZoneImplementation::getBoundingRadius() {
 }
 
 float SpaceZoneImplementation::getZoneObjectRange() {
-	return ZoneServer::SPACEOBJECTRANGE;
+	return ZoneServer::SPACECLOSEOBJECTRANGE;
 }
 
 SpaceZone* SpaceZoneImplementation::asSpaceZone() {

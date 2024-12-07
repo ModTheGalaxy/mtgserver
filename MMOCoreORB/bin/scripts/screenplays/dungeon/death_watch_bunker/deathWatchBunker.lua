@@ -314,6 +314,26 @@ function DeathWatchBunkerScreenPlay:spawnObjects()
 		writeData("dwb:bombDebris2", SceneObject(spawnedPointer):getObjectID())
 	end
 
+	-- Debris Clearance Terminal1
+	spawnedPointer = spawnSceneObject("endor", "object/tangible/dungeon/terminal_free_s1.iff", 115.25, -63.8, -108.9, 5996349, -0.707107, 0, 0.707107, 0)
+
+	if (spawnedPointer ~= nil) then
+		spawnedSceneObject:_setObject(spawnedPointer)
+		spawnedSceneObject:setCustomObjectName("Clearance Terminal")
+
+		spawnedSceneObject:setObjectMenuComponent("deathWatchDebrisTerminal")
+	end
+
+	-- Debris Clearance Terminal2
+	spawnedPointer = spawnSceneObject("endor", "object/tangible/dungeon/terminal_free_s1.iff", 115, -63.8, -155, 5996350, 0, 0, 1, 0)
+
+	if (spawnedPointer ~= nil) then
+		spawnedSceneObject:_setObject(spawnedPointer)
+		spawnedSceneObject:setCustomObjectName("Clearance Terminal")
+
+		spawnedSceneObject:setObjectMenuComponent("deathWatchDebrisTerminal")
+	end
+
 	-- Armorsmith Access Terminal
 	spawnedPointer = spawnSceneObject("endor", "object/tangible/dungeon/death_watch_bunker/door_control_terminal.iff", -232.11,-60,-219.996,5996373,0.707107,0,0.707107,0)
 
@@ -510,7 +530,7 @@ function DeathWatchBunkerScreenPlay:spawnObjects()
 		spawnedSceneObject:setCustomObjectName("Chest")
 		writeData(spawnedSceneObject:getObjectID() .. ":dwb:lootbox", 1)
 		createEvent(1000, "DeathWatchBunkerScreenPlay", "refillContainer", spawnedPointer, "")
-		createObserver(OBJECTRADIALUSED, "DeathWatchBunkerScreenPlay", "boxLooted", spawnedPointer)
+		createObserver(OPENCONTAINER, "DeathWatchBunkerScreenPlay", "boxLooted", spawnedPointer)
 	end
 
 	spawnedPointer = spawnSceneObject("endor", "object/tangible/dungeon/coal_bin_container.iff",6.01353,-32,-102.05,5996337,0.707107,0,0.707107,0)
@@ -520,7 +540,7 @@ function DeathWatchBunkerScreenPlay:spawnObjects()
 		self:setLootBoxPermissions(spawnedPointer)
 		writeData(spawnedSceneObject:getObjectID() .. ":dwb:lootbox", 2)
 		createEvent(1000, "DeathWatchBunkerScreenPlay", "refillContainer", spawnedPointer, "")
-		createObserver(OBJECTRADIALUSED, "DeathWatchBunkerScreenPlay", "boxLooted", spawnedPointer)
+		createObserver(OPENCONTAINER, "DeathWatchBunkerScreenPlay", "boxLooted", spawnedPointer)
 	end
 
 	spawnedPointer = spawnSceneObject("endor", "object/tangible/container/loot/placable_loot_crate_tech_armoire.iff", -2.78947,-32,-27.1899,5996335,0,0,1,0)
@@ -530,7 +550,7 @@ function DeathWatchBunkerScreenPlay:spawnObjects()
 		self:setLootBoxPermissions(spawnedPointer)
 		writeData(spawnedSceneObject:getObjectID() .. ":dwb:lootbox", 3)
 		createEvent(1000, "DeathWatchBunkerScreenPlay", "refillContainer", spawnedPointer, "")
-		createObserver(OBJECTRADIALUSED, "DeathWatchBunkerScreenPlay", "boxLooted", spawnedPointer)
+		createObserver(OPENCONTAINER, "DeathWatchBunkerScreenPlay", "boxLooted", spawnedPointer)
 	end
 end
 
@@ -611,10 +631,7 @@ function DeathWatchBunkerScreenPlay:respawnHaldo(creatureObject)
 	end
 end
 
-function DeathWatchBunkerScreenPlay:boxLooted(pSceneObject, pCreature, radialID)
-	if (radialID ~= 16) then
-		return 0
-	end
+function DeathWatchBunkerScreenPlay:boxLooted(pSceneObject, pCreature)
 
 	local objectID = SceneObject(pSceneObject):getObjectID()
 
@@ -969,10 +986,10 @@ function DeathWatchBunkerScreenPlay:bombDroidDetonated(pBombDroid)
 
 	if (pDebris ~= nil and SceneObject(pBombDroid):isInRangeWithObject(pDebris, 5)) then
 		SceneObject(pDebris):playEffect("clienteffect/combat_grenade_proton.cef", "")
-		createEvent(500, "DeathWatchBunkerScreenPlay", "destroyDebris", pDebris, "")
+		createEvent(250, "DeathWatchBunkerScreenPlay", "destroyDebris", pDebris, "")
 	elseif (pDebris2 ~= nil and SceneObject(pBombDroid):isInRangeWithObject(pDebris2, 5)) then
 		SceneObject(pDebris2):playEffect("clienteffect/combat_grenade_proton.cef", "")
-		createEvent(500, "DeathWatchBunkerScreenPlay", "destroyDebris", pDebris2, "")
+		createEvent(250, "DeathWatchBunkerScreenPlay", "destroyDebris", pDebris2, "")
 	end
 
 	createEvent(2000, "DeathWatchBunkerScreenPlay", "despawnCreature", pBombDroid, "")
@@ -1124,6 +1141,8 @@ function DeathWatchBunkerScreenPlay:spawnDefender(spawnData, spawnName)
 	local pMobile = spawnMobile("endor", spawnData[1], spawnData[2], spawnData[3], spawnData[4], spawnData[5], spawnData[6], spawnData[7])
 
 	if (pMobile ~= nil) then
+		AiAgent(pMobile):addObjectFlag(AI_STATIONARY)
+
 		createEvent(300 * 1000, "DeathWatchBunkerScreenPlay", "despawnMobile", pMobile, "")
 		createEvent(10, "DeathWatchBunkerScreenPlay", "startDefenderPath", pMobile, spawnName)
 	end

@@ -8,7 +8,7 @@
 #include "server/zone/objects/area/space/SpaceActiveArea.h"
 #include "server/zone/objects/ship/ShipObject.h"
 
-#define DEBUG_SPACE_AREAS
+// #define DEBUG_SPACE_AREAS
 
 void SpaceActiveAreaImplementation::notifyEnter(SceneObject* sceneO) {
 	if (sceneO == nullptr || !sceneO->isShipObject())
@@ -44,4 +44,14 @@ void SpaceActiveAreaImplementation::notifyExit(SceneObject* sceneO) {
 #endif
 
 	ActiveAreaImplementation::notifyExit(sceneO);
+}
+
+Vector3 SpaceActiveAreaImplementation::getRandomPosition() {
+	Vector3 position = getWorldPosition();
+
+	if (areaShape != nullptr) {
+		position = areaShape->getRandomPosition();
+	}
+
+	return position;
 }

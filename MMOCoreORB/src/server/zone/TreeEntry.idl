@@ -22,6 +22,9 @@ class TreeEntry extends Observable {
 	@dereferenced
 	protected Coordinate coordinates;
 
+	@dereferenced
+	protected transient Coordinate worldCoordinates;
+
 	transient protected TreeNode node;
 
 	protected boolean bounding;
@@ -36,37 +39,10 @@ class TreeEntry extends Observable {
 	protected transient int receiverFlags;
 
 	@dirty
-	public void addInRangeObject(TreeEntry obj, boolean doNotifyUpdate = true) {
-		//System::out << "adding in range object:" << obj << "\n";
-
-		if (closeobjects.put(obj) != -1) {
-			notifyInsert(obj);
-		} else if (doNotifyUpdate) {
-			notifyPositionUpdate(obj);
-		}
-	}
-
-	/*@read
-	public TreeEntry getInRangeObject(int index) {
-		return closeobjects.get(index);
-	}*/
+	public native void addInRangeObject(TreeEntry obj, boolean doNotifyUpdate = true);
 
 	@dirty
-	public void removeInRangeObject(TreeEntry obj, boolean notifyDisappear = true) {
-		//System::out << "droping in range object:" << obj << "\n";
-
-		if (closeobjects.drop(obj) && notifyDisappear) {
-			notifyDissapear(obj);
-		}
-
-		/*else {
-			TreeEntry* obj2 = NULL;
-			obj2->getPositionX();
-
-			System::out << hex << "[0x" << obj->objectID << "] was not found in close objects for [0x"
-				 << objectID << dec << "]\n";
-		}*/
-	}
+	public native void removeInRangeObject(TreeEntry obj, boolean notifyDisappear = true);
 
 	@dirty
 	public void removeInRangeObject(int index) {
@@ -97,19 +73,20 @@ class TreeEntry extends Observable {
 		return isInRange(obj.getPositionX(), obj.getPositionY(), obj.getPositionZ(), range);
 	}
 
-	@local
+	@read
 	public native abstract float getOutOfRangeDistance();
 
 	@dirty
 	public abstract boolean isInRange(float x, float y, float z, float range) {
-		int rangesq = range * range;
+		float rangeSq = range * range;
 
 		float deltaX = x - coordinates.getPositionX();
 		float deltaY = y - coordinates.getPositionY();
 		float deltaZ = z - coordinates.getPositionZ();
-		float deltaCalc = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
 
-		return deltaCalc < rangesq;
+		float deltaCalc = (deltaX * deltaX) + (deltaY * deltaY) + (deltaZ * deltaZ);
+
+		return deltaCalc < rangeSq;
 	}
 
 	@dirty
@@ -257,15 +234,6 @@ class TreeEntry extends Observable {
 		return coordinates.getPosition();
 	}
 
-	public void setPosition(float x, float z, float y) {
-		coordinates.setPosition(x, z, y);
-	}
-
-	@dirty
-	public void initializePosition(float x, float z, float y) {
-		coordinates.initializePosition(x, z, y);
-	}
-
 	@nativeStub
 	@dirty
 	public native abstract int compareTo(TreeEntry obj);
@@ -342,7 +310,31 @@ class TreeEntry extends Observable {
 	}
 
 	@dirty
-	public abstract void setParent(TreeEntry par) {
-		parent = par;
-	}
+	public native abstract void setParent(TreeEntry par);
+
+	@dirty
+	public native abstract void initializePosition(@dereferenced final Vector3 value);
+
+	@dirty
+	public native abstract void initializePosition(float x, float z, float y);
+
+	public native abstract void setPosition(@dereferenced final Vector3 value);
+
+	public native abstract void setPosition(float x, float z, float y);
+
+	public native abstract void updateWorldPosition(boolean initialize = false);
+
+	@read
+	public native abstract float getWorldPositionX();
+
+	@read
+	public native abstract float getWorldPositionY();
+
+	@read
+	public native abstract float getWorldPositionZ();
+
+	@dirty
+	@local
+	@dereferenced
+	public native abstract Vector3 getWorldPosition();
 }

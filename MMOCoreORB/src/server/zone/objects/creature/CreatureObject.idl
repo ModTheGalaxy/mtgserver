@@ -46,6 +46,7 @@ import server.zone.managers.auction.AuctionSearchTask;
 import server.zone.objects.tangible.Instrument;
 include server.zone.objects.creature.CommandQueue;
 include server.zone.objects.ship.ShipObject;
+include system.lang.String;
 
 @mock
 @json
@@ -128,6 +129,8 @@ class CreatureObject extends TangibleObject {
 	protected byte moodID;
 	protected int performanceStartTime;
 	protected int performanceType;
+
+	protected int pilotTier;
 
 	@dereferenced
 	protected DeltaVector<int> hamList;
@@ -757,6 +760,21 @@ class CreatureObject extends TangibleObject {
 		return creatureBuffs.getModifierByName(skillMod);
 	}
 
+	@read
+	public boolean hasBuff(unsigned int buffcrc) {
+		return creatureBuffs.hasBuff(buffcrc);
+	}
+
+	@read
+	public boolean hasSpice() {
+		return creatureBuffs.hasSpice();
+	}
+
+	@read
+	public boolean hasTrapBuff() {
+		return creatureBuffs.hasTrapBuff();
+	}
+
 	@preLocked
 	public abstract int addDotState(CreatureObject attacker,
 				unsigned long dotType,
@@ -793,11 +811,6 @@ class CreatureObject extends TangibleObject {
 	@local
 	public DamageOverTimeList getDamageOverTimeList() {
 		return damageOverTimeList;
-	}
-
-	@read
-	public boolean hasBuff(unsigned int buffcrc) {
-		return creatureBuffs.hasBuff(buffcrc);
 	}
 
 	@preLocked
@@ -1102,7 +1115,7 @@ class CreatureObject extends TangibleObject {
 	public native boolean healFactionChecks(CreatureObject object, boolean isPlayer);
 
 	@dirty
-	public native boolean isInvulnerable();
+	public native abstract boolean isInvulnerable();
 
 	/**
 	 * Evaluates if the bounty hunter has a mission with the target.
@@ -1221,7 +1234,7 @@ class CreatureObject extends TangibleObject {
 	public native void notifyInsert(TreeEntry obj);
 
 	@local
-	public native void notifyDissapear(TreeEntry obj);
+	public abstract native void notifyDissapear(TreeEntry obj);
 
 	@dirty
 	@local
@@ -1386,11 +1399,6 @@ class CreatureObject extends TangibleObject {
 	@local
 	public CooldownTimerMap getCooldownTimerMap() {
 		return cooldownTimerMap;
-	}
-
-	@read
-	public boolean hasSpice() {
-		return creatureBuffs.hasSpice();
 	}
 
 	public void updateLastSuccessfulCombatAction() {
@@ -1848,6 +1856,34 @@ class CreatureObject extends TangibleObject {
 	@read
 	public int getPerformanceType() {
 		return performanceType;
+	}
+
+	@read
+	public int getPilotTier() {
+		return pilotTier;
+	}
+
+	@preLocked
+	public void incrementPilotTier() {
+		if (pilotTier > 4) {
+			return;
+		}
+
+		pilotTier = pilotTier + 1;
+	}
+
+	@preLocked
+	public void setPilotTier(int tier) {
+		if (tier > 5 || tier < 0) {
+			return;
+		}
+
+		pilotTier = tier;
+	}
+
+	@preLocked
+	public void resetPilotTier() {
+		pilotTier = 0;
 	}
 
 	@read
@@ -2352,4 +2388,9 @@ class CreatureObject extends TangibleObject {
 	@dirty
 	@local
 	public native boolean checkInConversationRange(SceneObject object);
+
+	@preLocked
+	public native void setQueueCommandDeltaTime(@dereferenced final String commandName, @dereferenced final String commandGroup);
+
+	public native unsigned long getQueueCommandDeltaTime(@dereferenced final String commandName);
 }

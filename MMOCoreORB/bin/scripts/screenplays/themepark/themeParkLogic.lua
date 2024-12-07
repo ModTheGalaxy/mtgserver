@@ -84,6 +84,9 @@ function ThemeParkLogic:spawnNpcs()
 		if (npcSpawnData.mood ~= nil and npcSpawnData.mood ~= "") then
 			CreatureObject(pNpc):setMoodString(npcSpawnData.mood)
 		end
+		if (npcSpawnData.flags == AI_STATIC) then
+			AiAgent(pNpc):addObjectFlag(AI_STATIC)
+		end
 		if (self.npcMap[i].npcNumber > 0) then
 			CreatureObject(pNpc):setOptionBit(INTERESTING)
 		end
@@ -2132,7 +2135,7 @@ function ThemeParkLogic:followPlayer(pConversingNpc, pConversingPlayer)
 		return
 	end
 
-	local playerFaction = CreatureObject(pConversingPlayer)
+	local playerFaction = CreatureObject(pConversingPlayer):getFaction()
 	if (playerFaction == FACTIONREBEL or playerFaction == FACTIONIMPERIAL) and not CreatureObject(pConversingPlayer):isOnLeave() then
 		CreatureObject(pConversingNpc):setFaction(playerFaction)
 

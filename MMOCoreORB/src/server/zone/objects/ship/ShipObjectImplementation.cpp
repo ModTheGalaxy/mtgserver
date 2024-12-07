@@ -8,7 +8,6 @@
 #include "system/lang/UnicodeString.h"
 #include "server/zone/Zone.h"
 #include "server/zone/SpaceZone.h"
-#include "server/zone/ZoneClientSession.h"
 #include "server/zone/managers/ship/ShipManager.h"
 #include "server/zone/objects/scene/SceneObject.h"
 #include "server/zone/objects/ship/ShipObject.h"
@@ -32,60 +31,98 @@
 #include "server/zone/packets/tangible/UpdatePVPStatusMessage.h"
 #include "server/zone/packets/scene/SceneObjectDestroyMessage.h"
 #include "server/zone/objects/intangible/tasks/StoreShipTask.h"
+#include "server/zone/objects/ship/ai/ShipAiAgent.h"
+#include "server/zone/objects/tangible/item/CreditChipObject.h"
+#include "server/zone/managers/loot/LootManager.h"
 
 // #define DEBUG_COV
 
 void ShipObjectImplementation::initializeTransientMembers() {
 	hyperspacing = false;
 
-	if (shipRecoveryEvent == nullptr) {
+	if (shipRecoveryEvent == nullptr && !isShipAiAgent()) {
 		shipRecoveryEvent = new ShipRecoveryEvent(asShipObject());
 	}
+
+	for (int i = 0; i < componentOptions.size(); ++i) {
+		resetComponentFlag(componentOptions.getKeyAt(i), false);
+	}
+
+	initializeUniqueID(false);
 
 	TangibleObjectImplementation::initializeTransientMembers();
 }
 
 void ShipObjectImplementation::notifyLoadFromDatabase() {
 	TangibleObjectImplementation::notifyLoadFromDatabase();
+
+	// This ship is launched when loading from DB. Auto store it
+	if (!isShipAiAgent() && isShipLaunched()) {
+		auto zoneServer = getZoneServer();
+
+		if (zoneServer == nullptr) {
+			return;
+		}
+
+		auto shipDevice = cast<ShipControlDevice*>(zoneServer->getObject(controlDeviceID).get());
+		auto owner = getOwner().get();
+
+		if (shipDevice != nullptr && owner != nullptr) {
+
+			auto launchZone = getSpaceLaunchZone();
+			auto launchLoc = getSpaceLaunchLocation();
+
+			if (launchZone.isEmpty()) {
+				launchZone = "naboo";
+			}
+
+			if (launchLoc.getX() == 0 && launchLoc.getY() == 0) {
+				launchLoc.setX(-4868.f);
+				launchLoc.setY(4154.f);
+				launchLoc.setZ(6.0f);
+			}
+
+			StoreShipTask* storeTask = new StoreShipTask(owner, shipDevice, launchZone, launchLoc);
+
+			if (storeTask != nullptr) {
+				storeTask->schedule(2000);
+			}
+		}
+	}
 }
 
 void ShipObjectImplementation::loadTemplateData(SharedObjectTemplate* templateData) {
 	TangibleObjectImplementation::loadTemplateData(templateData);
-}
 
-void ShipObjectImplementation::loadTemplateData(SharedShipObjectTemplate* ssot) {
-	if (ssot == nullptr) {
+	auto shipTemp = dynamic_cast<SharedShipObjectTemplate*>(templateData);
+
+	if (shipTemp == nullptr) {
 		return;
 	}
 
-	chassisDataName = ssot->getShipName();
+	chassisDataName = shipTemp->getShipName();
 	setShipNameCRC(chassisDataName.hashCode(), false);
 
 	setShipName("", false);
 
-	setShipType(ssot->getShipType(), false);
-	setUniqueID(getUniqueID(), false);
+	setShipType(shipTemp->getShipType(), false);
 
-	setChassisMaxHealth(ssot->getChassisHitpoints(), false);
-	setCurrentChassisHealth(ssot->getChassisHitpoints(), false);
+	setChassisMaxHealth(shipTemp->getChassisHitpoints(), false);
+	setCurrentChassisHealth(shipTemp->getChassisHitpoints(), false);
 
-	setSlipRate(ssot->getChassisSlipRate(), false);
-	setChassisSpeed(ssot->getChassisSpeed(), false);
-	setChassisMaxMass(ssot->getChassisMass(), false);
+	setSlipRate(shipTemp->getChassisSlipRate(), false);
+	setChassisSpeed(shipTemp->getChassisSpeed(), false);
+	setChassisMaxMass(shipTemp->getChassisMass(), false);
 
-	setShipFaction(ssot->getShipFaction(), false);
-	setShipDifficulty(ssot->getShipDifficulty(), false);
+	setShipFaction(shipTemp->getShipFaction(), false);
+	setShipDifficulty(shipTemp->getShipDifficulty(), false);
 
-	setConversationMessage(ssot->getConversationMessage());
-	setConversationMobile(ssot->getConversationMobile());
-	setConversationTemplate(ssot->getConversationTemplate());
+	setHasWings(shipTemp->shipHasWings());
 
-	setHasWings(ssot->shipHasWings());
+	setChassisCategory(shipTemp->getChassisCategory());
+	setChassisLevel(shipTemp->getChassisLevel());
 
-	setChassisCategory(ssot->getChassisCategory());
-	setChassisLevel(ssot->getChassisLevel());
-
-	auto values = ssot->getAttributeMap();
+	auto values = shipTemp->getAttributeMap();
 
 	for (int i = 0; i < values.size(); ++i) {
 		auto attribute = values.elementAt(i).getKey();
@@ -119,25 +156,27 @@ void ShipObjectImplementation::loadTemplateData(SharedShipObjectTemplate* ssot) 
 		}
 	}
 
-	totalCellNumber = ssot->getTotalCellNumber();
+	totalCellNumber = shipTemp->getTotalCellNumber();
 
-	auto portalLayout = ssot->getPortalLayout();
+	auto portalLayout = shipTemp->getPortalLayout();
 
 	if (portalLayout != nullptr)
 		totalCellNumber = portalLayout->getFloorMeshNumber();
 
 	//info(true) << getDisplayedName() << " loaded a total of " << totalCellNumber << " cells.";
 
-	auto chassisData = ShipManager::instance()->getChassisData(ssot->getShipName());
+	auto chassisData = ShipManager::instance()->getChassisData(shipTemp->getShipName());
 
 	if (chassisData != nullptr) {
 		for (uint32 slot = 0; slot <= Components::FIGHTERSLOTMAX; slot++) {
 			auto slotData = chassisData->getComponentSlotData(slot);
 			setComponentTargetable(slot, slotData ? slotData->isTargetable() : false);
 		}
+
+		wingsOpenSpeed = chassisData->getWingOpenSpeed();
 	}
 
-	auto appearance = ssot->getAppearanceTemplate();
+	auto appearance = getAppearanceTemplate();
 
 	if (appearance != nullptr) {
 		auto volume = appearance->getBoundingVolume();
@@ -150,8 +189,17 @@ void ShipObjectImplementation::loadTemplateData(SharedShipObjectTemplate* ssot) 
 }
 
 void ShipObjectImplementation::sendTo(SceneObject* player, bool doClose, bool forceLoadContainer) {
-	//info(true) << "ShipObjectImplementation::sendTo - Ship Location: " << getWorldPosition().toString() << " sending to: " << player->getDisplayedName() << " Player Loc: " << player->getWorldPosition().toString()
+	if (player == nullptr) {
+		return;
+	}
+
+	// info(true) << "ShipObjectImplementation::sendTo - Ship Location: " << getWorldPosition().toString() << " sending to: " << player->getDisplayedName() << " Player Loc: " << player->getWorldPosition().toString()
 	//	<< " Containment Type: " << player->getContainmentType();
+
+	// Do not send the contents of the ships to anyone but the owner unless it is launched
+	if (!isShipLaunched() && player->getObjectID() != getOwnerID()) {
+		return;
+	}
 
 	TangibleObjectImplementation::sendTo(player, doClose, forceLoadContainer);
 }
@@ -256,15 +304,6 @@ void ShipObjectImplementation::updateCraftingValues(CraftingValues* values, bool
 	}
 
 	TangibleObjectImplementation::updateCraftingValues(values, firstUpdate);
-}
-
-uint16 ShipObjectImplementation::getUniqueID() {
-	uint32 hash = UnsignedLong::hashCode(getObjectID());
-	uint16 id = (uint16) (hash ^ (hash >> 16));
-
-	//info("uniqueId: 0x" + String::hexvalueOf(id), true);
-
-	return id;
 }
 
 void ShipObjectImplementation::sendBaselinesTo(SceneObject* player) {
@@ -410,48 +449,80 @@ void ShipObjectImplementation::notifyObjectInsertedToZone(SceneObject* object) {
 	// info(true) << getDisplayedName() << " ShipObjectImplementation --- notifyObjectInsertedToZone - Object " << object->getDisplayedName();
 
 	auto closeObjectsVector = getCloseObjects();
-	SortedVector<TreeEntry*> closeObjects(200, 50);
+	Vector<TreeEntry*> closeObjects(closeObjectsVector->size(), 10);
 
 	if (closeObjectsVector != nullptr) {
 		closeObjectsVector->safeCopyTo(closeObjects);
-	} else {
-		auto zone = getZone();
-
-		if (zone != nullptr)
-			zone->getInRangeObjects(getWorldPositionX(), getWorldPositionZ(), getWorldPositionY(), zone->getZoneObjectRange(), &closeObjects, false);
 	}
+
+	// info(true) << getDisplayedName() << " notifyObjectInsertedToZone -- Total closeObjects: " << closeObjects.size();
 
 	for (int i = 0; i < closeObjects.size(); ++i) {
 		SceneObject* obj = static_cast<SceneObject*>(closeObjects.get(i));
 
-		if (obj == nullptr || !obj->isCreatureObject())
+		if (obj == nullptr || (!obj->isCreatureObject() && !obj->isShipObject())) {
 			continue;
+		}
 
-		if (obj->getRootParent() != _this.getReferenceUnsafe()) {
-			if (object->getCloseObjects() != nullptr)
-				object->addInRangeObject(obj, false);
-			else
+		if (obj->getRootParent() != asShipObject()) {
+			// info(true) << getDisplayedName() << " notifyObjectInsertedToZone -- adding in range object: " << obj->getDisplayedName();
+
+			if (object->getCloseObjects() != nullptr) {
+				object->addInRangeObject(obj, obj->isShipObject());
+			} else {
 				object->notifyInsert(obj);
+			}
 
-			if (obj->getCloseObjects() != nullptr)
+			if (obj->getCloseObjects() != nullptr) {
 				obj->addInRangeObject(object, false);
-			else
+			} else {
 				obj->notifyInsert(object);
+			}
 		}
 	}
 
 	notifyInsert(object);
 
-	if (object->getCloseObjects() != nullptr)
+	if (object->getCloseObjects() != nullptr) {
 		object->addInRangeObject(asShipObject(), false);
+	}
 
 	addInRangeObject(object, false);
 
 	Zone* zone = getZone();
 
 	if (zone != nullptr) {
+		auto tanO = object->asTangibleObject();
+
+		if (tanO != nullptr) {
+			zone->updateActiveAreas(tanO);
+		}
+
 		object->notifyInsertToZone(zone);
 	}
+}
+
+int ShipObjectImplementation::notifyObjectInserted(SceneObject* object) {
+	// info(true) << "Ship: " << getDisplayedName() << " -- ShipObjectImplementation::notifyObjectInserted called";
+
+	if (object == nullptr) {
+		return 0;
+	}
+
+	// info(true) << "Ship: " << getDisplayedName() << " -- notifying for object: " << object->getDisplayedName();
+
+	Reference<SceneObject*> sceneRef = object;
+	Reference<ShipObject*> shipRef = asShipObject();
+
+	Core::getTaskManager()->scheduleTask([shipRef, sceneRef] () {
+		if (shipRef == nullptr || sceneRef == nullptr) {
+			return;
+		}
+
+		shipRef->notifyObjectInsertedToZone(sceneRef);
+	}, "ShipNotifyInsertedLambda", 500);
+
+	return TangibleObjectImplementation::notifyObjectInserted(object);
 }
 
 void ShipObjectImplementation::notifyInsert(TreeEntry* object) {
@@ -459,15 +530,25 @@ void ShipObjectImplementation::notifyInsert(TreeEntry* object) {
 	uint64 scnoID = sceneO->getObjectID();
 
 #ifdef DEBUG_COV
-	info(true) << "Ship: " << getDisplayedName() << " -- ShipObjectImplementation::notifyInsert -- Object inserted: " << sceneO->getDisplayedName() << " ID: " << scnoID << " Players on Board Size: " << playersOnBoard.size();
+	info(true) << "Ship: " << getDisplayedName() << " -- ShipObjectImplementation::notifyInsert -- Object inserted: " << sceneO->getDisplayedName() << " ID: " << scnoID << " Players on Board Size: " << getTotalPlayersOnBoard();
 #endif // DEBUG_COV
 
 	try {
-		for (int i = 0; i < playersOnBoard.size(); ++i) {
-			auto shipMember = playersOnBoard.get(i).get();
+		auto zoneServer = getZoneServer();
 
-			if (shipMember == nullptr)
+		if (zoneServer == nullptr) {
+			return;
+		}
+
+		for (int i = 0; i < playersOnBoard.size(); ++i) {
+			auto shipMemberID = playersOnBoard.get(i);
+			auto shipMember = cast<CreatureObject*>(zoneServer->getObject(shipMemberID).get());
+
+			if (shipMember == nullptr) {
 				continue;
+			}
+
+			// info(true) << "Ship: " << getDisplayedName() << " updating shipMember: " << shipMember->getDisplayedName();
 
 			// Update the Ship member
 			if (shipMember->getCloseObjects() != nullptr) {
@@ -508,11 +589,19 @@ void ShipObjectImplementation::notifyDissapear(TreeEntry* object) {
 #endif // DEBUG_COV
 
 	try {
-		for (int i = 0; i < playersOnBoard.size(); ++i) {
-			auto shipMember = playersOnBoard.get(i).get();
+		auto zoneServer = getZoneServer();
 
-			if (shipMember == nullptr)
+		if (zoneServer == nullptr) {
+			return;
+		}
+
+		for (int i = 0; i < playersOnBoard.size(); ++i) {
+			auto shipMemberID = playersOnBoard.get(i);
+			auto shipMember = cast<CreatureObject*>(zoneServer->getObject(shipMemberID).get());
+
+			if (shipMember == nullptr) {
 				continue;
+			}
 
 			if (shipMember->getCloseObjects() != nullptr)
 				shipMember->removeInRangeObject(object);
@@ -529,6 +618,9 @@ void ShipObjectImplementation::notifyDissapear(TreeEntry* object) {
 
 		exception.printStackTrace();
 	}
+}
+
+void ShipObjectImplementation::notifyDespawn(Zone* zone) {
 }
 
 void ShipObjectImplementation::sendDestroyTo(SceneObject* player) {
@@ -553,166 +645,162 @@ void ShipObjectImplementation::updateZone(bool lightUpdate, bool sendPackets) {
 }
 
 void ShipObjectImplementation::updatePlayersInShip(bool lightUpdate, bool sendPackets) {
-	if (getLocalZone() == nullptr || isHyperspacing())
+	if (getLocalZone() == nullptr) {
 		return;
+	}
 
-	// info(true) << "ShipObjectImplementation::updatePlayersInShip";
+	auto zoneServer = getZoneServer();
+
+	if (zoneServer == nullptr) {
+		return;
+	}
+
+	const auto& worldPosition = getWorldPosition();
 
 	for (int i = 0; i < playersOnBoard.size(); ++i) {
-		auto shipMember = playersOnBoard.get(i).get();
+		auto shipMemberID = playersOnBoard.get(i);
+		auto shipMember = cast<CreatureObject*>(zoneServer->getObject(shipMemberID).get());
 
-		if (shipMember == nullptr)
+		if (shipMember == nullptr) {
 			continue;
+		}
 
 		Locker clock(shipMember, asShipObject());
 
-		shipMember->setPosition(getPositionX(), getPositionZ(), getPositionY());
-
 		auto parent = shipMember->getParent().get();
 
-		if (parent != nullptr)
-			shipMember->updateZoneWithParent(parent, lightUpdate, sendPackets);
-	}
-}
-
-int ShipObjectImplementation::notifyObjectInsertedToChild(SceneObject* object, SceneObject* child, SceneObject* oldParent) {
-	Zone* zone = getZone();
-
-	Locker* _locker = nullptr;
-
-	if (zone != nullptr)
-		_locker = new Locker(zone);
-
-	// info(true) << getDisplayedName() << " ShipObjectImplementation::notifyObjectInsertedToChild -- object inserted: " << object->getDisplayedName() << " ID: " << object->getObjectID();
-
-	try {
-		if (object->getCloseObjects() != nullptr)
-			object->addInRangeObject(object, false);
-
-		if (child->isCellObject()) {
-			bool runInRange = true;
-
-			if (oldParent == nullptr || !oldParent->isCellObject() || oldParent == child) {
-
-				if (oldParent == nullptr || (oldParent != nullptr && dynamic_cast<SpaceZone*>(oldParent) == nullptr && !oldParent->isCellObject())) {
-					notifyObjectInsertedToZone(object);
-					runInRange = false;
-				}
-
-				if (!object->isPlayerCreature()) {
-					broadcastDestroy(object, true);
-					broadcastObject(object, false);
-				}
-			}
-
-			if (runInRange) {
-				ManagedReference<CellObject*> cell = cast<CellObject*>(child);
-
-				if (cell != nullptr) {
-					for (int j = 0; j < cell->getContainerObjectsSize(); ++j) {
-						ManagedReference<SceneObject*> cobj = cell->getContainerObject(j);
-
-						if (cobj != object) {
-
-							if (cobj->getCloseObjects() != nullptr) {
-								if (!cobj->getCloseObjects()->contains(object)) {
-									cobj->addInRangeObject(object, false);
-									object->sendTo(cobj, true, false);
-								}
-							} else
-								cobj->notifyInsert(object);
-
-							if (object->getCloseObjects() != nullptr) {
-								if (!object->getCloseObjects()->contains(cobj.get())) {
-									object->addInRangeObject(cobj.get(), false);
-									cobj->sendTo(object, true, false);//sendTo because notifyInsert doesnt send objects with parent
-								} else {
-									if (object->getClient() != nullptr && cobj->isCreatureObject()) {
-										object->sendMessage(cobj->link(cell->getObjectID(), -1));
-									}
-								}
-							} else {
-								object->notifyInsert(cobj.get());
-							}
-
-						}
-					}
-				}
-			}
+		if (parent == nullptr) {
+			continue;
 		}
 
-
-		if (object->isPlayerCreature()) {
-			// Add player to the onboard list
-			addPlayerOnBoard(object->asCreatureObject());
+		if (parent == asShipObject()) {
+			shipMember->setPosition(worldPosition.getX(), worldPosition.getZ(), worldPosition.getY());
 		}
-	} catch (Exception& e) {
-		error(e.getMessage());
-		e.printStackTrace();
+
+		shipMember->updateZoneWithParent(parent, lightUpdate, sendPackets);
 	}
-
-	if (zone != nullptr) {
-		delete _locker;
-	}
-
-	TangibleObjectImplementation::notifyObjectInsertedToChild(object, child, oldParent);
-
-	return 0;
-}
-
-int ShipObjectImplementation::notifyObjectRemovedFromChild(SceneObject* object, SceneObject* child) {
-	TangibleObjectImplementation::notifyObjectRemovedFromChild(object, child);
-
-	return 0;
 }
 
 void ShipObjectImplementation::doRecovery(int mselapsed) {
 	float deltaTime = mselapsed * 0.001f;
 
+	if (deltaTime <= 0.f) {
+		return;
+	}
+
 	auto pilot = owner.get();
 	auto deltaVector = getDeltaVector();
 	auto componentMap = getShipComponentMap();
+
+	float reactorEnergy = getReactorGenerationRate() * calculateActualComponentEfficiency(Components::REACTOR) * deltaTime;
+	bool updateFlags = false;
 
 	for (int i = 0; i < componentMap->size(); ++i) {
 		uint32 slot = componentMap->getKeyAt(i);
 		uint32 crc = componentMap->getValueAt(i);
 
-		if (crc == 0) {
+		if (!isComponentInstalled(slot)) {
 			continue;
+		}
+
+		if (hasComponentFlag(slot, ShipComponentFlag::DEMOLISHED)) {
+			continue;
+		}
+
+		if (hasComponentFlag(slot, ShipComponentFlag::DISABLED) && !hasComponentFlag(slot, ShipComponentFlag::DISABLED_NEEDS_POWER)) {
+			continue;
+		}
+
+		float energyEfficiency = Math::clamp(0.1f, getComponentEnergyEfficiency(slot), 10.f);
+		float componentEfficiency = Math::clamp(0.1f, getComponentEfficiency(slot), 10.f);
+		float componentEnergyCost = getComponentEnergyCostMap()->get(slot);
+		float reactorEnergyRate = 1.f;
+
+		uint32 componentFlags = getComponentOptionsMap()->get(slot);
+
+		if (componentEnergyCost > 0.f) {
+			float energyCost = Math::max((componentEnergyCost / energyEfficiency) * deltaTime, 0.1f);
+
+			if (reactorEnergy >= energyCost) {
+				reactorEnergy -= energyCost;
+
+				if (hasComponentFlag(slot, ShipComponentFlag::DISABLED_NEEDS_POWER)) {
+					removeComponentFlag(slot, ShipComponentFlag::DISABLED_NEEDS_POWER, false);
+				} else if (hasComponentFlag(slot, ShipComponentFlag::LOW_POWER)) {
+					removeComponentFlag(slot, ShipComponentFlag::LOW_POWER, false);
+				}
+			} else {
+				reactorEnergyRate = reactorEnergy / energyCost;
+				reactorEnergy = 0.f;
+
+				if (hasComponentFlag(slot, ShipComponentFlag::DISABLED_NEEDS_POWER)) {
+					removeComponentFlag(slot, ShipComponentFlag::DISABLED_NEEDS_POWER, false);
+				} else if (!hasComponentFlag(slot, ShipComponentFlag::LOW_POWER)) {
+					addComponentFlag(slot, ShipComponentFlag::LOW_POWER, false);
+				}
+			}
+
+			if (reactorEnergyRate <= 0.f) {
+				reactorEnergyRate = 0.f;
+
+				if (!hasComponentFlag(slot, ShipComponentFlag::DISABLED_NEEDS_POWER)) {
+					addComponentFlag(slot, ShipComponentFlag::DISABLED_NEEDS_POWER, false);
+				} else if (hasComponentFlag(slot, ShipComponentFlag::LOW_POWER)) {
+					removeComponentFlag(slot, ShipComponentFlag::LOW_POWER, false);
+				}
+			}
 		}
 
 		switch (slot) {
 			case Components::SHIELD0:
 			case Components::SHIELD1: {
+				float maxFront = getMaxFrontShield() * componentEfficiency * reactorEnergyRate;
 				float minFront = getFrontShield();
-				float maxFront = getMaxFrontShield();
 
 				if (minFront != maxFront) {
-					float value = minFront + (deltaTime * getShieldRechargeRate());
-					value = Math::min(value, maxFront);
-					setFrontShield(value, false, nullptr, deltaVector);
+					if (minFront < maxFront) {
+						float rechargeRate = getShieldRechargeRate() * componentEfficiency * deltaTime;
+						minFront = Math::min(minFront + rechargeRate, maxFront);
+					} else if (minFront > maxFront) {
+						float decayRate = getMaxFrontShield() * reactorEnergyRate * deltaTime;
+						minFront = Math::max(minFront - decayRate, maxFront);
+					}
+
+					setFrontShield(minFront, false, nullptr, deltaVector);
 				}
 
+				float maxRear = getMaxRearShield() * componentEfficiency * reactorEnergyRate;
 				float minRear = getRearShield();
-				float maxRear = getMaxRearShield();
 
 				if (minRear != maxRear) {
-					float value = minRear + (deltaTime * getShieldRechargeRate());
-					value = Math::min(value, maxRear);
-					setRearShield(value, false, nullptr, deltaVector);
+					if (minRear < maxRear) {
+						float rechargeRate = getShieldRechargeRate() * componentEfficiency * deltaTime;
+						minRear = Math::min(minRear + rechargeRate, maxRear);
+					} else if (minRear > maxRear) {
+						float decayRate = getMaxRearShield() * reactorEnergyRate * deltaTime;
+						minRear = Math::max(minRear - decayRate, maxRear);
+					}
+
+					setRearShield(minRear, false, nullptr, deltaVector);
 				}
 
 				break;
 			}
 
 			case Components::CAPACITOR: {
+				float maxCap = getCapacitorMaxEnergy() * componentEfficiency * reactorEnergyRate;
 				float minCap = getCapacitorEnergy();
-				float maxCap = getCapacitorMaxEnergy();
 
-				if (maxCap != minCap) {
-					float value = minCap + (deltaTime * getCapacitorRechargeRate());
-					value = Math::min(value, maxCap);
-					setCapacitorEnergy(value, false, nullptr, deltaVector);
+				if (minCap != maxCap) {
+					if (minCap < maxCap) {
+						float rechargeRate = getCapacitorRechargeRate() * componentEfficiency * deltaTime;
+						minCap = Math::min(minCap + rechargeRate, maxCap);
+					} else if (minCap > maxCap) {
+						float decayRate = getCapacitorMaxEnergy() * reactorEnergyRate * deltaTime;
+						minCap = Math::max(minCap - decayRate, maxCap);
+					}
+
+					setCapacitorEnergy(minCap, false, nullptr, deltaVector);
 				}
 
 				break;
@@ -720,14 +808,17 @@ void ShipObjectImplementation::doRecovery(int mselapsed) {
 
 			case Components::BOOSTER: {
 				if (isBoosterActive()) {
+					float boostLimit = (getBoosterConsumptionRate() / componentEfficiency) * deltaTime;
 					float boostEnergy = getBoosterEnergy();
-					float boostLimit = getBoosterConsumptionRate() * deltaTime;
 
 					if (boostEnergy >= boostLimit) {
 						float value = boostEnergy - boostLimit;
-						setBoosterEnergy(value, false, nullptr, deltaVector);
+
+						if (boostEnergy != value) {
+							setBoosterEnergy(value, false, nullptr, deltaVector);
+						}
 					} else {
-						removeComponentFlag(Components::BOOSTER, ShipComponentFlag::DISABLED, true);
+						removeComponentFlag(Components::BOOSTER, ShipComponentFlag::ACTIVE, false);
 						restartBooster();
 
 						if (pilot != nullptr) {
@@ -735,29 +826,41 @@ void ShipObjectImplementation::doRecovery(int mselapsed) {
 						}
 					}
 				} else {
-					float maxBoost = getBoosterMaxEnergy();
+					float maxBoost = getBoosterMaxEnergy() * componentEfficiency * reactorEnergyRate;
 					float minBoost = getBoosterEnergy();
 
-					if (maxBoost != minBoost) {
-						float value = minBoost + (deltaTime * getBoosterRechargeRate());
-						value = Math::min(value, maxBoost);
-						setBoosterEnergy(value, false, nullptr, deltaVector);
+					if (minBoost != maxBoost) {
+						if (minBoost < maxBoost) {
+							float rechargeRate = getBoosterRechargeRate() * componentEfficiency * deltaTime;
+							minBoost = Math::min(minBoost + rechargeRate, maxBoost);
+						} else if (minBoost > maxBoost) {
+							float decayRate = getBoosterMaxEnergy() * reactorEnergyRate * deltaTime;
+							minBoost = Math::max(minBoost - decayRate, maxBoost);
+						}
+
+						setBoosterEnergy(minBoost, false, nullptr, deltaVector);
 					}
 				}
 
 				break;
 			}
 		}
+
+		if (!updateFlags && getComponentOptionsMap()->get(slot) != componentFlags) {
+			updateFlags = true;
+		}
 	}
 
-	float actualSpeed = getActualSpeed();
-
-	if (getActualMaxSpeed() != actualSpeed) {
-		setActualMaxSpeed(actualSpeed, false, nullptr, deltaVector);
+	if (updateFlags) {
+		uint32 componentFlag = getComponentOptionsMap()->get(Components::REACTOR);
+		setComponentOptions(Components::REACTOR, componentFlag, nullptr, DeltaMapCommands::SET, deltaVector);
 	}
+
+	updateActualEngineValues(false, deltaVector);
+	updateComponentFlags(false, deltaVector);
 
 	if (deltaVector != nullptr) {
-		deltaVector->sendMessages(asShipObject(), pilot);
+		deltaVector->sendMessages(asShipObject());
 	}
 
 	auto targetVector = getTargetVector();
@@ -869,6 +972,8 @@ void ShipObjectImplementation::repairShip(float value, bool decay) {
 	info(true) << "------ Starting Component Map Update ------\n";
 #endif
 
+	bool updateFlags = false;
+
 	for (int i = 0; i < componentMap->size(); ++i) {
 		uint32 slot = componentMap->getKeyAt(i);
 		uint32 crc = componentMap->getValueAt(i);
@@ -882,17 +987,14 @@ void ShipObjectImplementation::repairShip(float value, bool decay) {
 			continue;
 		}
 
-		int flags = getComponentOptionsMap()->get(slot);
+		uint32 componentFlag = getComponentOptionsMap()->get(slot);
 
-		if (flags & ShipComponentFlag::DEMOLISHED) {
-			flags &= ~ShipComponentFlag::DEMOLISHED;
+		if (hasComponentFlag(slot, ShipComponentFlag::DEMOLISHED)) {
+			removeComponentFlag(slot, ShipComponentFlag::DEMOLISHED, false);
+			setComponentCRC(slot, crc, nullptr, command, deltaVector);
 		}
 
-		if (flags & ShipComponentFlag::DISABLED) {
-			flags &= ~ShipComponentFlag::DISABLED;
-		}
-
-		setComponentOptions(slot, flags, nullptr, command,  deltaVector);
+		resetComponentFlag(slot, false);
 
 		// Handle Armor Repair and Decay
 		float armorMax = getMaxArmorMap()->get(slot);
@@ -1008,10 +1110,19 @@ void ShipObjectImplementation::repairShip(float value, bool decay) {
 				break;
 			}
 		}
+
+		if (!updateFlags && getComponentOptionsMap()->get(slot) != componentFlag) {
+			updateFlags = true;
+		}
+	}
+
+	if (updateFlags) {
+		uint32 componentFlag = getComponentOptionsMap()->get(Components::REACTOR);
+		setComponentOptions(Components::REACTOR, componentFlag, nullptr, DeltaMapCommands::SET, deltaVector);
 	}
 
 	if (deltaVector != nullptr) {
-		deltaVector->sendMessages(asShipObject(), pilot);
+		deltaVector->sendMessages(asShipObject());
 	}
 
 #ifdef DEBUG_SHIP_REPAIR
@@ -1037,45 +1148,114 @@ bool ShipObjectImplementation::isShipObject() {
 	return true;
 }
 
-void ShipObjectImplementation::addComponentFlag(uint32 slot, uint32 bit, bool notifyClient) {
-	if (slot == -1)
+bool ShipObjectImplementation::hasComponentFlag(uint32 slot, uint32 value) {
+	return (componentOptions.get(slot) & value);
+}
+
+void ShipObjectImplementation::addComponentFlag(uint32 slot, uint32 value, bool notifyClient, ShipDeltaVector* deltaVector) {
+	uint32 componentFlag = componentOptions.get(slot);
+
+	if (componentFlag & value) {
 		return;
+	}
 
-	ShipComponent* component = getComponentObject(slot);
+	componentFlag |= value;
 
-	if (component == nullptr)
-		return;
+	if (deltaVector == nullptr && notifyClient) {
+		deltaVector = getDeltaVector();
+	}
 
-	Locker lock(component);
+	setComponentOptions(slot, componentFlag, nullptr, DeltaMapCommands::SET, deltaVector);
 
-	if (notifyClient) {
-		DeltaMessage* message = new DeltaMessage(getObjectID(), 'SHIP', 3);
-
-		setComponentOptions(slot, bit, message);
-		message->close();
-
-		broadcastMessage(message, true);
+	if (deltaVector != nullptr && notifyClient) {
+		deltaVector->sendMessages(asShipObject());
 	}
 }
 
-void ShipObjectImplementation::removeComponentFlag(uint32 slot, uint32 bit, bool notifyClient) {
-	if (slot == -1)
+void ShipObjectImplementation::removeComponentFlag(uint32 slot, uint32 value, bool notifyClient, ShipDeltaVector* deltaVector) {
+	uint32 componentFlag = componentOptions.get(slot);
+
+	if (!(componentFlag & value)) {
 		return;
+	}
 
-	ShipComponent* component = getComponentObject(slot);
+	componentFlag &= ~value;
 
-	if (component == nullptr)
+	if (deltaVector == nullptr && notifyClient) {
+		deltaVector = getDeltaVector();
+	}
+
+	setComponentOptions(slot, componentFlag, nullptr, DeltaMapCommands::SET, deltaVector);
+
+	if (deltaVector != nullptr && notifyClient) {
+		deltaVector->sendMessages(asShipObject());
+	}
+}
+
+void ShipObjectImplementation::resetComponentFlag(uint32 slot, bool notifyClient, ShipDeltaVector* deltaVector) {
+	uint32 componentFlag = componentOptions.get(slot);
+
+	if (componentFlag & ShipComponentFlag::DISABLED) {
+		componentFlag &= ~ShipComponentFlag::DISABLED;
+	}
+
+	if (componentFlag & ShipComponentFlag::LOW_POWER) {
+		componentFlag &= ~ShipComponentFlag::LOW_POWER;
+	}
+
+	if (componentFlag & ShipComponentFlag::ACTIVE) {
+		componentFlag &= ~ShipComponentFlag::ACTIVE;
+	}
+
+	if (componentFlag & ShipComponentFlag::DISABLED_NEEDS_POWER) {
+		componentFlag &= ~ShipComponentFlag::DISABLED_NEEDS_POWER;
+	}
+
+	if (componentFlag == componentOptions.get(slot)) {
 		return;
+	}
 
-	Locker lock(component);
+	if (deltaVector == nullptr && notifyClient) {
+		deltaVector = getDeltaVector();
+	}
 
-	if (notifyClient) {
-		DeltaMessage* message = new DeltaMessage(getObjectID(), 'SHIP', 3);
+	setComponentOptions(slot, componentFlag, nullptr, DeltaMapCommands::SET, deltaVector);
 
-		setComponentOptions(slot, 0, message);
-		message->close();
+	if (deltaVector != nullptr && notifyClient) {
+		deltaVector->sendMessages(asShipObject());
+	}
+}
 
-		broadcastMessage(message, true);
+void ShipObjectImplementation::setComponentDemolished(uint32 slot, bool notifyClient, ShipDeltaVector* deltaVector) {
+	if (deltaVector == nullptr && notifyClient) {
+		deltaVector = getDeltaVector();
+	}
+
+	if (!hasComponentFlag(slot, ShipComponentFlag::DEMOLISHED)) {
+		addComponentFlag(slot, ShipComponentFlag::DEMOLISHED, false, deltaVector);
+	}
+
+	switch (slot) {
+		case Components::SHIELD0:
+		case Components::SHIELD1: {
+			setFrontShield(0.f, false, nullptr, deltaVector);
+			setRearShield(0.f, false, nullptr, deltaVector);
+			break;
+		}
+
+		case Components::CAPACITOR: {
+			setCapacitorEnergy(0.f, false, nullptr, deltaVector);
+			break;
+		}
+
+		case Components::BOOSTER: {
+			setBoosterEnergy(0.f, false, nullptr, deltaVector);
+			break;
+		}
+	}
+
+	if (deltaVector != nullptr && notifyClient) {
+		deltaVector->sendMessages(asShipObject());
 	}
 }
 
@@ -1113,42 +1293,6 @@ void ShipObjectImplementation::setHyperspaceDelay() {
 int ShipObjectImplementation::getHyperspaceDelay() {
 	Time now;
 	return (now.miliDifference() - hyperspaceTime.miliDifference()) / 1000;
-}
-
-float ShipObjectImplementation::getActualSpeed() {
-	const auto componentMap = getShipComponentMap();
-
-	float componentActual = 0.f;
-
-	if (componentMap->get(Components::ENGINE) != 0) {
-		float efficiency = getComponentEfficiencyMap()->get(Components::ENGINE);
-		float condition = getComponentCondition(Components::ENGINE);
-
-		componentActual += engineMaxSpeed * efficiency * condition;
-	}
-
-	if (componentMap->get(Components::BOOSTER) != 0 && isBoosterActive()) {
-		float efficiency = getComponentEfficiencyMap()->get(Components::BOOSTER);
-		float condition = getComponentCondition(Components::BOOSTER);
-
-		componentActual += boosterMaxSpeed * efficiency * condition;
-	}
-
-	float chassisActual = 1.f;
-
-	if (chassisSpeed != 0) {
-		chassisActual = chassisSpeed;
-	}
-
-	if (hasShipWings() && (getOptionsBitmask() & OptionBitmask::WINGS_OPEN)) {
-		const auto chassisData = ShipManager::instance()->getChassisData(getShipName());
-
-		if (chassisData != nullptr) {
-			chassisActual *= chassisData->getWingOpenSpeed();
-		}
-	}
-
-	return componentActual * chassisActual;
 }
 
 bool ShipObjectImplementation::checkInConversationRange(SceneObject* targetObject) {
@@ -1214,13 +1358,12 @@ void ShipObjectImplementation::sendPvpStatusTo(CreatureObject* player) {
 	// uint32 pvpStatus = pvpStatusBitmask;
 
 	TangibleObjectImplementation::sendPvpStatusTo(player);
-
-	// info(true) << "ShipObjectImplementation::sendPvpStatusTo - " << player->getDisplayedName() << " New Pvp Status: " << pvpStatus << " Old Pvp Status: " << pvpStatusBitmask;
 }
 
 bool ShipObjectImplementation::isAggressiveTo(TangibleObject* object) {
-	if (object == nullptr)
+	if (object == nullptr) {
 		return false;
+	}
 
 	if (!isShipLaunched())
 		return false;
@@ -1235,8 +1378,9 @@ bool ShipObjectImplementation::isAggressiveTo(TangibleObject* object) {
 				auto attackerOwner = objectShip->getOwner().get();
 
 				// Owner of the other player ship for pvp checks
-				if (attackerOwner != nullptr)
-					return thisOwner->isAttackableBy(attackerOwner);
+				if (attackerOwner != nullptr) {
+					return thisOwner->isAggressiveTo(attackerOwner);
+				}
 			}
 		} else {
 			thisOwner->isAggressiveTo(object);
@@ -1248,14 +1392,21 @@ bool ShipObjectImplementation::isAggressiveTo(TangibleObject* object) {
 
 // This will be called for non AI Ships. ShipAgents use their abstracted function in ShipAiAgent
 bool ShipObjectImplementation::isAttackableBy(TangibleObject* attackerTano) {
-	if (!isShipLaunched())
+	if (attackerTano == nullptr) {
 		return false;
+	}
+
+	if (!isShipLaunched()) {
+		return false;
+	}
 
 	auto optionsBit = getOptionsBitmask();
 
 	if ((optionsBit & OptionBitmask::DESTROYING) || (optionsBit & OptionBitmask::INVULNERABLE)) {
 		return false;
 	}
+
+	// info(true) << getDisplayedName() << " ShipObjectImplementation::isAttackableBy -- " << attackerTano->getDisplayedName();
 
 	auto thisOwner = getOwner().get();
 
@@ -1268,14 +1419,21 @@ bool ShipObjectImplementation::isAttackableBy(TangibleObject* attackerTano) {
 				auto attackerOwner = attackerShip->getOwner().get();
 
 				// Owner of the other player ship for pvp checks
-				if (attackerOwner != nullptr)
+				if (attackerOwner != nullptr) {
+					// info(true) << getDisplayedName() << "Using ship owners -- thisOwner: " << thisOwner->getDisplayedName() << " attackerOwner: " << attackerOwner->getDisplayedName();
+
 					return thisOwner->isAttackableBy(attackerOwner);
+				}
 			}
 		} else {
+			// info(true) << getDisplayedName() << "Using thisOwner: " << thisOwner->getDisplayedName() << " against tangible object: " << attackerTano->getDisplayedName();
+
 			// Attacking object is a TanO, likely another ship. Pass to CreO isAttackableBy TanO check
 			thisOwner->isAttackableBy(attackerTano);
 		}
 	} else if (attackerTano->isCreatureObject()) {
+		// info(true) << getDisplayedName() << " isAttackableBy creature: " << attackerTano->getDisplayedName();
+
 		return isAttackableBy(attackerTano->asCreatureObject());
 	}
 
@@ -1352,66 +1510,62 @@ void ShipObjectImplementation::destroyObjectFromDatabase(bool destroyContainedOb
 
 	SortedVector<ManagedReference<SceneObject*>> players;
 
+	// Get the Launch location
+	auto launchZone = getSpaceLaunchZone();
+	auto launchLoc = getSpaceLaunchLocation();
+
+	// This should not be an empty string, but just in case it is, send them to Coronet
+	if (launchZone.isEmpty()) {
+		launchZone = "corellia";
+		launchLoc.set(-66, 28, -4711);
+	}
+
 	// Check slotted objects for players
 	for (int i = slotted.size() - 1; i >= 0 ; --i) {
 		auto object = slotted.get(i);
 
-		if (object == nullptr || !object->isPlayerCreature())
+		if (object == nullptr || !object->isPlayerCreature()) {
 			continue;
+		}
 
-		players.put(object);
+		Locker clock(object, thisShip);
+
+		object->switchZone(launchZone, launchLoc.getX(), launchLoc.getZ(), launchLoc.getY(), 0, false, -1);
+
+		if (hasObjectInContainer(object->getObjectID())) {
+			removeObject(object, nullptr, false);
+		}
 	}
 
 	// Check container for players
 	for (int i = getContainerObjectsSize() - 1; i >= 0 ; --i) {
 		auto object = getContainerObject(i);
 
-		if (object == nullptr || !object->isPlayerCreature())
+		if (object == nullptr || !object->isPlayerCreature()) {
 			continue;
+		}
 
-		players.put(object);
-	}
+		Locker clock(object, thisShip);
 
-	// Kick all the players to the ground zone
-	for (int i = players.size() - 1; i >= 0 ; --i) {
-		auto object = players.get(i);
+		object->switchZone(launchZone, launchLoc.getX(), launchLoc.getZ(), launchLoc.getY(), 0, false, -1);
 
-		if (object == nullptr)
-			continue;
-
-		auto player = object->asCreatureObject();
-
-		if (player == nullptr)
-			continue;
-
-		Locker clock(player, thisShip);
-
-		auto ghost = player->getPlayerObject();
-
-		if (ghost == nullptr)
-			continue;
-
-		auto launchZone = ghost->getSpaceLaunchZone();
-
-		if (launchZone.isEmpty())
-			launchZone = "tatooine";
-
-		auto launchLoc = ghost->getSpaceLaunchLocation();
-
-		player->switchZone(launchZone, launchLoc.getX(), launchLoc.getZ(), launchLoc.getY(), 0, false, -1);
+		if (hasObjectInContainer(object->getObjectID())) {
+			removeObject(object, nullptr, false);
+		}
 	}
 
 	// Remove and destroy all the components
-	auto pilot = owner.get();
+	auto playerOwner = owner.get();
 
 	for (uint32 slot = 0; slot <= Components::FIGHTERSLOTMAX; ++slot) {
 		auto component = components.get(slot);
+
 		if (component == nullptr) {
 			continue;
 		}
 
-		if (pilot != nullptr && !destroyContainedObjects) {
-			uninstall(pilot, slot, true);
+		if (playerOwner != nullptr && !destroyContainedObjects) {
+			uninstall(playerOwner, slot, true);
 			component = components.get(slot);
 		}
 
@@ -1421,8 +1575,9 @@ void ShipObjectImplementation::destroyObjectFromDatabase(bool destroyContainedOb
 		}
 	}
 
-	if (getLocalZone() != nullptr)
+	if (getLocalZone() != nullptr) {
 		destroyObjectFromWorld(true);
+	}
 
 	TangibleObjectImplementation::destroyObjectFromDatabase(destroyContainedObjects);
 }
@@ -1440,15 +1595,36 @@ CreatureObject* ShipObjectImplementation::getPilot() {
 CreatureObject* ShipObjectImplementation::getShipOperator() {
 	auto chair = getOperationsChair().get();
 
-	if (chair != nullptr) {
-		return chair->getSlottedObject("ship_operations_station").castTo<CreatureObject*>();
+	if (chair == nullptr) {
+		return nullptr;
 	}
 
-	return getSlottedObject("ship_operations_station").castTo<CreatureObject*>();
+	return chair->getSlottedObject("ship_operations_station").castTo<CreatureObject*>();
+}
+
+CreatureObject* ShipObjectImplementation::getTurretOperatorTop() {
+	auto turretLadder = getTurretLadder().get();
+
+	if (turretLadder == nullptr) {
+		return nullptr;
+	}
+
+	return turretLadder->getSlottedObject("ship_gunner0_pob").castTo<CreatureObject*>();
+}
+
+CreatureObject* ShipObjectImplementation::getTurretOperatorBottom() {
+	auto turretLadder = getTurretLadder().get();
+
+	if (turretLadder == nullptr) {
+		return nullptr;
+	}
+
+	return turretLadder->getSlottedObject("ship_gunner1_pob").castTo<CreatureObject*>();
 }
 
 void ShipObjectImplementation::setRotationMatrix(const Quaternion& value) {
 	rotationMatrix.setRotationMatrix(value.toMatrix3());
+	conjugateMatrix.setRotationMatrix(value.getConjugate().toMatrix3());
 }
 
 float ShipObjectImplementation::getComponentCondition(uint32 slot) {
@@ -1466,134 +1642,314 @@ void ShipObjectImplementation::updateLastDamageReceived() {
 	lastDamageReceived.updateToCurrentTime();
 }
 
-float ShipObjectImplementation::getSpeedRotationFactor(float speed) {
-	const float maxSpeed = getActualMaxSpeed();
-	const float maxFactor = getSpeedRotationFactorMax();
-	const float minFactor = getSpeedRotationFactorMin();
-	const float optimalFactor = getSpeedRotationFactorOptimal();
-
-	const float speedRatio = maxSpeed > 0.f ? speed / maxSpeed : 0.f;
-
-	auto getFactor = [&]() -> float {
-		/*
-		 *      rotation factor (in units of max pitch/yaw)
-		 *      |
-         *        +--------------------------------------------------------------------+
-         *        |             +             +            +             +             |
-         *        |                                ****                                ---- 1.0 @ optimal speed
-         *        |                             ****  ****                             |
-         *    0.8 |-+                       ****          ****                       +-|
-         *        |                      ****                ****                      |
-         *        |                   ***                        ***                   |
-         *        |               ****                              ****               |
-         *    0.4 |-+          ***                                      ***          +-|
-         *        |        ****                                            ****        |
-         *        |     ***                                                    ***     |
-         *        | ****        +             +            +             +        **** ---- minFactor/maxFactor
-         *      0 +-|-------------------------------|--------------------------------|-+
-         *        0 |          0.2           0.4    |     0.6           0.8          | 1 -- speed (in units of max speed)
-         *          |                               |                                |
-         *      Min Speed                     Optimal Speed                     Max Speed
-         *
-         * When speed < optimal speed:
-         *     find y-value on upslope, between minFactor and 1.f,
-         *     interpolated from min speed (0.f) to optimal speed
-         *     ergo, t = (speedRatio - 0) / (optimalFactor - 0) = speedRatio / optimalFactor
-         *
-         * When speed > optimal speed:
-         *     find y-value on downslope, between 1.f and maxFactor
-         *     interpolated from optimal speed to max speed (1.f)
-         *     ergo, t = (speedRatio - optimalFactor) / (1 - optimalFactor)
-		 */
-		if (speedRatio < optimalFactor || optimalFactor >= 1.f) {
-			// linearly interpolate between minFactor to 1 (1 being the optimal factor)
-			// at a ratio in the range expressed as speedRatio / optimalFactor
-			return Math::linearInterpolate(minFactor, 1.f, speedRatio / optimalFactor);
-		}
-
-		// linearly interpolate between 1 to maxFactor (1 being the optimal factor)
-		// at a ratio in the range expressed as (speedRatio - optimalFactor) / (1 - optimalFactor)
-		return Math::linearInterpolate(1.f, maxFactor, (speedRatio - optimalFactor) / (1.f - optimalFactor));
-	};
-
-	// discretize factor to prevent overupdating the client
-	return floorf((getFactor() * 10.f) + 0.5f) / 10.f;
-}
-
-CreatureObject* ShipObjectImplementation::getPlayerOnBoard(int index) {
-	auto player = playersOnBoard.get(index).get();
-
-	return player;
-}
-
 uint64 ShipObjectImplementation::getLastDamageReceivedMili() {
 	return lastDamageReceived.getMiliTime();
 }
 
-void ShipObjectImplementation::addPlayerOnBoard(CreatureObject* player) {
-	if (player == nullptr)
-		return;
+CreatureObject* ShipObjectImplementation::getPlayerOnBoard(int index) {
+	auto zoneServer = getZoneServer();
 
-	playersOnBoard.put(player);
+	if (zoneServer == nullptr) {
+		return nullptr;
+	}
+
+	auto shipMemberID = playersOnBoard.get(index);
+	auto shipMember = cast<CreatureObject*>(zoneServer->getObject(shipMemberID).get());
+
+	if (shipMember == nullptr) {
+		return nullptr;
+	}
+
+	return shipMember;
+}
+
+void ShipObjectImplementation::addPlayerOnBoard(CreatureObject* player) {
+	if (player == nullptr) {
+		return;
+	}
+
+	uint64 playerID = player->getObjectID();
+
+	if (playersOnBoard.contains(playerID)) {
+		return;
+	}
+
+	playersOnBoard.add(playerID);
+}
+
+void ShipObjectImplementation::removePlayerOnBoard(CreatureObject* player) {
+	if (player == nullptr) {
+		return;
+	}
+
+	uint64 playerID = player->getObjectID();
+
+	for (int i = playersOnBoard.size() - 1; i >= 0; i--) {
+		if (playersOnBoard.get(i) != playerID) {
+			continue;
+		}
+
+		playersOnBoard.remove(i);
+	}
+}
+
+void ShipObjectImplementation::clearPlayersOnBoard() {
+	playersOnBoard.removeAll();
+}
+
+int ShipObjectImplementation::getTotalPlayersOnBoard() {
+	return playersOnBoard.size();
+}
+
+Vector<uint64> ShipObjectImplementation::getPlayersOnBoard() {
+	return playersOnBoard;
 }
 
 void ShipObjectImplementation::sendShipMembersMessage(const String& message) {
+	auto zoneServer = getZoneServer();
+
+	if (zoneServer == nullptr) {
+		return;
+	}
+
 	for (int i = 0; i < playersOnBoard.size(); ++i) {
-		auto member = playersOnBoard.get(i).get();
+		auto shipMemberID = playersOnBoard.get(i);
+		auto shipMember = cast<CreatureObject*>(zoneServer->getObject(shipMemberID).get());
 
-		if (member == nullptr)
+		if (shipMember == nullptr) {
 			continue;
+		}
 
-		member->sendSystemMessage(message);
+		shipMember->sendSystemMessage(message);
 	}
 }
 
 void ShipObjectImplementation::sendShipMembersMusicMessage(const String& message) {
+	auto zoneServer = getZoneServer();
+
+	if (zoneServer == nullptr) {
+		return;
+	}
+
 	for (int i = 0; i < playersOnBoard.size(); ++i) {
-		auto member = playersOnBoard.get(i).get();
+		auto shipMemberID = playersOnBoard.get(i);
+		auto shipMember = cast<CreatureObject*>(zoneServer->getObject(shipMemberID).get());
 
-		if (member == nullptr)
+		if (shipMember == nullptr) {
 			continue;
+		}
 
-		member->playMusicMessage(message);
+		shipMember->playMusicMessage(message);
 	}
 }
 
 void ShipObjectImplementation::sendMembersHyperspaceBeginMessage(const String& zoneName, const Vector3& location) {
+	auto zoneServer = getZoneServer();
+
+	if (zoneServer == nullptr) {
+		return;
+	}
+
 	for (int i = 0; i < playersOnBoard.size(); ++i) {
-		auto member = playersOnBoard.get(i).get();
+		auto shipMemberID = playersOnBoard.get(i);
+		auto shipMember = cast<CreatureObject*>(zoneServer->getObject(shipMemberID).get());
 
-		if (member == nullptr)
+		if (shipMember == nullptr) {
 			continue;
+		}
 
-		BeginHyperspaceMessage* msg = new BeginHyperspaceMessage(member->getObjectID(), zoneName, location.getX(), location.getZ(), location.getY());
-		member->sendMessage(msg);
+		BeginHyperspaceMessage* msg = new BeginHyperspaceMessage(shipMember->getObjectID(), zoneName, location.getX(), location.getZ(), location.getY());
+		shipMember->sendMessage(msg);
 	}
 }
 
 void ShipObjectImplementation::sendMembersHyperspaceOrientMessage(const String& zoneName, const Vector3& location) {
+	auto zoneServer = getZoneServer();
+
+	if (zoneServer == nullptr) {
+		return;
+	}
+
 	for (int i = 0; i < playersOnBoard.size(); ++i) {
-		auto member = playersOnBoard.get(i).get();
+		auto shipMemberID = playersOnBoard.get(i);
+		auto shipMember = cast<CreatureObject*>(zoneServer->getObject(shipMemberID).get());
 
-		if (member == nullptr)
+		if (shipMember == nullptr) {
 			continue;
+		}
 
-		OrientForHyperspaceMessage *msg = new OrientForHyperspaceMessage(member->getObjectID(), zoneName, location.getX(), location.getZ(), location.getY());
-		member->sendMessage(msg);
+		OrientForHyperspaceMessage *msg = new OrientForHyperspaceMessage(shipMember->getObjectID(), zoneName, location.getX(), location.getZ(), location.getY());
+		shipMember->sendMessage(msg);
 	}
 }
 
-void ShipObjectImplementation::sendMembersBaseMessage(BaseMessage* message) {
+void ShipObjectImplementation::sendMembersBaseMessage(BaseMessage* message, bool sendSelf) {
+	auto zoneServer = getZoneServer();
+
+	if (zoneServer == nullptr) {
+		return;
+	}
+
+	auto selfObject = owner.get();
+
 	for (int i = 0; i < playersOnBoard.size(); ++i) {
-		auto member = playersOnBoard.get(i).get();
+		auto shipMemberID = playersOnBoard.get(i);
+		auto shipMember = cast<CreatureObject*>(zoneServer->getObject(shipMemberID).get());
 
-		if (member == nullptr)
+		if (shipMember == nullptr || (!sendSelf && shipMember == selfObject)) {
 			continue;
+		}
 
-		member->sendMessage(message->clone());
+		shipMember->sendMessage(message->clone());
 	}
 
 	delete message;
+}
+
+void ShipObjectImplementation::awardLootItems(ShipAiAgent* destructedShip, int payout) {
+	if (destructedShip == nullptr) {
+		return;
+	}
+
+	auto zoneServer = getZoneServer();
+
+	if (zoneServer == nullptr) {
+		return;
+	}
+
+	auto lootManager = zoneServer->getLootManager();
+
+	if (lootManager == nullptr) {
+		return;
+	}
+
+	auto pilot = getPilot();
+
+	if (pilot == nullptr) {
+		return;
+	}
+
+	Locker pilotClock(pilot, destructedShip);
+
+	auto inventory = pilot->getInventory();
+
+	if (inventory == nullptr) {
+		return;
+	}
+
+	int inventoryVolume = inventory->getContainerVolumeLimit();
+
+	// Initial Inventory check can return if full
+	if ((inventory->getCountableObjectsRecursive() + 1) > inventoryVolume) {
+		pilot->sendSystemMessage("@space/space_loot:no_more_loot"); // "Your inventory is full so you cannot receive any more loot."
+		return;
+	}
+
+	// Get pilots group for messages
+	Reference<GroupObject*> pilotGroup = nullptr;
+
+	if (pilot->isGrouped()) {
+		pilotGroup = pilot->getGroup();
+	}
+
+	// Main Loot TransactionLog
+	TransactionLog trx(TrxCode::NPCLOOT, destructedShip);
+
+	CreditChipObject* creditChip = nullptr;
+	uint32 creditChipHash = STRING_HASHCODE("object/tangible/item/loot_credit_chip.iff");
+
+	for (int i = 0; i < inventory->getContainerObjectsSize(); i++) {
+		auto sceneO = inventory->getContainerObject(i);
+
+		if (sceneO == nullptr || sceneO->getServerObjectCRC() != creditChipHash) {
+			continue;
+		}
+
+		creditChip = sceneO.castTo<CreditChipObject*>();
+		break;
+	}
+
+	// No existing credit chip was found, create a new one
+	if (creditChip == nullptr) {
+		creditChip = zoneServer->createObject(creditChipHash, 1).castTo<CreditChipObject*>();
+	}
+
+	if (creditChip != nullptr) {
+		Locker creditsClock(creditChip, destructedShip);
+
+		// Create CreditChip TransactionLog
+		TransactionLog trxChip(TrxCode::CREDITCHIP, pilot, creditChip, true);
+
+		// Set the CreditChip value
+		creditChip->setUseCount(payout + creditChip->getUseCount());
+
+		trxChip.addState("addedValue", payout);
+
+		// Transfer to Pilots inventory
+		if (inventory->transferObject(creditChip, -1, false)) {
+			creditChip->sendTo(pilot, true);
+
+			StringIdChatParameter creditsSelfMsg("space/space_loot", "looted_credits_you");
+			creditsSelfMsg.setDI(payout);
+
+			pilot->sendSystemMessage(creditsSelfMsg);
+
+			trxChip.groupWith(trx);
+
+			if (pilotGroup != nullptr) {
+				StringIdChatParameter creditGroupMsg("space/space_loot", "looted_credits");
+				creditGroupMsg.setTT(pilot->getFirstName());
+				creditGroupMsg.setDI(payout);
+
+				pilotGroup->sendSystemMessage(creditGroupMsg, pilot);
+			}
+		} else {
+			creditChip->destroyObjectFromWorld(true);
+			creditChip->destroyObjectFromDatabase(true);
+
+			trxChip.abort() << "Failed to transferObject for CreditChip to shipMember";
+		}
+	}
+
+	// Award Loot items here
+	int lootRolls = destructedShip->getLootRolls();
+	const auto lootTable = destructedShip->getLootTable();
+
+	if (lootTable.isEmpty()) {
+		trx.commit(true);
+		return;
+	}
+
+	for (int i = 0; i < lootRolls; i++) {
+		// Check if there is space in players inventory, if not do not itterate anymore attempts
+		if ((inventory->getCountableObjectsRecursive() + 1) > inventoryVolume) {
+			pilot->sendSystemMessage("@space/space_loot:no_more_loot"); // "Your inventory is full so you cannot receive any more loot."
+			break;
+		}
+
+		uint64 lootObjectID = lootManager->createLoot(trx, inventory, destructedShip);
+
+		if (lootObjectID < 1) {
+			continue;
+		}
+
+		// Send Pilot Message
+		StringIdChatParameter itemSelfMsg("space/space_loot", "looted_item_you"); // "You have looted an item: %TO."
+		itemSelfMsg.setTO(lootObjectID);
+
+		pilot->sendSystemMessage(itemSelfMsg);
+
+		// Send Group Messages
+		if (pilotGroup != nullptr) {
+			StringIdChatParameter itemGroupMsg("space/space_loot", "looted_item"); // "%TT has looted an item: %TO."
+			itemGroupMsg.setTT(pilot->getFirstName());
+			itemGroupMsg.setTO(lootObjectID);
+
+			pilotGroup->sendSystemMessage(itemGroupMsg, pilot);
+		}
+	}
+
+	trx.commit(true);
 }
 
 bool ShipObjectImplementation::isShipLaunched() {
@@ -1603,8 +1959,298 @@ bool ShipObjectImplementation::isShipLaunched() {
 int ShipObjectImplementation::getReceiverFlags() const {
 	int type = CloseObjectsVector::SHIPTYPE;
 
-	if (ownerID > 0)
+	if (ownerID > 0) {
 		type = type | CloseObjectsVector::PLAYERSHIPTYPE;
+	}
 
 	return type | TangibleObjectImplementation::getReceiverFlags();
+}
+
+float ShipObjectImplementation::getOutOfRangeDistance() const {
+	return ZoneServer::SPACECLOSEOBJECTRANGE;
+}
+
+bool ShipObjectImplementation::isComponentInstalled(uint32 slot) {
+	return getShipComponentMap()->get(slot) != 0;
+}
+
+bool ShipObjectImplementation::isComponentFunctional(uint32 slot) {
+	return isComponentInstalled(slot) && !hasComponentFlag(slot, ShipComponentFlag::DISABLED) && !hasComponentFlag(slot, ShipComponentFlag::DEMOLISHED);
+}
+
+float ShipObjectImplementation::calculateActualComponentEfficiency(uint32 slot) {
+	return isComponentFunctional(slot) ? Math::clamp(0.1f, getComponentEfficiency(slot) * getComponentCondition(slot), 10.f) : 0.f;
+}
+
+float ShipObjectImplementation::calculateSpeedRotationFactor() {
+	float speedCurrent = getCurrentSpeed();
+	float speedMax = getActualMaxSpeed();
+
+	float factorOptimal = getSpeedRotationFactorOptimal();
+	float factorMax = getSpeedRotationFactorMax();
+	float factorMin = getSpeedRotationFactorMin();
+
+	if (speedCurrent <= 0.f || speedMax <= 0.f) {
+		return factorMin;
+	}
+
+	float factorPercent = Math::clamp(0.f, speedCurrent / speedMax, 1.f);
+	float factorActual = factorMin;
+
+	if (factorPercent < factorOptimal || factorOptimal >= 1.f) {
+		float ratio = factorPercent / factorOptimal;
+		factorActual = Math::linearInterpolate(factorMin, 1.f, ratio);
+	} else {
+		float ratio = (factorPercent - factorOptimal) / (1.f - factorOptimal);
+		factorActual = Math::linearInterpolate(1.f, factorMax, ratio);
+	}
+
+	return factorActual;
+}
+
+float ShipObjectImplementation::calculateActualAccelerationRate() {
+	float engineAcceleration = 0.f;
+
+	if (isComponentInstalled(Components::ENGINE)) {
+		engineAcceleration = getEngineAccelerationRate() * calculateActualComponentEfficiency(Components::ENGINE);
+	}
+
+	float boosterAcceleration = 0.f;
+
+	if (isComponentInstalled(Components::BOOSTER) && isBoosterActive()) {
+		boosterAcceleration = getBoosterAcceleration() * calculateActualComponentEfficiency(Components::BOOSTER);
+	}
+
+	return engineAcceleration + boosterAcceleration;
+}
+
+float ShipObjectImplementation::calculateActualDecelerationRate() {
+	float engineDeceleration = getEngineDecelerationRate();
+
+	if (isComponentFunctional(Components::ENGINE)) {
+		engineDeceleration *= calculateActualComponentEfficiency(Components::ENGINE);
+	}
+
+	return engineDeceleration;
+}
+
+float ShipObjectImplementation::calculateActualMaxSpeed() {
+	float engineSpeed = 0.f;
+
+	if (isComponentInstalled(Components::ENGINE)) {
+		engineSpeed = getEngineMaxSpeed() * calculateActualComponentEfficiency(Components::ENGINE);
+	}
+
+	float boosterSpeed = 0.f;
+
+	if (isComponentInstalled(Components::BOOSTER) && isBoosterActive()) {
+		boosterSpeed = getBoosterMaxSpeed() * calculateActualComponentEfficiency(Components::BOOSTER);
+	}
+
+	float chassisSpeed = getChassisSpeed();
+
+	if (hasShipWings() && (getOptionsBitmask() & OptionBitmask::WINGS_OPEN) && wingsOpenSpeed > 0.f) {
+		auto chassisData = ShipManager::instance()->getChassisData(chassisDataName);
+
+		if (chassisData != nullptr) {
+			chassisSpeed *= wingsOpenSpeed;
+		}
+	}
+
+	return Math::clamp(0.f, ((engineSpeed + boosterSpeed) * chassisSpeed), 512.f);
+}
+
+void ShipObjectImplementation::updateSpeedRotationValues(bool notifyClient, ShipDeltaVector* deltaVector) {
+	float engineEfficiency = calculateActualComponentEfficiency(Components::ENGINE);
+	float rotationFactor = calculateSpeedRotationFactor();
+
+	float actualPitchRate = getEnginePitchRate() * engineEfficiency * rotationFactor;
+	float actualYawRate = getEngineYawRate() * engineEfficiency * rotationFactor;
+
+	if (getActualPitchRate() == actualPitchRate && getActualYawRate() == actualYawRate) {
+		return;
+	}
+
+	if (deltaVector == nullptr && notifyClient) {
+		deltaVector = getDeltaVector();
+	}
+
+	if (getActualPitchRate() != actualPitchRate) {
+		setActualPitchRate(actualPitchRate, false, nullptr, deltaVector);
+	}
+
+	if (getActualYawRate() != actualYawRate) {
+		setActualYawRate(actualYawRate, false, nullptr, deltaVector);
+	}
+
+	if (deltaVector != nullptr && notifyClient) {
+		deltaVector->sendMessages(asShipObject());
+	}
+}
+
+void ShipObjectImplementation::updateActualEngineValues(bool notifyClient, ShipDeltaVector* deltaVector) {
+	float componentEfficiency = calculateActualComponentEfficiency(Components::ENGINE);
+	float rotationFactor = calculateSpeedRotationFactor();
+
+	float actualAcceleration = calculateActualAccelerationRate();
+	float actualDeceleration = calculateActualDecelerationRate();
+	float actualPitchAccel = getEnginePitchAccelerationRate() * componentEfficiency;
+	float actualYawAccel = getEngineYawAccelerationRate() * componentEfficiency;
+	float actualRollAccel = getEngineRollAccelerationRate() * componentEfficiency;
+	float actualPitch = getEnginePitchRate() * componentEfficiency * rotationFactor;
+	float actualYaw = getEnginePitchRate() * componentEfficiency * rotationFactor;
+	float actualRoll = getEnginePitchRate() * componentEfficiency;
+	float actualSpeed = calculateActualMaxSpeed();
+
+	if (deltaVector == nullptr && notifyClient) {
+		deltaVector = getDeltaVector();
+	}
+
+	if (getActualAccelerationRate() != actualAcceleration) {
+		setActualAccelerationRate(actualAcceleration, false, nullptr, deltaVector);
+	}
+
+	if (getActualDecelerationRate() != actualDeceleration) {
+		setActualDecelerationRate(actualDeceleration, false, nullptr, deltaVector);
+	}
+
+	if (getActualPitchAccelerationRate() != actualPitchAccel) {
+		setActualPitchAccelerationRate(actualPitchAccel, false, nullptr, deltaVector);
+	}
+
+	if (getActualYawAccelerationRate() != actualYawAccel) {
+		setActualYawAccelerationRate(actualYawAccel, false, nullptr, deltaVector);
+	}
+
+	if (getActualRollAccelerationRate() != actualRollAccel) {
+		setActualRollAccelerationRate(actualRollAccel, false, nullptr, deltaVector);
+	}
+
+	if (getActualPitchRate() != actualPitch) {
+		setActualPitchRate(actualPitch, false, nullptr, deltaVector);
+	}
+
+	if (getActualYawRate() != actualYaw) {
+		setActualYawRate(actualYaw, false, nullptr, deltaVector);
+	}
+
+	if (getActualRollRate() != actualRoll) {
+		setActualRollRate(actualRoll, false, nullptr, deltaVector);
+	}
+
+	if (getActualMaxSpeed() != actualSpeed) {
+		setActualMaxSpeed(actualSpeed, false, nullptr, deltaVector);
+	}
+
+	if (deltaVector != nullptr && notifyClient) {
+		deltaVector->sendMessages(asShipObject());
+	}
+}
+
+void ShipObjectImplementation::updateComponentFlags(bool notifyClient, ShipDeltaVector* deltaVector) {
+	bool updateFlags = false;
+
+	for (int i = 0; i < componentOptions.size(); ++i) {
+		uint32 slot = componentOptions.getKeyAt(i);
+
+		if (!isComponentInstalled(slot)) {
+			continue;
+		}
+
+		uint32 componentFlag = componentOptions.getValueAt(i);
+
+		if (hasComponentFlag(slot, ShipComponentFlag::DEMOLISHED)) {
+			if (hasComponentFlag(slot, ShipComponentFlag::ACTIVE)) {
+				removeComponentFlag(slot, ShipComponentFlag::ACTIVE, false);
+			} else if (hasComponentFlag(slot, ShipComponentFlag::DISABLED)) {
+				removeComponentFlag(slot, ShipComponentFlag::DISABLED, false);
+			}
+		} else if (hasComponentFlag(slot, ShipComponentFlag::DISABLED_NEEDS_POWER)) {
+			if (hasComponentFlag(slot, ShipComponentFlag::ACTIVE)) {
+				removeComponentFlag(slot, ShipComponentFlag::ACTIVE, false);
+			} else if (!hasComponentFlag(slot, ShipComponentFlag::DISABLED)) {
+				addComponentFlag(slot, ShipComponentFlag::DISABLED, false);
+			}
+		} else {
+			if (!hasComponentFlag(slot, ShipComponentFlag::ACTIVE) && slot != Components::BOOSTER) {
+				addComponentFlag(slot, ShipComponentFlag::ACTIVE, false);
+			} else if (hasComponentFlag(slot, ShipComponentFlag::DISABLED)) {
+				removeComponentFlag(slot, ShipComponentFlag::DISABLED, false);
+			}
+		}
+
+		if (!updateFlags && componentOptions.getValueAt(i) != componentFlag) {
+			updateFlags = true;
+		}
+	}
+
+	if (updateFlags) {
+		if (deltaVector == nullptr && notifyClient) {
+			deltaVector = getDeltaVector();
+		}
+
+		uint32 componentFlag = componentOptions.get(Components::REACTOR);
+		componentOptions.update(Components::REACTOR, componentFlag, nullptr, DeltaMapCommands::SET, deltaVector);
+
+		if (deltaVector != nullptr && notifyClient) {
+			deltaVector->sendMessages(asShipObject());
+		}
+	}
+}
+
+void ShipObjectImplementation::initializeUniqueID(bool notifyClient) {
+	auto shipManager = ShipManager::instance();
+
+	if (shipManager == nullptr) {
+		return;
+	}
+
+	if (getUniqueID() != 0) {
+		shipManager->dropShipUniqueID(asShipObject());
+	}
+
+	uint16 shipID = shipManager->setShipUniqueID(asShipObject());
+	setUniqueID(shipID, notifyClient);
+}
+
+bool ShipObjectImplementation::canBePilotedBy(CreatureObject* player) {
+	if (player == nullptr) {
+		return false;
+	}
+
+	if (certificationRequired.isEmpty()) {
+		return true;
+	}
+
+	auto ghost = player->getPlayerObject();
+
+	if (ghost == nullptr) {
+		return false;
+	}
+
+	return (ghost->hasAbility(certificationRequired) || player->hasSkill(certificationRequired));
+}
+
+bool ShipObjectImplementation::hasComponentsInstalled() {
+	for (int i = 0; i < componentOptions.size(); ++i) {
+		uint32 slot = componentOptions.getKeyAt(i);
+
+		if (isComponentInstalled(slot)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool ShipObjectImplementation::isStarterShip() {
+	auto chassisName = getShipChassisName().hashCode();
+
+	return ((STRING_HASHCODE("player_basic_tiefighter") == chassisName) || (STRING_HASHCODE("player_basic_hutt_light") == chassisName) || (STRING_HASHCODE("player_basic_z95") == chassisName));
+}
+
+bool ShipObjectImplementation::isSorosuubSpaceYacht() {
+	auto chassisName = getShipChassisName().hashCode();
+
+	return (STRING_HASHCODE("player_sorosuub_space_yacht") == chassisName);
 }

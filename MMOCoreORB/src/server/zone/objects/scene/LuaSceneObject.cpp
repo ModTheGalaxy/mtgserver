@@ -38,6 +38,8 @@ Luna<LuaSceneObject>::RegType LuaSceneObject::Register[] = {
 		{ "setCustomObjectName", &LuaSceneObject::setCustomObjectName},
 		{ "getDistanceTo", &LuaSceneObject::getDistanceTo },
 		{ "getDistanceToPosition", &LuaSceneObject::getDistanceToPosition },
+		{ "getDistanceTo3d", &LuaSceneObject::getDistanceTo3d },
+		{ "getDistanceToPosition3d", &LuaSceneObject::getDistanceToPosition3d },
 		{ "updateDirection", &LuaSceneObject::updateDirection },
 		{ "getServerObjectCRC", &LuaSceneObject::getServerObjectCRC },
 		{ "showFlyText", &LuaSceneObject::showFlyText },
@@ -49,6 +51,7 @@ Luna<LuaSceneObject>::RegType LuaSceneObject::Register[] = {
 		{ "isContainerFull", &LuaSceneObject::isContainerFull },
 		{ "isContainerFullRecursive", &LuaSceneObject::isContainerFullRecursive },
 		{ "getSlottedObject", &LuaSceneObject::getSlottedObject },
+		{ "setPosition", &LuaSceneObject::setPosition },
 		{ "transferObject", &LuaSceneObject::transferObject },
 //		{ "removeObject", &LuaSceneObject::removeObject },
 		{ "getGameObjectType", &LuaSceneObject::getGameObjectType },
@@ -63,6 +66,7 @@ Luna<LuaSceneObject>::RegType LuaSceneObject::Register[] = {
 		{ "isBuildingObject", &LuaSceneObject::isBuildingObject },
 		{ "isActiveArea", &LuaSceneObject::isActiveArea },
 		{ "isShipObject", &LuaSceneObject::isShipObject },
+		{ "isShipAiAgent", &LuaSceneObject::isShipAiAgent },
 		{ "sendTo", &LuaSceneObject::sendTo },
 		{ "getCustomObjectName", &LuaSceneObject::getCustomObjectName },
 		{ "getDisplayedName", &LuaSceneObject::getDisplayedName },
@@ -97,6 +101,8 @@ Luna<LuaSceneObject>::RegType LuaSceneObject::Register[] = {
 		{ "getPlayersInRange", &LuaSceneObject::getPlayersInRange },
 		{ "isInNavMesh", &LuaSceneObject::isInNavMesh },
 		{ "checkInConversationRange", &LuaSceneObject::checkInConversationRange },
+		{ "isShipComponent", &LuaSceneObject::isShipComponent },
+		{ "isShipComponentRepairKit", &LuaSceneObject::isShipComponentRepairKit },
 		{ 0, 0 }
 
 };
@@ -300,7 +306,32 @@ int LuaSceneObject::getDistanceTo(lua_State* L) {
 	return 1;
 }
 
+int LuaSceneObject::getDistanceTo3d(lua_State* L) {
+	SceneObject* obj = (SceneObject*)lua_touserdata(L, -1);
+
+	float res = realObject->getDistanceTo3d(obj);
+
+	lua_pushnumber(L, res);
+
+	return 1;
+}
+
 int LuaSceneObject::getDistanceToPosition(lua_State* L) {
+	float y = lua_tonumber(L, -1);
+	float z = lua_tonumber(L, -2);
+	float x = lua_tonumber(L, -3);
+
+	Coordinate position;
+	position.setPosition(x, z, y);
+
+	float dist = realObject->getDistanceTo(&position);
+
+	lua_pushnumber(L, dist);
+
+	return 1;
+}
+
+int LuaSceneObject::getDistanceToPosition3d(lua_State* L) {
 	float y = lua_tonumber(L, -1);
 	float z = lua_tonumber(L, -2);
 	float x = lua_tonumber(L, -3);
@@ -480,6 +511,25 @@ int LuaSceneObject::getSlottedObject(lua_State* L) {
 	return 1;
 }
 
+int LuaSceneObject::setPosition(lua_State* L) {
+	int numberOfArguments = lua_gettop(L) - 1;
+
+	if (numberOfArguments != 3) {
+		realObject->error() << "Improper number of arguments in setPosition in LuaSceneObject.";
+		return 0;
+	}
+
+	float y = lua_tonumber(L, -1);
+	float z = lua_tonumber(L, -2);
+	float x = lua_tonumber(L, -3);
+
+	Locker lock(realObject);
+
+	realObject->setPosition(x, z, y);
+
+	return 0;
+}
+
 int LuaSceneObject::transferObject(lua_State* L) {
 	//transferObject(SceneObject object, int containmentType, boolean notifyClient = false);
 
@@ -615,6 +665,30 @@ int LuaSceneObject::isActiveArea(lua_State* L) {
 
 int LuaSceneObject::isShipObject(lua_State* L) {
 	bool val = realObject->isShipObject();
+
+	lua_pushboolean(L, val);
+
+	return 1;
+}
+
+int LuaSceneObject::isShipAiAgent(lua_State* L) {
+	bool val = realObject->isShipAiAgent();
+
+	lua_pushboolean(L, val);
+
+	return 1;
+}
+
+int LuaSceneObject::isShipComponent(lua_State* L) {
+	bool val = realObject->isShipComponentObject();
+
+	lua_pushboolean(L, val);
+
+	return 1;
+}
+
+int LuaSceneObject::isShipComponentRepairKit(lua_State* L) {
+	bool val = realObject->isShipComponentRepairKit();
 
 	lua_pushboolean(L, val);
 

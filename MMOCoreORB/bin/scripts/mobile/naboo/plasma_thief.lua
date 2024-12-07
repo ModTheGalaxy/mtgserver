@@ -31,10 +31,7 @@ plasma_thief = Creature:new {
 	lootGroups = {
 		{
 			groups = {
-				{group = "junk", chance = 5000000},
-				{group = "tailor_components", chance = 2000000},
-				{group = "loot_kit_parts", chance = 2000000},
-				{group = "plasma_thief_common", chance = 1000000},
+				{group = "plasma_thief_tier_1", chance = 10000000}
 			}
 		}
 	},
@@ -44,7 +41,7 @@ plasma_thief = Creature:new {
 	primaryWeapon = "pirate_weapons_light",
 	secondaryWeapon = "unarmed",
 	reactionStf = "@npc_reaction/slang",
-	
+
 	-- primaryAttacks and secondaryAttacks should be separate skill groups specific to the weapon type listed in primaryWeapon and secondaryWeapon
 	-- Use merge() to merge groups in creatureskills.lua together. If a weapon is set to "none", set the attacks variable to empty brackets
 	primaryAttacks = merge(marksmannovice,brawlernovice),

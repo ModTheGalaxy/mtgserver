@@ -170,18 +170,20 @@ bool GroundZoneContainerComponent::transferObject(SceneObject* sceneObject, Scen
 
 	ManagedReference<SceneObject*> parent = object->getParent().get();
 
-	if (parent != nullptr/* && parent->isCellObject()*/) {
+	if (parent != nullptr) {
 		uint64 parentID = object->getParentID();
 
-		if (containmentType == -2)
+		if (containmentType == -2) {
 			parent->removeObject(object, sceneObject, false);
-		else
+		} else {
 			parent->removeObject(object, sceneObject, true);
+		}
 
-		if (object->getParent() != nullptr && parent->containsChildObject(object))
+		object->setParent(nullptr);
+
+		if (object->getParent().get() != nullptr && parent->hasObjectInContainer(object->getObjectID())) {
 			return false;
-		else
-			object->setParent(nullptr, false);
+		}
 
 		if (parent->isCellObject()) {
 			ManagedReference<BuildingObject*> build = cast<BuildingObject*>(parent->getParent().get().get());
@@ -257,7 +259,7 @@ bool GroundZoneContainerComponent::transferObject(SceneObject* sceneObject, Scen
 	return true;
 }
 
-bool GroundZoneContainerComponent::removeObject(SceneObject* sceneObject, SceneObject* object, SceneObject* destination, bool notifyClient) const {
+bool GroundZoneContainerComponent::removeObject(SceneObject* sceneObject, SceneObject* object, SceneObject* destination, bool notifyClient, bool nullifyParent) const {
 	Zone* zone = dynamic_cast<Zone*>(sceneObject);
 
 	if (object->isActiveArea())

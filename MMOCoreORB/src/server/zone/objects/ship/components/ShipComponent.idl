@@ -193,4 +193,9 @@ class ShipComponent extends Component {
 
 	@local
 	public abstract native string getAppearanceName(ShipObject ship);
+
+	@dirty
+	public boolean isShipComponentObject() {
+		return true;
+	}
 }

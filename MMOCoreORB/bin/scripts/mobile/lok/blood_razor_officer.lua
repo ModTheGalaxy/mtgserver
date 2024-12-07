@@ -39,17 +39,7 @@ blood_razor_officer = Creature:new {
 	lootGroups = {
 		{
 			groups = {
-				{group = "junk", chance = 3800000},
-				{group = "tailor_components", chance = 1000000},
-				{group = "color_crystals", chance = 400000},
-				{group = "power_crystals", chance = 400000},
-				{group = "melee_unarmed", chance = 600000},
-				{group = "melee_polearm", chance = 600000},
-				{group = "pistols", chance = 600000},
-				{group = "clothing_attachments", chance = 300000},
-				{group = "armor_attachments", chance = 300000},
-				{group = "bloodrazor_common", chance = 1500000},
-				{group = "wearables_uncommon", chance = 500000},
+				{group = "bloodrazor_tier_2", chance = 10000000}
 			}
 		}
 	},
@@ -60,7 +50,7 @@ blood_razor_officer = Creature:new {
 	secondaryWeapon = "unarmed",
 	conversationTemplate = "",
 	reactionStf = "@npc_reaction/slang",
-	
+
 	-- primaryAttacks and secondaryAttacks should be separate skill groups specific to the weapon type listed in primaryWeapon and secondaryWeapon
 	-- Use merge() to merge groups in creatureskills.lua together. If a weapon is set to "none", set the attacks variable to empty brackets
 	primaryAttacks = merge(pistoleermaster,pikemanmaster,tkamaster,brawlermaster,marksmanmaster),

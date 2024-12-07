@@ -153,6 +153,8 @@ void CreatureObjectImplementation::initializeMembers() {
 	performanceType = 0;
 	tradeTargetID = 0;
 
+	pilotTier = 0;
+
 	optionsBitmask = 0x80;
 
 	moodString = "neutral";
@@ -282,8 +284,11 @@ void CreatureObjectImplementation::finalize() {
 void CreatureObjectImplementation::sendToOwner(bool doClose) {
 	auto owner = this->owner.get();
 
-	if (owner == nullptr)
+	if (owner == nullptr) {
 		return;
+	}
+
+	// info(true) << getDisplayedName() << " sendToOwner -- START";
 
 	setMovementCounter(0);
 
@@ -305,8 +310,9 @@ void CreatureObjectImplementation::sendToOwner(bool doClose) {
 
 	if (rootParent != nullptr) {
 		rootParent->sendTo(asCreatureObject(), true);
-	} else
+	} else {
 		sendTo(asCreatureObject(), doClose);
+	}
 
 	CloseObjectsVector* vec = getCloseObjects();
 
@@ -334,10 +340,13 @@ void CreatureObjectImplementation::sendToOwner(bool doClose) {
 
 	}
 
-	if (group != nullptr)
+	if (group != nullptr) {
 		group->sendTo(asCreatureObject(), true);
+	}
 
 	owner->resetPacketCheckupTime();
+
+	// info(true) << getDisplayedName() << " sendToOwner -- COMPLETE";
 }
 
 void CreatureObjectImplementation::sendBaselinesTo(SceneObject* player) {
@@ -1268,28 +1277,37 @@ int CreatureObjectImplementation::addWounds(int type, int value, bool notifyClie
 		return 0;
 	}
 
-	if (isInvulnerable())
+	if (isInvulnerable()) {
 		return 0;
+	}
 
+	// Value we are returning from function
 	int returnValue = value;
 
+	// Current wounds value for the given HAM attribute
 	int currentValue = wounds.get(type);
 
+	// The expected new wound amount
 	int newValue = currentValue + value;
 
-	if (newValue < 0)
+	// New Wound value is less than zero return the negated currentValue
+	if (newValue < 0) {
 		returnValue = -currentValue;
+	}
 
-	if (newValue >= baseHAM.get(type))
+	if (newValue >= baseHAM.get(type)) {
 		returnValue = baseHAM.get(type) - 1 - currentValue;
+	}
 
-	if (value > 0 && asCreatureObject()->isPlayerCreature())
+	if (value > 0 && isPlayerCreature()) {
 		sendStateCombatSpam("cbt_spam", "wounded", 1, value, false);
+	}
 
 	setWounds(type, newValue, notifyClient);
 
-	if (doShockWounds)
+	if (doShockWounds) {
 		addShockWounds(1, true);
+	}
 
 	return returnValue;
 }
@@ -2059,10 +2077,13 @@ void CreatureObjectImplementation::updateSlopeMods(bool notifyClient) {
 }
 
 float CreatureObjectImplementation::getSlopeModPercent() const {
-	float slopeMod = ((float)getSkillMod("slope_move") / 50.0f) + slopeModPercent;
+	float slopeMove = getSkillMod("slope_move");
 
-	if (slopeMod > 1)
-		slopeMod = 1;
+	if (slopeMove > 50.f) {
+		slopeMove = 50.f;
+	}
+
+	float slopeMod = slopeMove / 50.0f;
 
 	return slopeMod;
 }
@@ -2188,7 +2209,7 @@ void CreatureObjectImplementation::notifyLoadFromDatabase() {
 		getZoneServer()->getPlayerManager()->fixHAM(asCreatureObject());
 		getZoneServer()->getPlayerManager()->fixBuffSkillMods(asCreatureObject());
         }
-  
+
 	for (int i = 0; i < creatureBuffs.getBuffListSize(); ++i) {
 		ManagedReference<Buff*> buff = creatureBuffs.getBuffByIndex(i);
 
@@ -2249,7 +2270,7 @@ void CreatureObjectImplementation::notifyInsert(TreeEntry* obj) {
 	if (linkedCreature != nullptr && linkedCreature->getParent() == asCreatureObject() && linkedCreature->getObjectID() != obj->getObjectID()) {
 #if DEBUG_COV
 		if (entryObject->isPlayerCreature())
-			info(true) << "linkedCreature: " << linkedCreature->getDisplayedName() << " -- proxy notifyInsert for - " << entryObject->getDisplayedName() << " ID: " << obj->getObjectID();
+			info(true) << "linkedCreature: " << linkedCreature->getDisplayedName() << " -- proxy notifyInsert for - " << entryObject->getDisplayedName() << " ID: " << entryObject->getObjectID() << " Template: " << entryObject->getObjectTemplate()->getAppearanceFilename();
 #endif // DEBUG_COV
 
 		if (linkedCreature->getCloseObjects() != nullptr) {
@@ -2258,6 +2279,8 @@ void CreatureObjectImplementation::notifyInsert(TreeEntry* obj) {
 
 		if (entryObject->getCloseObjects() != nullptr) {
 			entryObject->addInRangeObject(linkedCreature);
+		} else {
+			entryObject->notifyInsert(linkedCreature);
 		}
 	}
 }
@@ -2454,8 +2477,10 @@ void CreatureObjectImplementation::feignDeath() {
 	observerTypes.add(ObserverEventType::COMBATCOMMANDENQUEUED);
 
 	buff->init(&observerTypes);
+
 	buff->setSkillModifier("private_damage_divisor", 4);
 	buff->setSkillModifier("private_damage_multiplier", 5);
+
 	creo->addBuff(buff);
 
 	// forcePeace is a scheduledLambda in the CombatManager so should delay until combat action is complete
@@ -2572,8 +2597,7 @@ void CreatureObjectImplementation::setStunnedState(int durationSeconds) {
 
 		Locker blocker(multBuff);
 
-		multBuff->setSkillModifier("private_damage_divisor", 5);
-		multBuff->setSkillModifier("private_damage_multiplier", 4);
+		multBuff->setSkillModifier("private_damage_divisor_stun", 20);
 
 		addBuff(multBuff);
 	}
@@ -2628,7 +2652,7 @@ void CreatureObjectImplementation::setIntimidatedState(int durationSeconds) {
 
 		Locker blocker(multBuff);
 
-		multBuff->setSkillModifier("private_damage_divisor", 2);
+		multBuff->setSkillModifier("private_damage_divisor_intimidate", 50);
 
 		addBuff(multBuff);
 	}
@@ -2722,8 +2746,24 @@ void CreatureObjectImplementation::activateStateRecovery() {
 		clearState(CreatureState::POISONED);
 	if (isDiseased() && !damageOverTimeList.hasDot(CreatureState::DISEASED))
 		clearState(CreatureState::DISEASED);
-	if (isOnFire() && !damageOverTimeList.hasDot(CreatureState::ONFIRE))
-		clearState(CreatureState::ONFIRE);
+	if (isOnFire()) {
+		auto rootParent = getRootParent();
+
+		// Do not clear the fire state for players in POB's. The ship itself handles the DOT ticks
+		if (rootParent != nullptr && rootParent->isPobShip()) {
+			auto parent = getParent().get();
+
+			if (parent != nullptr && parent->isCellObject()) {
+				auto cellParent = parent.castTo<CellObject*>();
+
+				if (cellParent == nullptr || cellParent->getCellFireVariable() < 1.f) {
+					clearState(CreatureState::ONFIRE);
+				}
+			}
+		} else if (!damageOverTimeList.hasDot(CreatureState::ONFIRE)) {
+			clearState(CreatureState::ONFIRE);
+		}
+	}
 }
 
 void CreatureObjectImplementation::updateToDatabaseAllObjects(bool startTask) {
@@ -3392,6 +3432,8 @@ bool CreatureObjectImplementation::isAttackableBy(CreatureObject* creature, bool
 		if (ghost->isOnLoadScreen())
 			return false;
 
+		// info(true) << getDisplayedName() << " passed basic checks, entering faction checks";
+
 		// Get factions
 		uint32 thisFaction = getFaction();
 		uint32 creatureFaction = creature->getFaction();
@@ -3449,37 +3491,47 @@ bool CreatureObjectImplementation::isAttackableBy(CreatureObject* creature, bool
 		// PvP Attackable checks - both this creo and attacker are players
 		if (creature->isPlayerCreature()) {
 			// PvP Mode Config active, all players are attackable to one another
-			if (ConfigManager::instance()->getPvpMode())
+			if (ConfigManager::instance()->getPvpMode()) {
 				return true;
+			}
 
 			PlayerObject* targetGhost = creature->getPlayerObject();
 
-			if (targetGhost == nullptr)
+			if (targetGhost == nullptr) {
 				return false;
+			}
 
-			if (hasPersonalEnemyFlag(creature) && creature->hasPersonalEnemyFlag(asCreatureObject()))
+			// info(true) << creature->getDisplayedName() << " passed basic checks against " << getDisplayedName();
+
+			if (hasPersonalEnemyFlag(creature) && creature->hasPersonalEnemyFlag(asCreatureObject())) {
 				return true;
+			}
 
 			// Duel check & Bounty TEF return true even when players are grouped
 			bool areInDuel = (ghost->requestedDuelTo(creature) && targetGhost->requestedDuelTo(asCreatureObject()));
 
-			if (areInDuel)
+			if (areInDuel) {
 				return true;
+			}
 
-			if (creature->hasBountyMissionFor(asCreatureObject()) || (ghost->hasBhTef() && hasBountyMissionFor(creature)))
+			if (creature->hasBountyMissionFor(asCreatureObject()) || (ghost->hasBhTef() && hasBountyMissionFor(creature))) {
 				return true;
+			}
 
 			// Group prevents players being attackable to one another from Overt status
-			if (getGroupID() != 0 && getGroupID() == creature->getGroupID())
+			if (getGroupID() != 0 && getGroupID() == creature->getGroupID()) {
 				return false;
+			}
 
-			if (ghost->isInPvpArea(true) && targetGhost->isInPvpArea(true))
+			if (ghost->isInPvpArea(true) && targetGhost->isInPvpArea(true)) {
 				return true;
+			}
 
 			ManagedReference<GuildObject*> guildObject = guild.get();
 
-			if (guildObject != nullptr && guildObject->isInWaringGuild(creature))
+			if (guildObject != nullptr && guildObject->isInWaringGuild(creature)) {
 				return true;
+			}
 
 			// PvP Faction Checks - Superseded by TEF, duel, group and guild war checks
 			if (thisFaction == creatureFaction)
@@ -4075,14 +4127,15 @@ void CreatureObjectImplementation::removeOutOfRangeObjects() {
 		return;
 	}
 
-	auto closeObjectsVector = getCloseObjects();
-
-	if (closeObjectsVector == nullptr)
-		return;
-
 	auto ghost = getPlayerObject();
 
 	if (ghost == nullptr) {
+		return;
+	}
+
+	auto closeObjectsVector = getCloseObjects();
+
+	if (closeObjectsVector == nullptr) {
 		return;
 	}
 
@@ -4093,7 +4146,17 @@ void CreatureObjectImplementation::removeOutOfRangeObjects() {
 		return;
 	}
 
-	error() << "Player: " << getDisplayedName() << " ID: " << getObjectID() << " Reached Max COV Count: " << covSize;
+	auto zone = getZone();
+
+	auto message = error();
+	message <<
+	"Player: " << getDisplayedName() << " ID: " << getObjectID() << " Reached Max COV Count: " << covSize << endl <<
+	"Zone: " << (zone != nullptr ? zone->getZoneName() : "null") << endl <<
+	"Current Parent: " << getParentID() << endl <<
+	"Saved Zone: " << ghost->getSavedTerrainName() << endl <<
+	"Saved Parent: " << ghost->getSavedParentID() << endl <<
+	"World Position: " << getWorldPosition().toString();
+	message.flush();
 
 	ghost->setCountMaxCov(covSize);
 }
@@ -4366,4 +4429,32 @@ bool CreatureObjectImplementation::checkInConversationRange(SceneObject* targetO
 	int distanceToCheck = CONVERSATION_MAX_DISTANCE * CONVERSATION_MAX_DISTANCE;
 
 	return sqDistance < distanceToCheck;
+}
+
+void CreatureObjectImplementation::setQueueCommandDeltaTime(const String& commandName, const String& commandGroup) {
+	if (!isPlayerCreature()) {
+		return;
+	}
+
+	if (!commandName.isEmpty()) {
+		cooldownTimerMap->updateToCurrentTime(commandName + "_command_time");
+	}
+
+	if (!commandGroup.isEmpty()) {
+		cooldownTimerMap->updateToCurrentTime(commandGroup + "_command_time");
+	}
+}
+
+uint64 CreatureObjectImplementation::getQueueCommandDeltaTime(const String& commandName) {
+	if (!isPlayerCreature() || commandName.isEmpty()) {
+		return INT64_MAX;
+	}
+
+	auto commandTime = cooldownTimerMap->getTime(commandName + "_command_time");
+
+	if (commandTime == nullptr) {
+		return INT64_MAX;
+	}
+
+	return commandTime->miliDifference();
 }

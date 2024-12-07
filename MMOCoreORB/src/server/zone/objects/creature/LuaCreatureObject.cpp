@@ -20,6 +20,7 @@
 #include "server/zone/objects/transaction/TransactionLog.h"
 #include "server/zone/Zone.h"
 #include "server/zone/managers/combat/CombatManager.h"
+#include "server/zone/objects/player/events/StoreSpawnedChildrenTask.h"
 
 const char LuaCreatureObject::className[] = "LuaCreatureObject";
 
@@ -61,7 +62,11 @@ Luna<LuaCreatureObject>::RegType LuaCreatureObject::Register[] = {
 		{ "getWorldPositionZ", &LuaSceneObject::getWorldPositionZ },
 		{ "getParentID", &LuaSceneObject::getParentID },
 		{ "isInRangeWithObject", &LuaSceneObject::isInRangeWithObject },
+		{ "isInRangeWithObject3d", &LuaSceneObject::isInRangeWithObject3d },
 		{ "getDistanceTo", &LuaSceneObject::getDistanceTo },
+		{ "getDistanceToPosition", &LuaSceneObject::getDistanceToPosition },
+		{ "getDistanceTo3d", &LuaSceneObject::getDistanceTo3d },
+		{ "getDistanceToPosition3d", &LuaSceneObject::getDistanceToPosition3d },
 		{ "getServerObjectCRC", &LuaSceneObject::getServerObjectCRC },
 		{ "isFeigningDeath", &LuaCreatureObject::isFeigningDeath},
 		{ "hasState", &LuaCreatureObject::hasState},
@@ -159,6 +164,13 @@ Luna<LuaCreatureObject>::RegType LuaCreatureObject::Register[] = {
 		{ "attemptPeace", &LuaCreatureObject::attemptPeace },
 		{ "forcePeace", &LuaCreatureObject::forcePeace },
 		{ "isPilotingShip", &LuaCreatureObject::isPilotingShip },
+		{ "storePets", &LuaCreatureObject::storePets },
+		{ "isRebelPilot", &LuaCreatureObject::isRebelPilot },
+		{ "isImperialPilot", &LuaCreatureObject::isImperialPilot },
+		{ "isNeutralPilot", &LuaCreatureObject::isNeutralPilot },
+		{ "hasShips", &LuaCreatureObject::hasShips },
+		{ "incrementPilotTier", &LuaCreatureObject::incrementPilotTier },
+		{ "resetPilotTier", &LuaCreatureObject::resetPilotTier },
 		{ 0, 0 }
 };
 
@@ -493,10 +505,9 @@ int LuaCreatureObject::surrenderSkill(lua_State* L) {
 	String value = lua_tostring(L, -1);
 
 	SkillManager* skillManager = SkillManager::instance();
-	skillManager->surrenderSkill(value, realObject, true);
+	skillManager->surrenderSkill(value, realObject, true, true, true);
 	return 0;
 }
-
 
 int LuaCreatureObject::getInCellNumber(lua_State* L) {
 	SceneObject* parent = realObject->getParent().get().get();
@@ -1320,4 +1331,108 @@ int LuaCreatureObject::isPilotingShip(lua_State* L) {
 	lua_pushboolean(L, isPiloting);
 
 	return 1;
+}
+
+int LuaCreatureObject::storePets(lua_State* L) {
+	Locker lock(realObject);
+
+	ManagedReference<SceneObject*> datapad = realObject->getDatapad();
+
+	if (datapad == nullptr) {
+		return 0;
+	}
+
+	Vector<ManagedReference<ControlDevice*> > devicesToStore;
+
+	for (int i = 0; i < datapad->getContainerObjectsSize(); ++i) {
+		ManagedReference<SceneObject*> object = datapad->getContainerObject(i);
+
+		if (object == nullptr || !object->isPetControlDevice()) {
+			continue;
+		}
+
+		ControlDevice* device = cast<ControlDevice*>(object.get());
+
+		if (device == nullptr) {
+			continue;
+		}
+
+		devicesToStore.add(device);
+	}
+
+	StoreSpawnedChildrenTask* task = new StoreSpawnedChildrenTask(realObject, std::move(devicesToStore));
+
+	if (task != nullptr) {
+		task->execute();
+	}
+
+	return 0;
+}
+
+int LuaCreatureObject::isRebelPilot(lua_State* L) {
+	Locker lock(realObject);
+
+	bool check = realObject->hasSkill("pilot_rebel_navy_novice");
+
+	lua_pushboolean(L, check);
+
+	return 1;
+}
+
+int LuaCreatureObject::isImperialPilot(lua_State* L) {
+	Locker lock(realObject);
+
+	bool check = realObject->hasSkill("pilot_imperial_navy_novice");
+
+	lua_pushboolean(L, check);
+
+	return 1;
+}
+
+int LuaCreatureObject::isNeutralPilot(lua_State* L) {
+	Locker lock(realObject);
+
+	bool check = realObject->hasSkill("pilot_neutral_novice");
+
+	lua_pushboolean(L, check);
+
+	return 1;
+}
+
+int LuaCreatureObject::hasShips(lua_State* L) {
+	auto datapad = realObject->getDatapad();
+	bool hasShip = false;
+
+	if (datapad != nullptr) {
+		for(int i = 0; i < datapad->getContainerObjectsSize(); i++) {
+			ManagedReference<SceneObject*> object = datapad->getContainerObject(i);
+
+			if (object == nullptr || !object->isShipControlDevice()) {
+				continue;
+			}
+
+			hasShip = true;
+			break;
+		}
+	}
+
+	lua_pushboolean(L, hasShip);
+
+	return 1;
+}
+
+int LuaCreatureObject::incrementPilotTier(lua_State* L) {
+	Locker lock(realObject);
+
+	realObject->incrementPilotTier();
+
+	return 0;
+}
+
+int LuaCreatureObject::resetPilotTier(lua_State* L) {
+	Locker lock(realObject);
+
+	realObject->resetPilotTier();
+
+	return 0;
 }

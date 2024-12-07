@@ -34,22 +34,15 @@ class SharedShipObjectTemplate : public SharedTangibleObjectTemplate {
 	FloatParam chassisSpeed;
 	FloatParam chassisMass;
 
-	StringParam conversationTemplate;
-	StringParam conversationMobile;
-	StringParam conversationMessage;
 	StringParam shipDifficulty;
 	StringParam shipFaction;
 
 	VectorMap<String, Vector<Vector3>> sparkLocations;
 	VectorMap<String, Vector<Vector3>> launchLocations;
-
-	unsigned int shipBitmask;
-	uint64 customShipAiMap;
-	unsigned int pvpStatusBitmask;
+	VectorMap<int, uint32> plasmaConduitTypes;
 
 public:
 	SharedShipObjectTemplate() {
-
 	}
 
 	~SharedShipObjectTemplate() {
@@ -74,6 +67,10 @@ public:
 
 	const VectorMap<String, Vector<Vector3>>& getLaunchLocations() {
 		return launchLocations;
+	}
+
+	const VectorMap<int, uint32>& getPlasmaConduitTypes() {
+		return plasmaConduitTypes;
 	}
 
 	void readAttributeMap(LuaObject* templateData) {
@@ -162,6 +159,43 @@ public:
 			}
 		}
 		launchLoc.pop();
+
+		// Plasma Conduits
+		auto plasmaConduits = templateData->getObjectField("plasmaConduits");
+
+		if (plasmaConduits.isValidTable()) {
+			for (int i = 1; i <= plasmaConduits.getTableSize(); ++i) {
+				auto conduitTable = plasmaConduits.getObjectAt(i);
+
+				if (conduitTable.isValidTable()) {
+					// Get information for child object
+					String templateFile = conduitTable.getStringField("templateFile");
+
+					Vector3 position;
+					position.setX(conduitTable.getFloatField("x"));
+					position.setZ(conduitTable.getFloatField("z"));
+					position.setY(conduitTable.getFloatField("y"));
+
+					Quaternion direction;
+					direction.set(conduitTable.getFloatField("ow"), conduitTable.getFloatField("ox"), conduitTable.getFloatField("oy"), conduitTable.getFloatField("oz"));
+
+					int cellid = conduitTable.getIntField("cellid");
+					int containmentType = conduitTable.getIntField("containmentType");
+					int componentSlot = (int)conduitTable.getFloatField("componentSlot", -2.f);
+
+					ChildObject object(position, direction, templateFile, cellid, containmentType, componentSlot);
+
+					// Add conduit as child object so it is created
+					childObjects.add(object);
+
+					// Load the component type
+					plasmaConduitTypes.put(i, conduitTable.getIntField("componentDamageSlot"));
+
+					conduitTable.pop();
+				}
+			}
+		}
+		plasmaConduits.pop();
 	}
 
 	void readObject(LuaObject* templateData) {
@@ -186,16 +220,6 @@ public:
 
 		shipDifficulty = templateData->getStringField("difficulty");
 		shipFaction = templateData->getStringField("faction");
-
-		conversationTemplate = templateData->getStringField("conversationTemplate");
-		conversationMobile = templateData->getStringField("conversationMobile");
-		conversationMessage = templateData->getStringField("conversationMessage");
-
-		shipBitmask = templateData->getIntField("shipBitmask");
-		pvpStatusBitmask = templateData->getIntField("pvpStatusBitmask");
-
-		if (!templateData->getStringField("customShipAiMap").isEmpty())
-			customShipAiMap = templateData->getStringField("customShipAiMap").hashCode();
 
 		readAttributeMap(templateData);
 
@@ -340,18 +364,6 @@ public:
 		return hasWings;
 	}
 
-	inline const String& getConversationTemplate() const {
-		return conversationTemplate.get();
-	}
-
-	inline const String& getConversationMobile() const {
-		return conversationMobile.get();
-	}
-
-	inline const String& getConversationMessage() const {
-		return conversationMessage.get();
-	}
-
 	inline const String& getShipDifficulty() const {
 		return shipDifficulty.get();
 	}
@@ -366,18 +378,6 @@ public:
 
 	inline int getChassisLevel() const {
 		return chassisLevel.get();
-	}
-
-	inline uint32 getShipBitmask() const {
-		return shipBitmask;
-	}
-
-	inline uint32 getPvpBitmask() const {
-		return pvpStatusBitmask;
-	}
-
-	inline uint64 getCustomShipAiMap() {
-		return customShipAiMap;
 	}
 
 	void parseVariableData(const String& varName, Chunk* data) {

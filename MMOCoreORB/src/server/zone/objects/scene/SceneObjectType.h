@@ -101,6 +101,7 @@ public:
 	const static int GARAGEINSTALLATION = 0x1006;
 	const static int SHUTTLEINSTALLATION = 0x1007;
 	const static int COVERTSCANNER = 0x1008;
+	const static int TURRET = 0x1009;
 	/// End **************
 
 	const static int TANGIBLE = 0x2000;  // MISC
@@ -167,6 +168,8 @@ public:
 	const static int CONTRACTCRATE = 0x203B;
 	const static int DEADEYEPROTOTYPE = 0x203C;
 	const static int LIGHTOBJECT = 0x203D;
+	const static int SPACESPAWNER = 0x203E;
+	const static int CREDITCHIP = 0x203F;
 	/// End Not in client **************
 
 	const static int TERMINAL = 0x4000;
@@ -347,6 +350,8 @@ public:
 	const static int NAVMESHAREA = 0x200000C;
 	const static int SPACEACTIVEAREA = 0x200000D;
 	const static int NEBULAAREA = 0x200000E;
+	const static int SPACEREGIONAREA = 0x200000F;
+	const static int SPACESPAWNAREA = 0x2000010;
 
 	const static int SHIP = 0x20000000;
 	const static int SHIPFIGHTER = 0x20000001;
@@ -378,6 +383,10 @@ public:
 	const static int SHIPCOUNTERMEASURE = 0x4000000E;
 	const static int SHIPWEAPONLAUNCHER = 0x4000000F;
 	const static int SHIPCOUNTERMEASURELAUNCHER = 0x40000010;
+
+	// Not in client ************
+	const static int SHIPINTERIORCOMPONENT = 0x40000011;
+	const static int SHIPPLASMACONDUIT= 0x40000012;
 
 public:
 	static const String typeToString(int gameObjectType);

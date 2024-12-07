@@ -44,7 +44,7 @@ luthik_uwyr_missions =
 npcMapLuthikUwyr = 
 { 
 	{ 
-		spawnData = { npcTemplate = "luthik_uwyr", x = 4275.4, z = 8.2, y = 5351.4, direction = -110, cellID = 0, position = STAND }, 
+		spawnData = { npcTemplate = "luthik_uwyr", x = 4275.4, z = 8.2, y = 5351.4, direction = -110, cellID = 0, position = STAND, flags = AI_STATIC },
 		npcNumber = 1,   
 		stfFile = "@static_npc/dantooine/luthik_uwyr", 
 		missions = luthik_uwyr_missions 

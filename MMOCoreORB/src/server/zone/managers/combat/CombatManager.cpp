@@ -30,6 +30,7 @@
 #include "server/zone/packets/object/ShowFlyText.h"
 #include "server/zone/managers/frs/FrsManager.h"
 #include "server/zone/objects/intangible/PetControlDevice.h"
+#include "server/zone/objects/installation/TurretObject.h"
 
 #define COMBAT_SPAM_RANGE 85 // Range at which players will see Combat Log Info
 
@@ -1325,6 +1326,37 @@ float CombatManager::applyDamageModifiers(CreatureObject* attacker, WeaponObject
 	if (damageDivisor != 0)
 		damage /= damageDivisor;
 
+	// States Damage Reduction
+	float intimidateMod = attacker->getSkillMod("private_damage_divisor_intimidate");
+	float stunMod = attacker->getSkillMod("private_damage_divisor_stun");
+	float preDamage = damage;
+
+#ifdef DEBUG_STATE_REDUCTION
+	info(true) << "\n\nTotal Before Damage: " <<  damage << " Intimidate Mod: " << intimidateMod << " Stun Mod: " << stunMod;
+#endif // DEBUG_STATE_REDUCTION
+
+	if (intimidateMod > 0) {
+		damage -= (preDamage * (intimidateMod / 100.f));
+	}
+
+#ifdef DEBUG_STATE_REDUCTION
+	StringBuffer intimMsg;
+	intimMsg << (((preDamage * (intimidateMod / 100.f)) / preDamage) * 100.f);
+
+	info(true) << "Damage After Intimidate: " << damage << " Intimidate Reduction: " << ((intimidateMod > 0) ? intimMsg.toString() : "0") << "%";
+#endif // DEBUG_STATE_REDUCTION
+
+	if (stunMod > 0) {
+		damage -= (preDamage * (stunMod / 100.f));
+	}
+
+#ifdef DEBUG_STATE_REDUCTION
+	StringBuffer stunMsg;
+	stunMsg << (((preDamage * (stunMod / 100.f)) / preDamage) * 100.f);
+
+	info(true) << "Damage After Stun: " << damage << " Stun Reduction: " << ((stunMod > 0) ? stunMsg.toString() : "0") << "%\n\n";
+#endif // DEBUG_STATE_REDUCTION
+
 	return damage;
 }
 
@@ -2560,44 +2592,46 @@ int CombatManager::getArmorReduction(TangibleObject* attacker, WeaponObject* wea
 int CombatManager::getArmorTurretReduction(CreatureObject* attacker, TangibleObject* defender, int damageType) const {
 	int resist = 0;
 
-	if (defender != nullptr && defender->isTurret()) {
-		DataObjectComponentReference* data = defender->getDataObjectComponent();
+	if (defender == nullptr || !defender->isTurret()) {
+		return resist;
+	}
 
-		if (data != nullptr) {
-			TurretDataComponent* turretData = cast<TurretDataComponent*>(data->get());
+	auto turretDefender = cast<TurretObject*>(defender);
 
-			if (turretData != nullptr) {
-				switch (damageType) {
-				case SharedWeaponObjectTemplate::KINETIC:
-					resist = turretData->getKinetic();
-					break;
-				case SharedWeaponObjectTemplate::ENERGY:
-					resist = turretData->getEnergy();
-					break;
-				case SharedWeaponObjectTemplate::ELECTRICITY:
-					resist = turretData->getElectricity();
-					break;
-				case SharedWeaponObjectTemplate::STUN:
-					resist = turretData->getStun();
-					break;
-				case SharedWeaponObjectTemplate::BLAST:
-					resist = turretData->getBlast();
-					break;
-				case SharedWeaponObjectTemplate::HEAT:
-					resist = turretData->getHeat();
-					break;
-				case SharedWeaponObjectTemplate::COLD:
-					resist = turretData->getCold();
-					break;
-				case SharedWeaponObjectTemplate::ACID:
-					resist = turretData->getAcid();
-					break;
-				case SharedWeaponObjectTemplate::LIGHTSABER:
-					resist = turretData->getLightSaber();
-					break;
-				}
-			}
-		}
+	if (turretDefender == nullptr) {
+		return resist;
+	}
+
+	switch (damageType) {
+		case SharedWeaponObjectTemplate::KINETIC:
+			resist = turretDefender->getKinetic();
+			break;
+		case SharedWeaponObjectTemplate::ENERGY:
+			resist = turretDefender->getEnergy();
+			break;
+		case SharedWeaponObjectTemplate::ELECTRICITY:
+			resist = turretDefender->getElectricity();
+			break;
+		case SharedWeaponObjectTemplate::STUN:
+			resist = turretDefender->getStun();
+			break;
+		case SharedWeaponObjectTemplate::BLAST:
+			resist = turretDefender->getBlast();
+			break;
+		case SharedWeaponObjectTemplate::HEAT:
+			resist = turretDefender->getHeat();
+			break;
+		case SharedWeaponObjectTemplate::COLD:
+			resist = turretDefender->getCold();
+			break;
+		case SharedWeaponObjectTemplate::ACID:
+			resist = turretDefender->getAcid();
+			break;
+		case SharedWeaponObjectTemplate::LIGHTSABER:
+			resist = turretDefender->getLightSaber();
+			break;
+		default:
+			break;
 	}
 
 	return resist;
@@ -2617,15 +2651,11 @@ float CombatManager::getArmorPiercing(TangibleObject* defender, int armorPiercin
 	} else if (defender->isVehicleObject()) {
 		VehicleObject* vehicleDefender = cast<VehicleObject*>(defender);
 		armorReduction = vehicleDefender->getArmor();
-	} else {
-		DataObjectComponentReference* data = defender->getDataObjectComponent();
+	} else if (defender->isTurret()) {
+		auto turret = cast<TurretObject*>(defender);
 
-		if (data != nullptr) {
-			TurretDataComponent* turretData = cast<TurretDataComponent*>(data->get());
-
-			if (turretData != nullptr) {
-				armorReduction = turretData->getArmorRating();
-			}
+		if (turret != nullptr) {
+			armorReduction = turret->getArmorRating();
 		}
 	}
 
@@ -2635,103 +2665,121 @@ float CombatManager::getArmorPiercing(TangibleObject* defender, int armorPiercin
 		return pow(0.50, armorReduction - armorPiercing);
 }
 
-// Bomb Droid Detonation
+// Mine & Bomb Droid Detonation
+float CombatManager::doObjectDetonation(TangibleObject* attackerTanO, CreatureObject* defender, float damage, WeaponObject* weapon) const {
+	if (attackerTanO == nullptr || defender == nullptr) {
+		return 0;
+	}
 
-float CombatManager::doDroidDetonation(CreatureObject* droid, CreatureObject* defender, float damage) const {
 	if (defender->isInvulnerable()) {
 		return 0;
 	}
-	if (defender->isCreatureObject()) {
-		if (defender->isPlayerCreature())
-			damage *= 0.25;
-		// pikc a pool to target
+
+	int armorPiercing = 0;
+
+	if (weapon != nullptr) {
+		armorPiercing = weapon->getArmorPiercing();
+	}
+
+	// need to check armor reduction with just defender, blast and their AR + resists
+	if (defender->isVehicleObject()) {
+		auto defenderVehicle = cast<VehicleObject*>(defender);
+
+		if (defenderVehicle != nullptr) {
+			int armorResist = defenderVehicle->getBlast();
+
+			if (armorResist > 0) {
+				damage *= getArmorPiercing(defenderVehicle, armorPiercing);
+
+				damage *= (1.f - (armorResist / 100.f));
+			}
+		}
+	} else {
+		// Pick a random HAM pool
 		int pool = calculatePoolsToDamage(RANDOM);
-		// we now have damage to use lets apply it
-		float healthDamage = 0.f, actionDamage = 0.f, mindDamage = 0.f;
-		// need to check armor reduction with just defender, blast and their AR + resists
-		if (defender->isVehicleObject()) {
-			int ar = cast<VehicleObject*>(defender)->getBlast();
-			if (ar > 0)
-				damage *= (1.f - (ar / 100.f));
-			healthDamage = damage;
-			actionDamage = damage;
-			mindDamage = damage;
-		} else if (defender->isAiAgent()) {
-			int ar = cast<AiAgent*>(defender)->getBlast();
-			if (ar > 0)
-				damage *= (1.f - (ar / 100.f));
-			healthDamage = damage;
-			actionDamage = damage;
-			mindDamage = damage;
 
+		uint8 hitLocation = 0;
+		uint8 attribute = CreatureAttribute::HEALTH;
+
+		// Determine hitLocation
+		switch (pool) {
+			case HEALTH: {
+				static const uint8 bodyLocations[] = {HIT_BODY, HIT_BODY, HIT_LARM, HIT_RARM};
+				hitLocation = bodyLocations[System::random(3)];
+				break;
+			}
+			case ACTION: {
+				static const uint8 legLocations[] = {HIT_LLEG, HIT_RLEG};
+				hitLocation = legLocations[System::random(1)];
+				attribute = CreatureAttribute::ACTION;
+				break;
+			}
+			case MIND: {
+				hitLocation = HIT_HEAD;
+				attribute = CreatureAttribute::MIND;
+				break;
+			}
+			default:
+				break;
+		}
+
+		// Calculate agent armor reduction
+		if (defender->isAiAgent()) {
+			auto agent = defender->asAiAgent();
+
+			if (agent != nullptr) {
+				int armorResist = agent->getBlast();
+
+				if (armorResist > 0) {
+					damage *= getArmorPiercing(agent, armorPiercing);
+
+					damage *= (1.f - (armorResist / 100.f));
+				}
+			}
+		// Calculate player armor reduction
 		} else {
-			// player
-			static uint8 bodyHitLocations[] = {HIT_BODY, HIT_BODY, HIT_LARM, HIT_RARM};
-
-			ArmorObject* healthArmor = getArmorObject(defender, bodyHitLocations[System::random(3)]);
-			ArmorObject* mindArmor = getArmorObject(defender, HIT_HEAD);
-			ArmorObject* actionArmor = getArmorObject(defender, HIT_LLEG); // This hits both the pants and feet regardless
 			ArmorObject* psgArmor = getPSGArmor(defender);
+
+			// PSG Reduction
 			if (psgArmor != nullptr && !psgArmor->isVulnerable(SharedWeaponObjectTemplate::BLAST)) {
 				float armorReduction = psgArmor->getBlast();
-				if (armorReduction > 0)
+
+				damage *= getArmorPiercing(psgArmor, armorPiercing);
+
+				if (armorReduction > 0) {
 					damage *= (1.f - (armorReduction / 100.f));
+				}
 
-				Locker plocker(psgArmor);
+				Locker plocker(psgArmor, attackerTanO);
 
-				psgArmor->inflictDamage(psgArmor, 0, damage * 0.1, true, true);
+				psgArmor->inflictDamage(psgArmor, 0, damage * 0.2, true, true);
 			}
-			// reduced by psg not check each spot for damage
-			healthDamage = damage;
-			actionDamage = damage;
-			mindDamage = damage;
-			if (healthArmor != nullptr && !healthArmor->isVulnerable(SharedWeaponObjectTemplate::BLAST) && (pool & HEALTH)) {
-				float armorReduction = healthArmor->getBlast();
-				if (armorReduction > 0)
-					healthDamage *= (1.f - (armorReduction / 100.f));
 
-				Locker hlocker(healthArmor);
+			ManagedReference<ArmorObject*> armor = getArmorObject(defender, hitLocation);
 
-				healthArmor->inflictDamage(healthArmor, 0, healthDamage * 0.1, true, true);
-				return (int)healthDamage * 0.1;
-			}
-			if (mindArmor != nullptr && !mindArmor->isVulnerable(SharedWeaponObjectTemplate::BLAST) && (pool & MIND)) {
-				float armorReduction = mindArmor->getBlast();
-				if (armorReduction > 0)
-					mindDamage *= (1.f - (armorReduction / 100.f));
+			// Armor Reduction
+			if (armor != nullptr && !armor->isVulnerable(SharedWeaponObjectTemplate::BLAST)) {
+				float armorReduction = getArmorObjectReduction(armor, SharedWeaponObjectTemplate::BLAST);
 
-				Locker mlocker(mindArmor);
+				// use only the damage applied to the armor for piercing (after the PSG takes some off)
+				damage *= getArmorPiercing(armor, armorPiercing);
 
-				mindArmor->inflictDamage(mindArmor, 0, mindDamage * 0.1, true, true);
-				return (int)mindDamage * 0.1;
-			}
-			if (actionArmor != nullptr && !actionArmor->isVulnerable(SharedWeaponObjectTemplate::BLAST) && (pool & ACTION)) {
-				float armorReduction = actionArmor->getBlast();
-				if (armorReduction > 0)
-					actionDamage *= (1.f - (armorReduction / 100.f));
+				if (armorReduction > 0) {
+					damage *= (1.f - (armorReduction / 100.f));
+				}
 
-				Locker alocker(actionArmor);
+				// inflict condition damage
+				Locker alocker(armor, attackerTanO);
 
-				actionArmor->inflictDamage(actionArmor, 0, actionDamage * 0.1, true, true);
-				return (int)actionDamage * 0.1;
+				armor->inflictDamage(armor, 0, damage * 0.2, true, true);
 			}
 		}
-		if ((pool & ACTION)) {
-			defender->inflictDamage(droid, CreatureAttribute::ACTION, (int)actionDamage, true, true, false);
-			return (int)actionDamage;
-		}
-		if ((pool & HEALTH)) {
-			defender->inflictDamage(droid, CreatureAttribute::HEALTH, (int)healthDamage, true, true, false);
-			return (int)healthDamage;
-		}
-		if ((pool & MIND)) {
-			defender->inflictDamage(droid, CreatureAttribute::MIND, (int)mindDamage, true, true, false);
-			return (int)mindDamage;
-		}
-		return 0;
-	} else {
-		return 0;
+
+		// Apply the damage to the defender agent or player
+		defender->inflictDamage(attackerTanO, attribute, (int)damage, true, true, false);
 	}
+
+	return damage;
 }
 
 // Calculate Weapon Speed

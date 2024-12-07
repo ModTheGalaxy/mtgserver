@@ -59,6 +59,10 @@ void NebulaAreaImplementation::notifyEnter(SceneObject* sceneO) {
 	if (sceneO == nullptr || !sceneO->isShipObject())
 		return;
 
+#ifdef DEBUG_NEBULA_AREAS
+	info(true) << getAreaName() << " -- NebulaAreaImplementation::notifyEnter called for: " << sceneO->getDisplayedName();
+#endif // DEBUG_NEBULA_AREAS
+
 	SpaceActiveAreaImplementation::notifyEnter(sceneO);
 
 	auto shipObject = sceneO->asShipObject();
@@ -159,7 +163,7 @@ void NebulaAreaImplementation::shipLightningDamage(ShipObject* ship, const Vecto
 	closeObjects->safeCopyReceiversTo(closeCopy, CloseObjectsVector::SHIPTYPE);
 
 #ifdef DEBUG_NEBULA_AREAS
-	info(true) << "shipLightningDamage -- Total Nearby Objects: " << closeObjects.size() << " Start Point: " << startPoint.toString() << " Distance: " << distance;
+	info(true) << "shipLightningDamage -- Total Nearby Objects: " << closeObjects->size() << " Start Point: " << startPoint.toString() << " Distance: " << distance;
 #endif
 
 	Vector3 direction = endPoint - startPoint;
@@ -185,7 +189,7 @@ void NebulaAreaImplementation::shipLightningDamage(ShipObject* ship, const Vecto
 		Vector3 difference = targetPosition - startPoint;
 		float targetRadius = targetShip->getBoundingRadius() + LIGHTNING_DAMAGE_RAD;
 
-		float intersection = SpaceCollisionManager::getPointIntersection(direction, difference, targetRadius, distance);
+		float intersection = SpaceCollisionManager::instance()->getPointIntersection(direction, difference, targetRadius, distance);
 
 		if (intersection == SpaceCollisionManager::MISS) {
 			continue;
@@ -237,7 +241,7 @@ void NebulaAreaImplementation::shipLightningDamage(ShipObject* ship, const Vecto
 			}
 
 			if (deltaVector != nullptr) {
-				deltaVector->sendMessages(targetShip, targetShip->getPilot());
+				deltaVector->sendMessages(targetShip);
 			}
 
 		}, "LightningDamageTask", 1000);

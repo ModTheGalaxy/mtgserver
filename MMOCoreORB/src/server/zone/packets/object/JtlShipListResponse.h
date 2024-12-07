@@ -45,12 +45,8 @@ public:
 
 		auto travelPoint = planetManager->getNearestPlanetTravelPoint(player->getWorldPosition(), 128.f);
 
-		if (travelPoint == nullptr) {
-			return;
-		}
-
 		// If this is a blank string it will just show the ships not at this location
-		auto travelPointName = travelPoint->getPointName();
+		auto travelPointName = travelPoint != nullptr ? travelPoint->getPointName() : "";
 
 		VectorMap<uint64, String> shipMap;
 		int datapadSize = datapad->getContainerObjectsSize();
@@ -73,12 +69,12 @@ public:
 				continue;
 			}
 
-			if (shipDevice->getStoredCityName().isEmpty()) {
+			if (shipDevice->getParkingLocation().isEmpty()) {
 				Locker cLock(shipDevice, player);
-				shipDevice->setStoredCityName(travelPointName);
+				shipDevice->setParkingLocation(travelPointName);
 			}
 
-			shipMap.put(object->getObjectID(), shipDevice->getStoredCityName());
+			shipMap.put(object->getObjectID(), shipDevice->getParkingLocation());
 		}
 
 		insertInt(shipMap.size() +1); // Number of ships

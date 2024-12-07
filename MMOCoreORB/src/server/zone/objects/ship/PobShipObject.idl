@@ -11,8 +11,13 @@ import server.zone.objects.creature.CreatureObject;
 import system.util.Vector;
 import engine.util.u3d.Vector3;
 import server.zone.Zone;
+import server.zone.objects.ship.ai.ShipAiAgent;
+import system.thread.ReadWriteLock;
+import server.zone.objects.tangible.ship.interiorComponents.ShipInteriorComponent;
 
 include server.zone.objects.ship.ShipObject;
+import server.zone.objects.ship.events.PobCellDotTask;
+include system.lang.ref.Reference;
 include server.zone.TreeEntry;
 include templates.SharedObjectTemplate;
 include templates.tangible.ship.SharedShipObjectTemplate;
@@ -21,8 +26,20 @@ include server.zone.objects.ship.PlayerLaunchPoints;
 include server.zone.objects.ship.DamageSparkLocations;
 include server.zone.objects.cell.CellObject;
 include server.zone.objects.ship.ShipPermissionList;
+include server.zone.objects.tangible.TangibleObject;
+
 
 class PobShipObject extends ShipObject {
+	public static final unsigned int MAX_PLAYER_ITEMS = 100;
+
+	public static final int PLASMA_CONDUIT = -1;
+
+	public static final short DAMAGE_LOW = 1;
+	public static final short DAMAGE_HIGH = 2;
+
+	public static final int CELL_DOT_TICK = 2; // In seconds
+	public static final int CELL_DOT_MULTI = 100.f;
+
 	@dereferenced
 	protected VectorMap<string, CellObject> cellNameMap;
 
@@ -30,16 +47,41 @@ class PobShipObject extends ShipObject {
 	protected VectorMap<unsigned int, CellObject> cells;
 
 	@dereferenced
-	protected Vector<unsigned long> plasmaAlarms;
+	protected PlayerLaunchPoints launchPoints;
+
+	@dereferenced
+	protected ShipPermissionList shipPermissionList;
+
+	protected SceneObject shipLootBox;
 
 	@dereferenced
 	protected DamageSparkLocations sparkLocations;
 
 	@dereferenced
-	protected PlayerLaunchPoints launchPoints;
+	protected Vector<unsigned long> plasmaAlarms;
 
 	@dereferenced
-	protected ShipPermissionList shipPermissionList;
+	protected Vector<ShipInteriorComponent> interiorComponents;
+
+	@dereferenced
+	protected Vector<ShipInteriorComponent> plasmaConduits;
+
+	@dereferenced
+	protected transient ReadWriteLock intComponentsMutex;
+
+	@dereferenced
+	@local
+	protected VectorMap<unsigned long, int> damagedInteriorComponents;
+
+	@dereferenced
+	protected VectorMap<int, unsigned int> plasmaConduitTypes;
+
+	@rawTemplate(value = "uint32, float")
+	@dereferenced
+	protected VectorMap componentDamageVariables;
+
+	@dereferenced
+	protected transient Reference<PobCellDotTask> cellDotTask;
 
 	public PobShipObject() {
 		Logger.setLoggingName("PobShipObject");
@@ -49,9 +91,6 @@ class PobShipObject extends ShipObject {
 
 	@local
 	public native abstract void loadTemplateData(SharedObjectTemplate templateData);
-
-	@local
-	public native abstract void loadTemplateData(SharedShipObjectTemplate shipTemp);
 
 	@preLocked
 	public native void createChildObjects();
@@ -63,6 +102,12 @@ class PobShipObject extends ShipObject {
 	public native void notifyInsert(TreeEntry obj);
 
 	public native void notifyInsertToZone(Zone zone);
+
+	public native int notifyObjectInsertedToChild(SceneObject object, SceneObject child, SceneObject oldParent);
+	public native int notifyObjectRemovedFromChild(SceneObject object, SceneObject child);
+
+	@dirty
+	public native abstract void onEnter(CreatureObject player);
 
 	public native void updatePlayersInShip(boolean lightUpdate, boolean sendPackets = true);
 
@@ -120,6 +165,22 @@ class PobShipObject extends ShipObject {
 
 	public native void togglePlasmaAlarms();
 
+	public native void triggerInteriorDamage(int hitType, float damageVar);
+
+	public native void doInteriorEffect(Zone zone, CellObject cell, string randomCell, int count, int chance, @dereferenced  Vector<string> clientEffects, @dereferenced  Vector<float> damageEffects, int conduitChance);
+
+	@preLocked
+	public native boolean triggerCellDamageOverTime();
+
+	@preLocked
+	public native void checkPlasmaConduits();
+
+	@preLocked
+	public native void setComponentDamageVariable(unsigned int componentSlot);
+
+	@preLocked
+	public native void applyPobComponentDot();
+
 	@dirty
 	@nativeStub
 	@local
@@ -143,10 +204,19 @@ class PobShipObject extends ShipObject {
 	@dirty
 	public native int getCurrentNumberOfPlayerItems();
 
+	@dirty
+	public abstract unsigned int getMaximumNumberOfPlayerItems() {
+		return MAX_PLAYER_ITEMS;
+	}
+
 	/**
 	 * Loops through all the cells, destroying items from the database that aren't contained in the child objects vector.
 	 */
 	public native void destroyAllPlayerItems();
+
+	@preLocked
+	@arg1preLocked
+	public abstract native void awardLootItems(ShipAiAgent destructedShip, int payout);
 
 	@dirty
 	public CellObject getCell(int idx) {
@@ -201,7 +271,6 @@ class PobShipObject extends ShipObject {
 		return shipPermissionList.isOnPermissionList(listName, objectID);
 	}
 
-
 	@read
 	public int getTotalPlasmaAlarms() {
 		return plasmaAlarms.size();
@@ -210,4 +279,10 @@ class PobShipObject extends ShipObject {
 	public unsigned long getPlasmaAlarms(int idx) {
 		return plasmaAlarms.get(idx);
 	}
+
+	public native void addDamagedInteriorComponent(unsigned long interiorComponentID, int type);
+
+	public native void removeDamagedInteriorComponent(unsigned long interiorComponentID);
+
+	public native boolean hasActivePlasmaLeaks();
 }

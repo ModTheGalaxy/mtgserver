@@ -33,12 +33,7 @@ black_sun_smuggler = Creature:new {
 	lootGroups = {
 		{
 			groups = {
-				{group = "junk", chance = 6500000},
-				{group = "pistols", chance = 800000},
-				{group = "rifles", chance = 800000},
-				{group = "carbines", chance = 800000},
-				{group = "wearables_common", chance = 550000},
-				{group = "wearables_uncommon", chance = 550000}
+				{group = "rori_death_watch_tier_1", chance = 10000000}
 			}
 		}
 	},
@@ -48,7 +43,7 @@ black_sun_smuggler = Creature:new {
 	primaryWeapon = "pirate_weapons_heavy",
 	secondaryWeapon = "unarmed",
 	conversationTemplate = "",
-	
+
 	-- primaryAttacks and secondaryAttacks should be separate skill groups specific to the weapon type listed in primaryWeapon and secondaryWeapon
 	-- Use merge() to merge groups in creatureskills.lua together. If a weapon is set to "none", set the attacks variable to empty brackets
 	primaryAttacks = merge(bountyhuntermid,smugglermid,marksmanmaster,brawlermaster),

@@ -13,6 +13,7 @@
 #include "server/zone/objects/tangible/threat/ThreatMapObserver.h"
 #include "server/zone/objects/creature/variables/CooldownTimerMap.h"
 #include "server/zone/objects/tangible/weapon/WeaponObject.h"
+#include "server/zone/objects/ship/ShipObject.h"
 
 namespace server {
 namespace zone {
@@ -159,7 +160,7 @@ public:
 	}
 };
 
-class ThreatMap : public VectorMap<ManagedReference<TangibleObject*>, ThreatMapEntry> {
+class ThreatMap : public VectorMap<ManagedReference<TangibleObject*>, ThreatMapEntry>, public Logger {
 public:
 	/// Time between normal target evaluation
 	enum { EVALUATIONCOOLDOWN = 24000 };
@@ -173,13 +174,13 @@ protected:
 	Mutex lockMutex;
 
 public:
-	ThreatMap(TangibleObject* me) : VectorMap<ManagedReference<TangibleObject*>, ThreatMapEntry>(1, 0) {
+	ThreatMap(TangibleObject* me) : VectorMap<ManagedReference<TangibleObject*>, ThreatMapEntry>(1, 0), Logger() {
 		self = me;
 		currentThreat = nullptr;
 		setNoDuplicateInsertPlan();
 	}
 
-	ThreatMap(const ThreatMap& map) : VectorMap<ManagedReference<TangibleObject*>, ThreatMapEntry>(map), lockMutex() {
+	ThreatMap(const ThreatMap& map) : VectorMap<ManagedReference<TangibleObject*>, ThreatMapEntry>(map), Logger(), lockMutex() {
 		setNoDuplicateInsertPlan();
 		self = map.self;
 		currentThreat = map.currentThreat;
@@ -222,6 +223,9 @@ public:
 
 	CreatureObject* getHighestDamagePlayer();
 	CreatureObject* getHighestDamageGroupLeader();
+
+	ShipObject* getHighestDamagePlayerShip();
+	ShipObject* getHighestDamageGroupShip();
 
 	TangibleObject* getHighestThreatAttacker();
 	uint32 getTotalDamage();

@@ -30,7 +30,13 @@ namespace ship {
 		int getPilotID(lua_State* L);
 		int getOwner(lua_State* L);
 		int getOwnerID(lua_State* L);
-
+		int scheduleDestroyShipTask(lua_State* L);
+		int ejectPassenger(lua_State* L);
+		int canBePilotedBy(lua_State* L);
+		int hasUpperTurret(lua_State* L);
+		int hasLowerTurret(lua_State* L);
+		int isUpperTurretFunctional(lua_State* L);
+		int isLowerTurretFunctional(lua_State* L);
 	private:
 		ShipObject* realObject;
 	};

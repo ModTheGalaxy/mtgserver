@@ -893,3 +893,67 @@ bool CollisionManager::checkLineOfSightInParentCell(SceneObject* object, Vector3
 
 	return true;
 }
+
+float CollisionManager::getPointIntersection(const Vector3& rayStart, const Vector3& rayEnd, const Vector3& point, float radius, float distance) {
+	Vector3 direction = rayEnd - rayStart;
+	Vector3 difference = point - rayStart;
+
+	float dotProduct = difference.dotProduct(direction);
+	float sqrDistance = distance * distance;
+	float sqrRadius = radius * radius;
+
+	if (dotProduct < -sqrRadius || dotProduct > (sqrRadius + sqrDistance)) {
+		return FLT_MAX;
+	}
+
+	float intersection = dotProduct >= sqrDistance ? 1.f : dotProduct > 0.f ? dotProduct / sqrDistance : 0.f;
+	Vector3 position = intersection >= 1.f ? direction : intersection > 0.f ? direction * intersection : Vector3::ZERO;
+
+	float sqrDifference = difference.squaredDistanceTo(position);
+
+	if (sqrDifference > sqrRadius) {
+		return FLT_MAX;
+	}
+
+	return intersection;
+}
+
+float CollisionManager::getAppearanceIntersection(SceneObject* target, const Vector3& rayStart, const Vector3& rayEnd, float radius, float distance) {
+	auto appearance = target->getAppearanceTemplate();
+
+	if (appearance == nullptr) {
+		return FLT_MAX;
+	}
+
+	Ray ray = getAxisAlignedRay(target, rayStart, rayEnd, distance);
+
+	SortedVector<IntersectionResult> results;
+	appearance->intersects(ray, distance + radius, results);
+
+	float intersection = FLT_MAX;
+
+	if (results.size() > 0) {
+		intersection = Math::max(results.getUnsafe(0).getIntersectionDistance() - radius, 0.f) / Math::max(distance, 1.f);
+	}
+
+	return intersection;
+}
+
+Ray CollisionManager::getAxisAlignedRay(SceneObject* target, const Vector3& rayStart, const Vector3& rayEnd, float distance) {
+	const Vector3& position = target->getPosition();
+
+	Matrix4 rotation;
+	rotation.setRotationMatrix(target->getDirection()->toMatrix3());
+
+	float inverseDistance = 1.f / distance;
+
+	Vector3 localStart = getAxisAlignedVector(rayStart - position, rotation);
+	Vector3 localEnd = getAxisAlignedVector(rayEnd - position, rotation);
+	Vector3 localDirection = (localEnd - localStart) * inverseDistance;
+
+	return Ray(localStart, localDirection);
+}
+
+Vector3 CollisionManager::getAxisAlignedVector(const Vector3& position, const Matrix4& rotation) {
+	return Vector3(position.getX(), position.getZ(), position.getY()) * rotation;
+}

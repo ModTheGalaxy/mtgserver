@@ -117,8 +117,9 @@ NabooTheedScreenPlay = CityScreenPlay:new {
 		{"informant_npc_lvl_1",0,-5436,6,4133,0,0, ""},
 		{"informant_npc_lvl_1",0,-5369,6,4178,0,0, ""},
 		{"informant_npc_lvl_1",0,-5477,6,4089,0,0, ""},
-		{"j1_po", 1, -4859, 6, 4156, 18, 0, ""},
-		{"kulton_woodle", 1, -4857.1, 6, 4155.7, 299, 0, ""},
+		{"j1_po", 1, -4859, 6, 4156, 18, 0, "neutral"},
+		{"kulton_woodle", 1, -4857.1, 6, 4155.7, 299, 0, "neutral"},
+		{"landau", 1, -5516.19, 6, 4404.77, 145, 0, "npc_imperial"},
 
 		{"junk_dealer", 0, -5884.3, 6, 4214.3, 83, 0, ""},
 
@@ -192,7 +193,17 @@ NabooTheedScreenPlay = CityScreenPlay:new {
 		{"chassis_dealer",60,-1.0,0.7,-72.2,50,1692101, "neutral"},
 		{"commoner_naboo", 60, -23.0, 0.7, -70.5, 190, 1692102, "conversation"},
 		{"commoner_naboo", 60, -24.1, 0.7, -71.7, 35, 1692102, "conversation"},
-		{"commoner_naboo", 60, -22.5, 0.7, -72.0, 350, 1692102, "conversation"}
+		{"commoner_naboo", 60, -22.5, 0.7, -72.0, 350, 1692102, "conversation"},
+
+		--Theed Palace
+		{"dinge", 60, 0.80, 12.01, 6.36, 0, 1688859, "neutral"},
+		{"kaydine", 60, 1.29, 21.0, -44.28, 1, 1688860, "neutral"},
+		{"dulios", 60, 40.41, 33.0, -93.75, -90, 1688867, "neutral"},
+		{"diness_imler", 60, -45.66, 33.0, -93.9, 90, 1688873, "neutral"},
+
+		{"nial_declann", 60, 30.37, 23.0, -32.39, -90, 1688861, "npc_imperial"},
+		{"tk_8h2", 60, 29.11, 23.0, -30.59, -129, 1688861, ""},
+		{"tk_9h4", 60, 29.34, 23.00, -34.46, -60, 1688861, ""}
 	}
 }
 
@@ -212,6 +223,10 @@ function NabooTheedScreenPlay:spawnSceneObjects()
 	--outside starport
 	spawnSceneObject(self.planet, "object/tangible/crafting/station/public_space_station.iff", -4830.96, 6, 4141.53, 0, math.rad(-140) )
 	spawnSceneObject(self.planet, "object/tangible/crafting/station/public_space_station.iff", -4886.07, 6, 4188.23, 0, math.rad(-140) )
+
+	-- Imperial Banners Near Commander Landau - Imperial JTL Coordinator
+	spawnSceneObject(self.planet, "object/tangible/gcw/flip_banner_onpole_imperial.iff", -5518.5, 6.0, 4406.1, 0, math.rad(-20))
+	spawnSceneObject(self.planet, "object/tangible/gcw/flip_banner_onpole_imperial.iff", -5515.0, 6.0, 4406.6, 0, 0)
 end
 
 function NabooTheedScreenPlay:spawnMobiles()

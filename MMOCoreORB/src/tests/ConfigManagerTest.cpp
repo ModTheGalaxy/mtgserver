@@ -82,8 +82,10 @@ TEST_F(ConfigManagerTest, TreFiles) {
 	auto treFilesToLoad = configManager->getTreFiles();
 	ASSERT_TRUE(treFilesToLoad.size() != 0);
 
+	auto latestTreFile = configManager->getLatestTre();
+
 	// Make sure it's not sorted
-	ASSERT_TRUE(treFilesToLoad.get(0) == "mtg_patch_023.tre"); // Top tre in config.lua goes here.
+	ASSERT_TRUE(treFilesToLoad.get(0) == latestTreFile);
 
 	std::cerr << "[>>>>>>>>>>] TreFiles = { '";
 

@@ -41,6 +41,7 @@ import server.zone.managers.auction.AuctionManager;
 import server.zone.managers.mission.MissionManager;
 import server.zone.managers.stringid.StringIdManager;
 import server.zone.managers.creature.CreatureTemplateManager;
+import server.zone.managers.ship.ShipAgentTemplateManager;
 import server.zone.managers.creature.DnaManager;
 import server.zone.managers.creature.PetManager;
 import server.zone.managers.guild.GuildManager;
@@ -84,13 +85,15 @@ class ZoneServer extends ManagedService implements Logger {
 
 	private transient CreatureTemplateManager creatureTemplateManager;
 
+	private transient ShipAgentTemplateManager shipAgentTemplateManager;
+
 	private transient DnaManager dnaManager;
 
-	private int totalSentPackets;
+	private unsigned long totalSentPackets;
 
 	private int serverCap;
 
-	private int totalResentPackets;
+	private unsigned long totalResentPackets;
 
 	@dereferenced
 	private AtomicInteger currentPlayers;
@@ -124,7 +127,8 @@ class ZoneServer extends ManagedService implements Logger {
 	// The range of objects kept within closeObjects vectors.
 	// Changing this will have a large impact on performance.
 	public static final float CLOSEOBJECTRANGE = 192;
-	public static final float SPACEOBJECTRANGE = 10240;
+	public static final float SPACECLOSEOBJECTRANGE = 2048;
+	public static final float SPACESTATIONRANGE = 32768;
 
 	public native ZoneServer(ConfigManager config);
 
@@ -169,10 +173,10 @@ class ZoneServer extends ManagedService implements Logger {
 	public native boolean handleError(ZoneClientSession client, @dereferenced Exception e);
 
 	@dirty
-	public native void addTotalSentPacket(int count);
+	public native void addTotalSentPacket(unsigned int count);
 
 	@dirty
-	public native void addTotalResentPacket(int count);
+	public native void addTotalResentPacket(unsigned int count);
 
 	@dirty
 	public native void printInfo();

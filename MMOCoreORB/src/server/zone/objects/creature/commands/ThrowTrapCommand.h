@@ -1,5 +1,5 @@
 /*
- 				Copyright <SWGEmu>
+				Copyright <SWGEmu>
 		See file COPYING for copying conditions. */
 
 #ifndef THROWTRAPCOMMAND_H_
@@ -8,17 +8,12 @@
 #include "server/zone/objects/creature/events/ThrowTrapTask.h"
 #include "templates/tangible/TrapTemplate.h"
 
-class ThrowTrapCommand: public CombatQueueCommand {
+class ThrowTrapCommand : public CombatQueueCommand {
 public:
-
-	ThrowTrapCommand(const String& name, ZoneProcessServer* server) :
-		CombatQueueCommand(name, server) {
-
+	ThrowTrapCommand(const String& name, ZoneProcessServer* server) : CombatQueueCommand(name, server) {
 	}
 
-	int doQueueCommand(CreatureObject* creature, const uint64& target,
-			const UnicodeString& arguments) const {
-
+	int doQueueCommand(CreatureObject* creature, const uint64& target, const UnicodeString& arguments) const {
 		if (!checkStateMask(creature))
 			return INVALIDSTATE;
 
@@ -26,6 +21,7 @@ public:
 			return INVALIDLOCOMOTION;
 
 		int skillLevel = creature->getSkillMod("trapping");
+
 		if (skillLevel < 1 || !creature->hasSkill("outdoors_scout_novice")) {
 			creature->sendSystemMessage("@trap/trap:trap_no_skill");
 			return GENERALERROR;
@@ -33,54 +29,85 @@ public:
 
 		StringTokenizer tokenizer(arguments.toString());
 
-		if (!tokenizer.hasMoreTokens())
+		if (!tokenizer.hasMoreTokens()) {
 			return INVALIDPARAMETERS;
+		}
+
+		auto zoneServer = server->getZoneServer();
+
+		if (zoneServer == nullptr) {
+			return GENERALERROR;
+		}
 
 		try {
+			// Check for pending cooldowns
+			const Time* cooldown = creature->getCooldownTime("throwtrap");
 
-			uint64 trapId = tokenizer.getLongToken();
-			ManagedReference<TangibleObject*> trap =
-					server->getZoneServer()->getObject(trapId).castTo<TangibleObject*>();
-
-			if (trap == nullptr)
-				return INVALIDPARAMETERS;
-
-			if (!trap->isTrapObject())
-				return INVALIDPARAMETERS;
-
-			if (!trap->isASubChildOf(creature))
+			if ((cooldown != nullptr && !cooldown->isPast()) || creature->getPendingTask("throwtrap") != nullptr) {
+				creature->sendSystemMessage("@trap/trap:sys_not_ready");
 				return GENERALERROR;
+			}
 
-			ManagedReference<CreatureObject*> targetCreature =
-					server->getZoneServer()->getObject(target).castTo<CreatureObject*>();
+			// Get trap to be used
+			uint64 trapId = tokenizer.getLongToken();
 
-			if (targetCreature == nullptr || !targetCreature->isCreature()) {
+			ManagedReference<TangibleObject*> trap = zoneServer->getObject(trapId).castTo<TangibleObject*>();
+
+			if (trap == nullptr || !trap->isTrapObject() || !trap->isASubChildOf(creature)) {
+				return GENERALERROR;
+			}
+
+			ManagedReference<SceneObject*> targetObject = zoneServer->getObject(target);
+
+			if (targetObject == nullptr || !targetObject->isAiAgent()) {
+				return INVALIDTARGET;
+			}
+
+			// Get trap target agent
+			auto targetAgent = targetObject->asAiAgent();
+
+			if (targetAgent == nullptr) {
+				return GENERALERROR;
+			}
+
+			if (targetAgent->isDead() || !targetAgent->isAttackableBy(creature)) {
+				return INVALIDTARGET;
+			}
+
+			// Check for validity of target
+			if (targetAgent->isPet()) {
+				creature->sendSystemMessage("@trap/trap:sys_no_pets");
+				return GENERALERROR;
+			} else if (!targetAgent->isCreature() || !targetAgent->isMonster()) {
 				creature->sendSystemMessage("@trap/trap:sys_creatures_only");
 				return GENERALERROR;
 			}
 
-			if (!targetCreature->isAttackableBy(creature) || targetCreature->isPet()) {
-				creature->sendSystemMessage("@trap/trap:sys_no_pets");
+			// Trapping skill mod check
+			int trappingSkill = creature->getSkillMod("trapping");
+
+			// Player is not able to use traps
+			if (trappingSkill < 1) {
+				creature->sendSystemMessage("@trap/trap:trap_no_skill");
 				return GENERALERROR;
 			}
 
-			SharedObjectTemplate* templateData =
-					TemplateManager::instance()->getTemplate(
-							trap->getServerObjectCRC());
+			SharedObjectTemplate* templateData = TemplateManager::instance()->getTemplate(trap->getServerObjectCRC());
+
 			if (templateData == nullptr) {
 				error("No template for: " + String::valueOf(trap->getServerObjectCRC()));
 				return GENERALERROR;
 			}
 
-			TrapTemplate* trapData = cast<TrapTemplate*> (templateData);
+			TrapTemplate* trapData = cast<TrapTemplate*>(templateData);
+
 			if (trapData == nullptr) {
 				error("No TrapTemplate for: " + String::valueOf(trap->getServerObjectCRC()));
 				return GENERALERROR;
 			}
 
-			/// Check Range
-			if(!checkDistance(creature, targetCreature, trapData->getMaxRange()))
-			{
+			// Check Range
+			if (!checkDistance(creature, targetAgent, trapData->getMaxRange())) {
 				StringIdChatParameter tooFar("cmd_err", "target_range_prose");
 				tooFar.setTO("Throw Trap");
 
@@ -88,108 +115,23 @@ public:
 				return GENERALERROR;
 			}
 
-			int effectType = 0;
-
-			// No skill Check
-			int trappingSkill = creature->getSkillMod("trapping");
-			if(trappingSkill < 1) {
-				creature->sendSystemMessage("@trap/trap:trap_no_skill");
-				return GENERALERROR;
-			}
-
-			/// Skill too low check
-			if(trappingSkill < trapData->getSkillRequired()) {
+			// Skill too low check
+			if (trappingSkill < trapData->getSkillRequired()) {
 				creature->sendSystemMessage("@trap/trap:trap_no_skill_this");
 				return GENERALERROR;
 			}
 
-			int targetDefense = targetCreature->getSkillMod(trapData->getDefenseMod());
-			const Time* cooldown = creature->getCooldownTime("throwtrap");
-			if((cooldown != nullptr && !cooldown->isPast()) ||
-					creature->getPendingTask("throwtrap") != nullptr) {
-				creature->sendSystemMessage("@trap/trap:sys_not_ready");
+			Reference<ThrowTrapTask*> trapTask = new ThrowTrapTask(creature, targetAgent, trap);
+
+			if (trapTask == nullptr) {
 				return GENERALERROR;
 			}
 
-			int attackRoll = System::random(199) + 1;
-			int defendRoll = System::random(199) + 1;
-
-			float hitChance = CombatManager::instance()->hitChanceEquation(trappingSkill + attackRoll, targetDefense + defendRoll);
-
-			if (hitChance > 100)
-				hitChance = 100.0;
-			else if (hitChance < 0)
-				hitChance = 0;
-
-			int roll = System::random(100);
-			uint64 state = trapData->getState();
-			bool hit = roll < hitChance && (state == 0 || (state != 0 && !targetCreature->hasState(state)));
-
-			String animation = trapData->getAnimation();
-			uint32 crc = String(animation).hashCode();
-			CombatAction* action = new CombatAction(creature, targetCreature, crc, hit, 0L);
-			creature->broadcastMessage(action, true);
-			creature->addCooldown("throwtrap", 1500);
-
-			Locker clocker(trap, creature);
-
-			trap->decreaseUseCount();
-
-			StringIdChatParameter message;
-			ManagedReference<Buff*> buff = nullptr;
-			int damage = 0;
-
-			if (hit) {
-
-				message.setStringId("trap/trap" , trapData->getSuccessMessage());
-
-				buff = new Buff(targetCreature, crc, trapData->getDuration(), BuffType::STATE);
-
-				Locker locker(buff);
-
-				if(state != 0)
-					buff->addState(state);
-
-				const auto skillMods = trapData->getSkillMods();
-				for(int i = 0; i < skillMods->size(); ++i) {
-					buff->setSkillModifier(skillMods->elementAt(i).getKey(), skillMods->get(i));
-				}
-
-				String startSpam = trapData->getStartSpam();
-				if(!startSpam.isEmpty())
-					buff->setStartFlyText("trap/trap", startSpam,  0, 0xFF, 0);
-
-				String stopSpam = trapData->getStopSpam();
-				if(!stopSpam.isEmpty())
-					buff->setEndFlyText("trap/trap", stopSpam,  0xFF, 0, 0);
-
-				damage = System::random(trapData->getMaxDamage() - trapData->getMinDamage()) + trapData->getMinDamage();
-
-			} else {
-				if(!trapData->getFailMessage().isEmpty()) {
-					message.setStringId("trap/trap" , trapData->getFailMessage());
-				}
-			}
-
-			message.setTT(targetCreature->getDisplayedName());
-
-
-			Reference<ThrowTrapTask*> trapTask = new ThrowTrapTask(creature, targetCreature, buff, message, trapData->getPoolToDamage(), damage, hit);
-			creature->addPendingTask("throwtrap", trapTask, 2300);
-
-			//Reduce cost based upon player's strength, quickness, and focus if any are over 300
-			int healthCost = creature->calculateCostAdjustment(CreatureAttribute::STRENGTH, trapData->getHealthCost());
-			int actionCost = creature->calculateCostAdjustment(CreatureAttribute::QUICKNESS, trapData->getActionCost());
-			int mindCost = creature->calculateCostAdjustment(CreatureAttribute::FOCUS, trapData->getMindCost());
-
-			creature->inflictDamage(creature, CreatureAttribute::HEALTH, healthCost, false);
-			creature->inflictDamage(creature, CreatureAttribute::ACTION, actionCost, false);
-			creature->inflictDamage(creature, CreatureAttribute::MIND, mindCost, false);
+			creature->addPendingTask("throwtrap", trapTask, 2000);
 
 			return SUCCESS;
-
 		} catch (Exception& e) {
-
+			e.printStackTrace();
 		}
 
 		return GENERALERROR;
@@ -198,7 +140,6 @@ public:
 	float getCommandDuration(CreatureObject* object, const UnicodeString& arguments) const {
 		return defaultTime;
 	}
-
 };
 
-#endif //THROWTRAPCOMMAND_H_
+#endif // THROWTRAPCOMMAND_H_

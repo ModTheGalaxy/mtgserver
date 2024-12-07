@@ -9,6 +9,7 @@ public:
 		STATIC,
 		UNIFORM,
 		DYNAMIC,
+		NORMAL,
 		SIZE,
 	};
 
@@ -17,6 +18,7 @@ public:
 			case RandomType::STATIC: return "static";
 			case RandomType::UNIFORM: return "uniform";
 			case RandomType::DYNAMIC: return "dynamic";
+			case RandomType::NORMAL: return "normal";
 			default: return "null";
 		}
 	}
@@ -149,6 +151,13 @@ public:
 			}
 		}
 
+		if (objectType == SceneObjectType::COMPONENT) {
+			switch (attributeCRC) {
+				case String::hashCode("usecount"):						return RandomType::UNIFORM;
+				default:												return RandomType::STATIC;
+			}
+		}
+
 		return RandomType::STATIC;
 	}
 
@@ -206,6 +215,13 @@ public:
 			switch (attributeCRC) {
 				case String::hashCode("quantity"):						return RandomType::UNIFORM;
 				default:												return RandomType::STATIC;
+			}
+		}
+
+		if (objectType & SceneObjectType::SHIPATTACHMENT) {
+			switch (attributeCRC) {
+				case String::hashCode("reverseengineeringlevel"):		return RandomType::STATIC;
+				default:												return RandomType::NORMAL;
 			}
 		}
 

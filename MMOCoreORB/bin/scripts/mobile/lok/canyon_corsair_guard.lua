@@ -38,16 +38,7 @@ canyon_corsair_guard = Creature:new {
 	lootGroups = {
 		{
 			groups = {
-				{group = "junk", chance = 4100000},
-				{group = "tailor_components", chance = 1000000},
-				{group = "color_crystals", chance = 400000},
-				{group = "power_crystals", chance = 400000},
-				{group = "melee_two_handed", chance = 600000},
-				{group = "carbines", chance = 600000},
-				{group = "pistols", chance = 600000},
-				{group = "clothing_attachments", chance = 400000},
-				{group = "armor_attachments", chance = 400000},
-				{group = "canyon_corsair_common", chance = 1500000}
+				{group = "canyon_corsair_tier_1", chance = 10000000}
 			}
 		}
 	},
@@ -58,7 +49,7 @@ canyon_corsair_guard = Creature:new {
 	secondaryWeapon = "unarmed",
 	conversationTemplate = "",
 	reactionStf = "@npc_reaction/slang",
-	
+
 	-- primaryAttacks and secondaryAttacks should be separate skill groups specific to the weapon type listed in primaryWeapon and secondaryWeapon
 	-- Use merge() to merge groups in creatureskills.lua together. If a weapon is set to "none", set the attacks variable to empty brackets
 	primaryAttacks = merge(swordsmanmaster,carbineermaster,tkamaster,brawlermaster,marksmanmaster),

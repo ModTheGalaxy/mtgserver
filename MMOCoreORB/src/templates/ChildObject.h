@@ -17,11 +17,22 @@ protected:
 	String templateFile;
 	int cellid;
 	int containmentType;
+	int componentSlot;
 
 public:
 	ChildObject() {
 		cellid = 0;
 		containmentType = 0;
+		componentSlot = -2;
+	}
+
+	ChildObject(const Vector3 pos, const Quaternion& dir, const String& templateF, int cellID, int contType, int shipCompSlot) {
+		position = pos;
+		direction = dir;
+		templateFile = templateF;
+		cellid = cellID;
+		containmentType = contType;
+		componentSlot = shipCompSlot;
 	}
 
 	ChildObject(const ChildObject& obj) : Object() {
@@ -30,17 +41,20 @@ public:
 		templateFile = obj.templateFile;
 		cellid = obj.cellid;
 		containmentType = obj.containmentType;
+		componentSlot = obj.componentSlot;
 	}
 
 	ChildObject& operator=(const ChildObject& obj) {
-		if (this == &obj)
+		if (this == &obj) {
 			return *this;
+		}
 
 		position = obj.position;
 		direction = obj.direction;
 		templateFile = obj.templateFile;
 		cellid = obj.cellid;
 		containmentType = obj.containmentType;
+		componentSlot = obj.componentSlot;
 
 		return *this;
 	}
@@ -56,6 +70,8 @@ public:
 		cellid = luaObject->getIntField("cellid");
 
 		containmentType = luaObject->getIntField("containmentType");
+
+		componentSlot = (int)luaObject->getFloatField("componentSlot", -2.f);
 	}
 
 	inline void setPosition(float x, float z, float y) {
@@ -96,6 +112,10 @@ public:
 
 	inline int getContainmentType() const {
 		return containmentType;
+	}
+
+	inline int getComponentSlot() const {
+		return componentSlot;
 	}
 };
 

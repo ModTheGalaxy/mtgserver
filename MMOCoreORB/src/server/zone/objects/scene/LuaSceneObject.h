@@ -50,7 +50,9 @@ namespace scene {
 		int getServerObjectCRC(lua_State* L);
 		int showFlyText(lua_State* L);
 		int getDistanceTo(lua_State* L);
+		int getDistanceTo3d(lua_State* L);
 		int getDistanceToPosition(lua_State* L);
+		int getDistanceToPosition3d(lua_State* L);
 		int getContainerObject(lua_State* L);
 		int getContainerObjectById(lua_State* L);
 		int getContainerObjectsSize(lua_State* L);
@@ -59,6 +61,7 @@ namespace scene {
 		int isContainerFull(lua_State* L);
 		int isContainerFullRecursive(lua_State* L);
 		int getSlottedObject(lua_State* L);
+		int setPosition(lua_State* L);
 		int transferObject(lua_State* L);
 		//int removeObject(lua_State* L);
 		int getGameObjectType(lua_State* L);
@@ -74,6 +77,7 @@ namespace scene {
 		int isBuildingObject(lua_State* L);
 		int isActiveArea(lua_State* L);
 		int isShipObject(lua_State* L);
+		int isShipAiAgent(lua_State* L);
 		int getZoneName(lua_State* L);
 		int sendTo(lua_State* L);
 		int getCustomObjectName(lua_State* L);
@@ -109,6 +113,8 @@ namespace scene {
 		int getPlayersInRange(lua_State* L);
 		int isInNavMesh(lua_State* L);
 		int checkInConversationRange(lua_State* L);
+		int isShipComponent(lua_State* L);
+		int isShipComponentRepairKit(lua_State* L);
 
 	protected:
 		SceneObject* _getRealSceneObject() {

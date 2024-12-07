@@ -9,6 +9,7 @@ import engine.core.ManagedService;
 import system.thread.atomic.AtomicInteger;
 import server.zone.objects.scene.SceneObject;
 import server.zone.objects.creature.ai.AiAgent;
+import server.zone.objects.ship.ai.ShipAiAgent;
 import server.zone.managers.crafting.CraftingManager;
 import server.zone.managers.object.ObjectManager;
 import engine.lua.LuaObject;
@@ -44,6 +45,14 @@ class LootManager extends ManagedService implements Logger {
 
 	private transient float legendaryChance;
 	private transient float legendaryModifier;
+
+	private transient float fireDotChance;
+	private transient float diseaseDotChance;
+	private transient float poisonDotChance;
+
+	private transient float healthDotChance;
+	private transient float actionDotChance;
+	private transient float mindDotChance;
 
 	@dereferenced
 	private transient AtomicInteger yellowLooted;
@@ -95,8 +104,15 @@ class LootManager extends ManagedService implements Logger {
 	@dereferenced
 	private transient VectorMap<string, Reference<CrystalData> > crystalData;
 
-	public static final int LEVELMAX = 300;
+	public static final int LEVELMAX = 350;
 	public static final int LEVELMIN = 1;
+
+	public static final int DOT_POISON = 1;
+	public static final int DOT_DISEASE = 2;
+	public static final int DOT_FIRE = 3;
+	public static final int DOT_BLEEDING = 4;
+
+	public static final int DOTROLLCHANCE = 1000;
 
 	public LootManager(CraftingManager craftman, ObjectManager objMan, ZoneServer server) {
 		craftingManager = craftman;
@@ -134,6 +150,14 @@ class LootManager extends ManagedService implements Logger {
 
 		skillModChance = 0.0;
 
+		fireDotChance = 0.0;
+		diseaseDotChance = 0.0;
+		poisonDotChance = 0.0;
+
+		healthDotChance = 0.0;
+		actionDotChance = 0.0;
+		mindDotChance = 0.0;
+
 		Logger.setLoggingName("LootManager");
 
 		Logger.setGlobalLogging(true);
@@ -153,16 +177,16 @@ class LootManager extends ManagedService implements Logger {
 	private native void setSkillMods(TangibleObject object, final LootItemTemplate templateObject, int level, float excMod);
 
 	@local
-	private native void setCustomObjectName(TangibleObject object, final LootItemTemplate templateObject);
+	private native void setCustomObjectName(TangibleObject object, final LootItemTemplate templateObject, float excMod);
+
+	@local
+	private native void setJunkValue(TangibleObject object, final LootItemTemplate templateObject, int level, float excMod);
 
 	@local
 	private native void addRandomDots(TangibleObject object, final LootItemTemplate templateObject, int level, float excMod);
 
 	@local
 	private native void addStaticDots(TangibleObject object, final LootItemTemplate templateObject, int level);
-
-	@local
-	private native float calculateDotValue(float min, float max, float level);
 
 	@local
 	private native void addConditionDamage(TangibleObject loot);
@@ -177,6 +201,9 @@ class LootManager extends ManagedService implements Logger {
 	public native TangibleObject createLootObject(@dereferenced TransactionLog trx, final LootItemTemplate templateObject, int level, boolean maxCondition = false);
 
 	@local
+	public native TangibleObject createShipComponent(@dereferenced TransactionLog trx, final LootItemTemplate templateObject);
+
+	@local
 	public native TangibleObject createLootResource(@dereferenced final string resourceTypeName, @dereferenced final string resourceZoneName);
 
 	@local
@@ -186,6 +213,9 @@ class LootManager extends ManagedService implements Logger {
 
 	@local
 	public native boolean createLoot(@dereferenced TransactionLog trx, SceneObject container, AiAgent creature);
+
+	@local
+	public native unsigned long createLoot(@dereferenced TransactionLog trx, SceneObject container, ShipAiAgent shipAgent);
 
 	@local
 	public native boolean createLootFromCollection(@dereferenced TransactionLog trx, SceneObject container, final LootGroupCollection collection, int level);
@@ -223,4 +253,6 @@ class LootManager extends ManagedService implements Logger {
 		return crystalData.get(name);
 	}
 
+	@local
+	private native float getRandomModifier(final LootItemTemplate templateObject, int level, float excMod);
 }

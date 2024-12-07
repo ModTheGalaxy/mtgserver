@@ -26,7 +26,7 @@ nym_fuel_tech = Creature:new {
 	optionsBitmask = AIENABLED,
 	diet = HERBIVORE,
 
-	templates = {"object/mobile/space_imperial_tier2_lok_fuel_tech.iff"},
+	templates = {"object/mobile/dressed_nym_technician_1.iff"},
 	lootGroups = {},
 
 	-- Primary and secondary weapon should be different types (rifle/carbine, carbine/pistol, rifle/unarmed, etc)

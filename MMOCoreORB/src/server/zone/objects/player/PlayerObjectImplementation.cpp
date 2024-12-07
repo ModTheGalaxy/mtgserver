@@ -33,6 +33,7 @@
 #include "server/zone/packets/chat/ChatOnChangeFriendStatus.h"
 #include "server/zone/packets/chat/ChatOnChangeIgnoreStatus.h"
 #include "server/zone/packets/chat/ChatFriendsListUpdate.h"
+#include "server/zone/packets/scene/ServerTimeMessage.h"
 #include "server/zone/packets/zone/CmdSceneReady.h"
 #include "server/zone/objects/waypoint/WaypointObject.h"
 #include "server/zone/objects/creature/CreatureObject.h"
@@ -452,6 +453,8 @@ void PlayerObjectImplementation::sendBaselinesTo(SceneObject* player) {
 }
 
 void PlayerObjectImplementation::notifySceneReady() {
+	// info(true) << cast<CreatureObject*>(parent.get().get())->getDisplayedName() << " --- notifySceneReady called";
+
 	teleporting = false;
 	onLoadScreen = false;
 	forcedTransform = false;
@@ -461,8 +464,9 @@ void PlayerObjectImplementation::notifySceneReady() {
 
 	ManagedReference<CreatureObject*> creature = cast<CreatureObject*>(parent.get().get());
 
-	if (creature == nullptr)
+	if (creature == nullptr) {
 		return;
+	}
 
 	creature->broadcastPvpStatusBitmask();
 
@@ -485,8 +489,9 @@ void PlayerObjectImplementation::notifySceneReady() {
 
 	ZoneServer* zoneServer = getZoneServer();
 
-	if (zoneServer == nullptr || zoneServer->isServerLoading())
+	if (zoneServer == nullptr || zoneServer->isServerLoading()) {
 		return;
+	}
 
 	//Join GuildChat
 	ManagedReference<ChatManager*> chatManager = zoneServer->getChatManager();
@@ -494,6 +499,7 @@ void PlayerObjectImplementation::notifySceneReady() {
 
 	if (guild != nullptr) {
 		ManagedReference<ChatRoom*> guildChat = guild->getChatRoom();
+
 		if (guildChat != nullptr) {
 			guildChat->sendTo(creature);
 			chatManager->handleChatEnterRoomById(creature, guildChat->getRoomID(), -1, true);
@@ -504,23 +510,27 @@ void PlayerObjectImplementation::notifySceneReady() {
 	for (int i = 0; i < zoneServer->getZoneCount(); ++i) {
 		ManagedReference<Zone*> zone = zoneServer->getZone(i);
 
-		if (zone == nullptr)
+		if (zone == nullptr) {
 			continue;
+		}
 
 		ManagedReference<ChatRoom*> planetRoom = zone->getPlanetChatRoom();
-		if (planetRoom == nullptr)
+
+		if (planetRoom == nullptr) {
 			continue;
+		}
 
 		Locker clocker(planetRoom, creature);
 		planetRoom->removePlayer(creature);
 		planetRoom->sendDestroyTo(creature);
-
 	}
 
 	//Join current zone's Planet chat room
 	ManagedReference<Zone*> zone = creature->getZone();
+
 	if (zone != nullptr) {
 		ManagedReference<ChatRoom*> planetChat = zone->getPlanetChatRoom();
+
 		if (planetChat != nullptr) {
 			planetChat->sendTo(creature);
 			chatManager->handleChatEnterRoomById(creature, planetChat->getRoomID(), -1, true);
@@ -538,24 +548,32 @@ void PlayerObjectImplementation::notifySceneReady() {
 			room->sendTo(creature);
 			chatManager->handleChatEnterRoomById(creature, room->getRoomID(), -1);
 
-		} else
+		} else {
 			chatRooms.remove(i);
-	}
-
-	if (zone != nullptr && zone->getPlanetManager() != nullptr) {
-		ManagedReference<WeatherManager*> weatherManager = zone->getPlanetManager()->getWeatherManager();
-
-		if (weatherManager != nullptr) {
-			creature->setCurrentWind((byte)System::random(200));
-			creature->setCurrentWeather(0xFF);
-			weatherManager->sendWeatherTo(creature);
 		}
 	}
 
+	// Show Terms of Service window
 	checkAndShowTOS();
 
-	if (zone != nullptr && !zone->isSpaceZone())
+	if (zone != nullptr && !zone->isSpaceZone()) {
+		auto planetManager = zone->getPlanetManager();
+
+		if (planetManager != nullptr) {
+			ManagedReference<WeatherManager*> weatherManager = zone->getPlanetManager()->getWeatherManager();
+
+			if (weatherManager != nullptr) {
+				creature->setCurrentWind((byte)System::random(200));
+				creature->setCurrentWeather(0xFF);
+				weatherManager->sendWeatherTo(creature);
+			}
+		}
+
+		// Create or spawn the helper droid
 		createHelperDroid();
+	}
+
+	// info(true) << creature->getDisplayedName() << " --- notifySceneReady COMPLETE with Zone Name: " << zone->getZoneName() << " World Pos: " << creature->getWorldPosition().toString();
 }
 
 void PlayerObjectImplementation::sendFriendLists() {
@@ -688,8 +706,11 @@ int PlayerObjectImplementation::addExperience(TransactionLog& trx, const String&
 	if (xpTypeCapList.contains(xpType))
 		xpCap = xpTypeCapList.get(xpType);
 
-	if (xpCap < 0)
+	if (xpType.beginsWith("prestige_")) {
+		xpCap = INT_MAX;
+	} else if (xpCap < 0) {
 		xpCap = 2000;
+	}
 
 	if (xp > xpCap) {
 		valueToAdd = xpCap - (xp - valueToAdd);
@@ -1401,12 +1422,15 @@ void PlayerObjectImplementation::setTitle(const String& characterTitle, bool not
 void PlayerObjectImplementation::notifyOnline() {
 	ManagedReference<SceneObject*> parent = getParent().get();
 
-	if (parent == nullptr)
+	if (parent == nullptr) {
 		return;
+	}
 
 	CreatureObject* playerCreature = parent->asCreatureObject();
-	if (playerCreature == nullptr)
+
+	if (playerCreature == nullptr) {
 		return;
+	}
 
 	miliSecsSession = 0;
 
@@ -1895,7 +1919,12 @@ void PlayerObjectImplementation::giveCoaBonus(const String& factionName, float a
 	if (player == nullptr)
 		return;
 
-	float bonus = amount * 0.1f;
+	int bonus = amount * 0.1f;
+
+	if (bonus < 1) {
+		return;
+	}
+
 	float newStanding = bonus + currentStanding;
 
 	newStanding = Math::min((float) FactionManager::instance()->getFactionPointsCap(player->getFactionRank()), newStanding);
@@ -2125,14 +2154,35 @@ void PlayerObjectImplementation::doRecovery(int latency) {
 			}
 		}
 
-		if (!getZoneServer()->isServerLoading() && cooldownTimerMap->isPast("weatherEvent")) {
-			if (creature->getZone() != nullptr && creature->getZone()->getPlanetManager() != nullptr) {
-				ManagedReference<WeatherManager*> weatherManager = creature->getZone()->getPlanetManager()->getWeatherManager();
+		auto zoneServer = getZoneServer();
 
-				if (weatherManager != nullptr)
-					weatherManager->sendWeatherTo(creature);
+		if (zoneServer != nullptr && !zoneServer->isServerLoading()) {
+			auto zone = creature->getZone();
 
-				cooldownTimerMap->updateToCurrentAndAddMili("weatherEvent", 3000);
+			if (zone != nullptr) {
+				if (cooldownTimerMap->isPast("weatherEvent")) {
+					auto planetManager = zone->getPlanetManager();
+
+					if (planetManager != nullptr) {
+						ManagedReference<WeatherManager*> weatherManager = planetManager->getWeatherManager();
+
+						if (weatherManager != nullptr) {
+							weatherManager->sendWeatherTo(creature);
+						}
+
+						cooldownTimerMap->updateToCurrentAndAddMili("weatherEvent", 3000);
+					}
+				}
+
+				if (cooldownTimerMap->isPast("planetTimeEvent")) {
+					ServerTimeMessage* stm = new ServerTimeMessage(creature->getZone());
+
+					if (stm != nullptr) {
+						sendMessage(stm);
+					}
+
+					cooldownTimerMap->updateToCurrentAndAddMili("planetTimeEvent", 60000);
+				}
 			}
 		}
 
@@ -3396,7 +3446,7 @@ bool PlayerObjectImplementation::isInPvpArea(bool checkTimer) {
 	for (int i = 0; i < areas.size(); ++i) {
 		ManagedReference<ActiveArea*>& area = areas.get(i);
 
-		if (area->isPvpArea()) {
+		if (area != nullptr && area->isPvpArea()) {
 			return true;
 		}
 	}

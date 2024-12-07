@@ -82,6 +82,13 @@ public:
 
 	static bool checkLineOfSightInParentCell(SceneObject* object, Vector3& endPoint);
 
+	static float getPointIntersection(const Vector3& point, const Vector3& rayStart, const Vector3& rayEnd, float radius, float distance);
+
+	static float getAppearanceIntersection(SceneObject* target, const Vector3& rayStart, const Vector3& rayEnd, float radius, float distance);
+
+	static Ray getAxisAlignedRay(SceneObject* target, const Vector3& rayStart, const Vector3& rayEnd, float distance);
+
+	static Vector3 getAxisAlignedVector(const Vector3& vector, const Matrix4& rotation);
 };
 
 #endif /* COLLISIONMANAGER_H_ */

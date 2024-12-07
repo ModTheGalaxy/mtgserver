@@ -26,6 +26,7 @@ class DataTransformWithParent : public ObjectControllerMessage {
 public:
 	DataTransformWithParent(SceneObject* sceneO) : ObjectControllerMessage(sceneO->getObjectID(), 0x1B, 0xF1) {
 		insertInt(sceneO->getMovementCounter());
+
 		insertLong(sceneO->getParentID());
 
 		insertFloat(sceneO->getDirectionX());
@@ -37,17 +38,19 @@ public:
 		insertFloat(sceneO->getPositionZ());
 		insertFloat(sceneO->getPositionY());
 
-		float speed = 0;
+		float speed = 0.f;
 
-		if (sceneO->isCreatureObject())
-			speed = sceneO->asCreatureObject()->getCurrentSpeed();
+		if (sceneO->isCreatureObject()) {
+			auto creatureObject = sceneO->asCreatureObject();
+
+			if (creatureObject != nullptr) {
+				speed = creatureObject->getCurrentSpeed();
+			}
+		}
 
 		insertFloat(speed);
-
-		sceneO->debug() << "DataTransformWithParent sent.";
 	}
 };
-
 class DataTransformWithParentCallback : public MessageCallback {
 	ObjectControllerMessageCallback* objectControllerMain;
 
@@ -57,8 +60,7 @@ class DataTransformWithParentCallback : public MessageCallback {
 	long deltaTime;
 
 public:
-	DataTransformWithParentCallback (ObjectControllerMessageCallback* objectControllerCallback) :
-		MessageCallback(objectControllerCallback->getClient(), objectControllerCallback->getServer()) {
+	DataTransformWithParentCallback(ObjectControllerMessageCallback* objectControllerCallback) : MessageCallback(objectControllerCallback->getClient(), objectControllerCallback->getServer()) {
 		objectControllerMain = objectControllerCallback;
 
 		deltaTime = 0;
@@ -108,11 +110,19 @@ public:
 	void run() {
 		ManagedReference<CreatureObject*> creO = client->getPlayer();
 
-		if (creO == nullptr || creO->getZone() == nullptr) {
+		if (creO == nullptr) {
 			return;
 		}
 
-		PlayerObject* ghost = creO->getPlayerObject();
+		auto zone = creO->getZone();
+
+		if (zone == nullptr) {
+			return updateError(creO, "!zone");
+		}
+
+		bool spaceZone = zone->isSpaceZone();
+
+		auto ghost = creO->getPlayerObject();
 
 		if (ghost == nullptr || ghost->isTeleporting()) {
 			return updateError(creO, "!ghost");
@@ -125,7 +135,10 @@ public:
 			return updateError(creO, "syncDelta", true);
 		}
 
-		if (deltaTime < Transform::MINDELTA) {
+		uint64 parentID = transform.getParentID();
+
+		// Ensures datatransform is ran with the parent is changing, regardless of deltaTime
+		if (deltaTime < Transform::MINDELTA && parentID > 0 && parentID != creO->getParentID()) {
 			return updateError(creO, "deltaTime");
 		}
 
@@ -135,9 +148,9 @@ public:
 			return updateError(creO, "!zoneServer");
 		}
 
-		ManagedReference<SceneObject*> parent = zoneServer->getObject(transform.getParentID(), true);
+		ManagedReference<SceneObject*> parent = zoneServer->getObject(parentID, true);
 
-		if (parent == nullptr || parent->getZone() == nullptr || !parent->isCellObject()) {
+		if (parent == nullptr || !transform.isValidParentType(parent) || parent->getZone() == nullptr) {
 			return updateError(creO, "!parent");
 		}
 
@@ -148,27 +161,21 @@ public:
 		}
 
 		try {
-			auto rootParent = creO->getRootParent();
+			if (validPosition.getParent() != transform.getParentID() || (!spaceZone && transform.get2dSquaredDistance(validPosition.getPosition()) > 0.015625f) ||
+				(spaceZone && transform.get3dSquaredDistance(validPosition.getPosition()) > 0.015625f)) {
 
-			if (rootParent != nullptr && rootParent->isPobShip()) {
-				creO->setPosition(transform.getPositionX(), transform.getPositionZ(), transform.getPositionY());
-				creO->setDirection(transform.getDirection());
-				creO->setCurrentSpeed(transform.getSpeed());
-
-				broadcastTransform(creO, parent, transform.getPosition());
-			} else if (validPosition.getParent() != transform.getParentID() || transform.get2dSquaredDistance(validPosition.getPosition()) >= 0.015625f) {
 				updatePosition(creO, parent);
 			} else {
 				updateStatic(creO, parent);
 			}
-
 #ifdef TRANSFORM_DEBUG
 		} catch (Exception& e) {
 			error() << e.what();
 			e.printStackTrace();
 		}
 #else
-		} catch (...) {}
+		} catch (...) {
+		}
 #endif // TRANSFORM_DEBUG
 
 		if (ghost->isForcedTransform()) {
@@ -199,7 +206,15 @@ public:
 			return updateError(creO, "@base_player:no_entry_while_mounted", true);
 		}
 
-		PlayerObject* ghost = creO->getPlayerObject();
+		auto zone = creO->getZone();
+
+		if (zone == nullptr) {
+			return updateError(creO, "!zoneNull");
+		}
+
+		bool spaceZone = zone->isSpaceZone();
+
+		auto ghost = creO->getPlayerObject();
 
 		if (ghost == nullptr) {
 			return updateError(creO, "!ghost");
@@ -237,91 +252,130 @@ public:
 			}
 		}
 
-		CellObject* newCell = cast<CellObject*>(parent);
+		ManagedReference<PlayerManager*> playerManager = server->getPlayerManager();
 
-		if (newCell == nullptr) {
-			return updateError(creO, "!newCell");
+		if (playerManager == nullptr) {
+			return updateError(creO, "!playerManager");
+		}
+
+		CellObject* newCell = nullptr;
+		bool newParentIsCell = false;
+
+		if (parent->isCellObject()) {
+			newCell = cast<CellObject*>(parent);
+
+			if (newCell == nullptr) {
+				return updateError(creO, "!newCell");
+			}
+
+			newParentIsCell = true;
 		}
 
 		SceneObject* oldParent = creO->getParent().get();
 
-		if (oldParent != nullptr && !oldParent->isCellObject()) {
-			return updateError(creO, "!oldParent");
-		}
-
 		if (oldParent != parent) {
-			SceneObject* cellParent = parent->getParent().get();
+			SceneObject* newRootParent = parent->getParent().get();
 
-			if (cellParent == nullptr || !cellParent->isBuildingObject()) {
-				return updateError(creO, "!cellParent");
+			if (newRootParent == nullptr) {
+				return updateError(creO, "!newRootParent1");
 			}
 
-			BuildingObject* building = cellParent->asBuildingObject();
+			// Checks for building and building entry
+			if (newRootParent->isBuildingObject()) {
+				auto building = newRootParent->asBuildingObject();
 
-			if (building == nullptr) {
-				return updateError(creO, "!building");
-			}
+				if (building == nullptr) {
+					return updateError(creO, "!building");
+				}
 
-			if (!ghost->isPrivileged() && !building->isAllowedEntry(creO)) {
-				return updateError(creO, "!isAllowedEntry", true);
+				if (!ghost->isPrivileged() && !building->isAllowedEntry(creO)) {
+					return updateError(creO, "!isAllowedEntry", true);
+				}
+			// Checks for POB Ship
+			} else if (newRootParent->isPobShip()) {
+				auto pobShip = newRootParent->asPobShip();
+
+				if (pobShip == nullptr) {
+					return updateError(creO, "!pobShip");
+				}
+			} else {
+				return updateError(creO, "!newRootParent2");
 			}
 
 			if (oldParent != nullptr) {
-				CellObject* currentCell = cast<CellObject*>(oldParent);
-
-				if (currentCell == nullptr) {
-					return updateError(creO, "!currentCell");
+				// If the old parent is valid parent type
+				if (!transform.isValidParentType(oldParent)) {
+					return updateError(creO, "!oldParent");
 				}
 
-				const PortalLayout* layout = building->getObjectTemplate()->getPortalLayout();
+				if (oldParent->isCellObject()) {
+					CellObject* currentCell = cast<CellObject*>(oldParent);
 
-				if (layout == nullptr) {
-					return updateError(creO, "!portalLayout");
-				}
+					if (currentCell == nullptr) {
+						return updateError(creO, "!currentCell");
+					}
 
-				const CellProperty* cellProperty = layout->getCellProperty(currentCell->getCellNumber());
+					const auto objectTemplate = newRootParent->getObjectTemplate();
 
-				if (!cellProperty->hasConnectedCell(newCell->getCellNumber())) {
-					return updateError(creO, "!hasConnectedCell", true);
+					if (objectTemplate != nullptr) {
+						const PortalLayout* layout = objectTemplate->getPortalLayout();
+
+						if (layout == nullptr) {
+							return updateError(creO, "!portalLayout");
+						}
+
+						const CellProperty* cellProperty = layout->getCellProperty(currentCell->getCellNumber());
+
+						if (newCell != nullptr) {
+							if (!cellProperty->hasConnectedCell(newCell->getCellNumber())) {
+								return updateError(creO, "!hasConnectedCell", true);
+							}
+
+							UniqueReference<Vector<float>*> collisionPoints(CollisionManager::getCellFloorCollision(transform.getPositionX(), transform.getPositionY(), newCell));
+
+							if (collisionPoints == nullptr) {
+								return updateError(creO, "!collisionPoints");
+							}
+
+							float error = 16384.f;
+
+							for (int i = 0; i < collisionPoints->size(); ++i) {
+								float value = fabs(collisionPoints->get(i) - transform.getPositionZ());
+
+								if (error > value) {
+									error = value;
+								}
+							}
+
+							if (error > 0.25f) {
+								return updateError(creO, "!collisionPoint", true);
+							}
+						}
+					}
 				}
 			} else {
-				float covDist = ZoneServer::CLOSEOBJECTRANGE;
-				auto zone = creO->getZone();
+				const float covDist = newRootParent->getOutOfRangeDistance();
+				const float sqrCovDist = covDist * covDist;
 
-				// We need to account for players in cells in space, where the object range is much greater than the ground and range can be pulled from the zone type
-				if (zone != nullptr)
-					covDist = zone->getZoneObjectRange();
+				// Use the object out of range distance
+				if (spaceZone) {
+					if (transform.get3dSquaredDistance(newRootParent->getPosition()) > sqrCovDist) {
+						CloseObjectsVector* closeObjects = creO->getCloseObjects();
 
-				float sqrCovDist = covDist * covDist;
+						if (!closeObjects->contains(newRootParent)) {
+							return updateError(creO, "!newRootInCov", true);
+						}
+					}
+				} else {
+					if (transform.get2dSquaredDistance(newRootParent->getPosition()) > sqrCovDist) {
+						CloseObjectsVector* closeObjects = creO->getCloseObjects();
 
-				if (transform.get2dSquaredDistance(building->getPosition()) > sqrCovDist) {
-					CloseObjectsVector* closeObjects = creO->getCloseObjects();
-
-					if (!closeObjects->contains(building)) {
-						return updateError(creO, "!buildingInCov", true);
+						if (!closeObjects->contains(newRootParent)) {
+							return updateError(creO, "!newRootInCov", true);
+						}
 					}
 				}
 			}
-		}
-
-		UniqueReference<Vector<float>*> collisionPoints(CollisionManager::getCellFloorCollision(transform.getPositionX(), transform.getPositionY() , newCell));
-
-		if (collisionPoints == nullptr) {
-			return updateError(creO, "!collisionPoints");
-		}
-
-		float error = 16384.f;
-
-		for (int i = 0; i < collisionPoints->size(); ++i) {
-			float value = fabs(collisionPoints->get(i) - transform.getPositionZ());
-
-			if (error > value) {
-				error = value;
-			}
-		}
-
-		if (error > 0.25f) {
-			return updateError(creO, "!collisionPoint", true);
 		}
 
 		const ContainerPermissions* perms = parent->getContainerPermissions();
@@ -330,48 +384,59 @@ public:
 			return updateError(creO, "!containerPermissions");
 		}
 
-		if (!perms->hasInheritPermissionsFromParent() && !parent->checkContainerPermission(creO, ContainerPermissions::WALKIN)) {
+		if (newParentIsCell && !perms->hasInheritPermissionsFromParent() && !parent->checkContainerPermission(creO, ContainerPermissions::WALKIN)) {
 			return updateError(creO, "!checkContainerPermission", true);
 		}
 
 		WorldCoordinates coords(transform.getPosition(), newCell);
 
-		float worldDistance = coords.getWorldPosition().squaredDistanceTo(creO->getWorldPosition());
+		if (spaceZone) {
+			float spaceDistance = coords.getWorldPosition().squaredDistanceTo(creO->getWorldPosition());
 
-		if (worldDistance > 441) { // 21m
-			return updateError(creO, "!worldDistance", true);
+			if (spaceDistance > (21 * 21)) {
+				return updateError(creO, "!spaceDistance", true);
+			}
+		} else {
+			float worldDistance = coords.getWorldPosition().squaredDistanceTo2d(creO->getWorldPosition());
+
+			if (worldDistance > (21 * 21)) {
+				return updateError(creO, "!worldDistance", true);
+			}
 		}
 
-		ManagedReference<PlayerManager*> playerManager = server->getPlayerManager();
-
-		if (playerManager == nullptr) {
-			return updateError(creO, "!playerManager");
-		}
-
-		if (playerManager->checkSpeedHackFirstTest(creO, transform.getSpeed() , validPosition, 1.1f) != 0) {
-			return updateError(creO, "!checkSpeedHackFirstTest");
-		}
-
-		if (playerManager->checkSpeedHackSecondTest(creO, transform.getPositionX(), transform.getPositionZ(), transform.getPositionY(), transform.getTimeStamp(), parent) != 0) {
-			return updateError(creO, "!checkSpeedHackSecondTest");
+		if (!playerManager->checkSpeedHackTests(creO, ghost, transform.getPosition(), transform.getTimeStamp(), parent)) {
+			return updateError(creO, "!checkSpeedHackTests");
 		}
 
 		Vector3 position = transform.predictPosition(creO->getPosition(), creO->getDirection(), deltaTime);
+
+		// Update Speed and locomotion
+		creO->setCurrentSpeed(transform.getSpeed());
+		creO->updateLocomotion();
+
+		bool lightUpdate = objectControllerMain->getPriority() != 0x23;
+
+		// Set the players new position in the cell
+		creO->setPosition(transform.getPositionX(), transform.getPositionZ(), transform.getPositionY());
 
 #ifdef TRANSFORM_DEBUG
 		String type = transform.getPosition() != position ? "prediction" : "position";
 		transform.sendDebug(creO, type, position, deltaTime);
 #endif // TRANSFORM_DEBUG
 
-		creO->setPosition(transform.getPositionX(), transform.getPositionZ(), transform.getPositionY());
-		creO->setDirection(transform.getDirection());
-		creO->setCurrentSpeed(transform.getSpeed());
+		// Update the players parent
+		creO->updateZoneWithParent(parent, lightUpdate, false);
 
-		broadcastTransform(creO, parent, position);
+		// Update the players direction
+		creO->setDirection(transform.getDirection());
+
+		// Broadcast the position move
+		broadcastTransform(creO, parent, position, lightUpdate);
 	}
 
 	void updateStatic(CreatureObject* creO, SceneObject* parent) {
 		bool synchronize = transform.isSynchronizeUpdate(creO->getDirection(), creO->getCurrentSpeed());
+
 		if (synchronize && deltaTime < Transform::SYNCDELTA) {
 			return updateError(creO, "inertUpdate");
 		}
@@ -382,14 +447,21 @@ public:
 #endif // TRANSFORM_DEBUG
 
 		Quaternion direction = transform.getDirection();
+
 		if (synchronize) {
 			direction.normalize();
 		}
 
 		creO->setDirection(direction);
-		creO->setCurrentSpeed(0.f);
 
-		broadcastTransform(creO, parent, creO->getPosition());
+		if (creO->getCurrentSpeed() != 0.f) {
+			creO->setCurrentSpeed(0.f);
+			creO->updateLocomotion();
+		}
+
+		bool lightUpdate = objectControllerMain->getPriority() != 0x23;
+
+		broadcastTransform(creO, parent, creO->getPosition(), lightUpdate);
 
 		if (synchronize) {
 			auto data = new DataTransformWithParent(creO);
@@ -397,8 +469,8 @@ public:
 		}
 	}
 
-	void broadcastTransform(CreatureObject* creO, SceneObject* parent, const Vector3& position) const {
-		PlayerObject* ghost = creO->getPlayerObject();
+	void broadcastTransform(CreatureObject* creO, SceneObject* parent, const Vector3& position, bool lightUpdate) const {
+		auto ghost = creO->getPlayerObject();
 
 		if (ghost == nullptr) {
 			return updateError(creO, "!ghost");
@@ -406,14 +478,10 @@ public:
 
 		ghost->setClientLastMovementStamp(transform.getTimeStamp());
 
-		bool lightUpdate = objectControllerMain->getPriority() != 0x23;
 		bool sendPackets = deltaTime > Transform::SYNCDELTA || creO->getParentID() != 0;
 
 		creO->setMovementCounter(transform.getMoveCount());
 		creO->setSyncStamp(transform.getTimeStamp());
-
-		creO->updateZoneWithParent(parent, lightUpdate, false);
-		creO->updateLocomotion();
 
 		if (!sendPackets || creO->isInvisible()) {
 			return updateError(creO, "!sendPackets");

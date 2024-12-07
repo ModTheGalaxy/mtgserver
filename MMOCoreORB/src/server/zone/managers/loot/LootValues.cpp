@@ -54,25 +54,11 @@ void LootValues::setModifier(const LootItemTemplate* lootTemplate, float lootMod
 		return;
 	}
 
-	int modLvl = levelMin == 0 ? BonusType::STATIC : BonusType::EXPERIMENTAL;
-	int modMax = modLvl;
-	int modMin = modLvl;
-
-	if (lootModifier > EXCEPTIONAL) {
-		modMax = BonusType::LEGENDARY;
-		modMin = BonusType::EXCEPTIONAL;
-	} else if (lootModifier > ENHANCED) {
-		modMax = BonusType::EXCEPTIONAL;
-		modMin = BonusType::ENHANCED;
-	} else if (lootModifier > EXPERIMENTAL) {
-		modMax = BonusType::ENHANCED;
-		modMin = BonusType::EXPERIMENTAL;
-	} else if (lootModifier > STATIC) {
-		modMax = BonusType::EXPERIMENTAL;
-		modMin = BonusType::STATIC;
+	if (levelMin >= 1 && lootModifier == STATIC) {
+		lootModifier = EXPERIMENTAL;
 	}
 
-	modifier = modMax == modMin ? modMin : getDistributedValue(modMin, modMax, level) + BonusType::EXPERIMENTAL;
+	setModifier(lootModifier);
 }
 
 void LootValues::recalculateValues(bool initial) {
@@ -117,6 +103,18 @@ void LootValues::setRandomValues() {
 			} else {
 				setUniformValue<float>(attribute);
 			}
+
+			continue;
+		}
+
+		if (randomType == RandomType::NORMAL) {
+			if (precision == 0) {
+				setNormalValue<int>(attribute);
+			} else {
+				setNormalValue<float>(attribute);
+			}
+
+			continue;
 		}
 	}
 
@@ -127,7 +125,7 @@ void LootValues::setRandomValues() {
 	dynamicValues = attributeIndex.size();
 
 	if (modifier <= BonusType::ENHANCED) {
-		dynamicValues = getDistributedValue(1, attributeIndex.size(), level) * modifier;
+		dynamicValues = getDistributedValue(1, attributeIndex.size(), level, DISTMIN, DISTMAX) * modifier;
 		dynamicValues = Math::min(dynamicValues, attributeIndex.size());
 	}
 
@@ -137,6 +135,10 @@ void LootValues::setRandomValues() {
 		int key = System::random(attributeIndex.size()-1);
 
 		String attribute = attributeIndex.get(key);
+
+		float min = getMinValue(attribute);
+		float max = getMaxValue(attribute);
+
 		int precision = getPrecision(attribute) % 10;
 
 		if (precision == 0) {
@@ -145,7 +147,10 @@ void LootValues::setRandomValues() {
 			setDynamicValue<float>(attribute, bonusValue);
 		}
 
-		bonusValue = getDistributedValue(1, modifier, level);
+		if (fabs(min) > EPSILON && fabs(max) > EPSILON) {
+			bonusValue = getDistributedValue(1, modifier, level, DISTMIN, DISTMAX);
+		}
+
 		attributeIndex.remove(key);
 	}
 }
@@ -163,14 +168,31 @@ void LootValues::setDamageValues() {
 			float maxPercentMax = getMaxPercentage("maxdamage");
 			float minPercentMax = getMaxPercentage("mindamage");
 
-			float percent = Math::max(minPercent, maxPercent);
-			float percentMax = Math::max(minPercentMax, maxPercentMax);
+			float percent = Math::clamp(0.f, (minPercent + maxPercent) * 0.5f, 1.f);
+			float percentMax = Math::max((minPercentMax + maxPercentMax) * 0.5f, 1.f);
 
 			setCurrentPercentage("maxdamage", percent, percentMax);
 			setModifierValue("maxdamage", percentMax);
 
 			setCurrentPercentage("mindamage", percent, percentMax);
 			setModifierValue("mindamage", percentMax);
+		}
+	} else if (objectType & SceneObjectType::SHIPATTACHMENT) {
+		float maxPercent = getCurrentPercentage("ship_component_weapon_damage_maximum");
+		float minPercent = getCurrentPercentage("ship_component_weapon_damage_minimum");
+
+		if (maxPercent > 0.f || minPercent > 0.f) {
+			float maxPercentMax = getMaxPercentage("ship_component_weapon_damage_maximum");
+			float minPercentMax = getMaxPercentage("ship_component_weapon_damage_minimum");
+
+			float percent = Math::clamp(0.f, (minPercent + maxPercent) * 0.5f, 1.f);
+			float percentMax = Math::max((minPercentMax + maxPercentMax) * 0.5f, 1.f);
+
+			setCurrentPercentage("ship_component_weapon_damage_maximum", percent, percentMax);
+			setModifierValue("ship_component_weapon_damage_maximum", percentMax);
+
+			setCurrentPercentage("ship_component_weapon_damage_minimum", percent, percentMax);
+			setModifierValue("ship_component_weapon_damage_minimum", percentMax);
 		}
 	} else if (objectType & SceneObjectType::COMPONENT) {
 		float maxValue = getCurrentValue("maxdamage");
@@ -210,6 +232,18 @@ void LootValues::setUniformValue(const String& attribute) {
 	Auto min = staticValues.getMinValue(attribute);
 	Auto max = staticValues.getMaxValue(attribute);
 	Auto value = getRandomValue(min, max);
+
+	float percent = getValuePercentage(min, max, value);
+
+	setCurrentValue(attribute, value, min, max);
+	setCurrentPercentage(attribute, percent, 1.f);
+}
+
+template<typename Auto>
+void LootValues::setNormalValue(const String& attribute) {
+	Auto min = staticValues.getMinValue(attribute);
+	Auto max = staticValues.getMaxValue(attribute);
+	Auto value = getNormalValue(min, max);
 
 	float percent = getValuePercentage(min, max, value);
 
@@ -272,6 +306,10 @@ float LootValues::getModifierValue(float min, float max, float percentageMax) {
 	}
 }
 
+int LootValues::getModifierValue(int min, int max, float percentageMax) {
+	return round(getModifierValue((float)min, (float)max, percentageMax));
+}
+
 float LootValues::getPercentageValue(float min, float max, float percentage) {
 	if (fabs(max - min) < EPSILON) {
 		return min;
@@ -280,6 +318,10 @@ float LootValues::getPercentageValue(float min, float max, float percentage) {
 	float percent = Math::clamp(0.f, percentage, 1.f);
 
 	return ((max - min) * percent) + min;
+}
+
+int LootValues::getPercentageValue(int min, int max, float percentage) {
+	return round(getPercentageValue((float)min, (float)max, percentage));
 }
 
 float LootValues::getValuePercentage(float min, float max, float value) {
@@ -318,6 +360,44 @@ int LootValues::getRandomValue(int min, int max) {
 	float valueMin = Math::min(min, max);
 	float valueMax = Math::max(min, max);
 	float value = System::random(valueMax - valueMin) + valueMin;
+
+	return Math::clamp(valueMin, value, valueMax);
+}
+
+float LootValues::getNormalValue(float min, float max) {
+	if (fabs(max - min) < EPSILON) {
+		return min;
+	}
+
+	float r1 = System::frandom();
+	float r2 = System::frandom(1.f - FLT_EPSILON) + FLT_EPSILON;
+
+	float theta = Math::cos(2.f * M_PI * r1);
+	float radius = Math::sqrt(-2.f * std::log(r2));
+	float dist = (((theta * radius * 0.5f) / DISTNORMAL) + 1.f) * 0.5f;
+
+	float valueMin = Math::min(min, max);
+	float valueMax = Math::max(min, max);
+	float value = ((valueMax - valueMin) * dist) + valueMin;
+
+	return Math::clamp(valueMin, value, valueMax);
+}
+
+int LootValues::getNormalValue(int min, int max) {
+	if (max == min) {
+		return min;
+	}
+
+	float r1 = System::frandom();
+	float r2 = System::frandom(1.f - FLT_EPSILON) + FLT_EPSILON;
+
+	float theta = Math::cos(2.f * M_PI * r1);
+	float radius = Math::sqrt(-2.f * std::log(r2));
+	float dist = (((theta * radius * 0.5f) / DISTNORMAL) + 1.f) * 0.5f;
+
+	int valueMin = Math::min(min, max);
+	int valueMax = Math::max(min, max);
+	int value = (int)round((valueMax - valueMin) * dist) + valueMin;
 
 	return Math::clamp(valueMin, value, valueMax);
 }
@@ -401,7 +481,7 @@ int LootValues::getDistributedValue(int min, int max, int level, float distMin, 
 }
 
 float LootValues::getLevelRankValue(int level, float distMin, float distMax) {
-	float rank = (level - LEVELMIN) / (float)(LEVELMAX - LEVELMIN);
+	float rank = Math::clamp(0.f, (level - LEVELMIN) / (float)(LEVELMAX - LEVELMIN), 1.f);
 
-	return Math::clamp(distMin, rank, distMax);
+	return Math::linearInterpolate(distMin, distMax, rank);
 }

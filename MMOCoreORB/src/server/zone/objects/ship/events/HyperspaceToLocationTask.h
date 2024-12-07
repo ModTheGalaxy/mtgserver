@@ -28,8 +28,9 @@ public:
 		CreatureObject* player = play.get();
 		ShipObject* shipObject = ship.get();
 
-		if (player == nullptr || shipObject == nullptr)
+		if (player == nullptr || shipObject == nullptr) {
 			return;
+		}
 
 		if (!shipObject->isHyperspacing()) {
 			return;
@@ -101,33 +102,58 @@ public:
 			// Switch the ships zone
 			shipObject->switchZone(zoneName, location.getX(), location.getZ(), location.getY());
 
-			// Switch the pilot before the remaining players on the ship
-			try {
-				Locker pilotLock(player, shipObject);
-
-				player->switchZone(zoneName, shipObject->getPositionX(), shipObject->getPositionZ(), shipObject->getPositionY(), player->getParentID(), false, player->getContainmentType());
-			} catch (...) {
-				player->error() << "Failed to transport Pilot in hyperspace - ShipID: " << shipObject->getObjectID() << " Player ID: " << player->getObjectID();
-			}
-
 			// Switch all remaining players onboard the ship
 			int totalPlayers = shipObject->getTotalPlayersOnBoard();
+			auto zoneServer = shipObject->getZoneServer();
 
-			for (int i = totalPlayers - 1; i >= 0; --i) {
+			for (int i = 0; i < totalPlayers; i++) {
 				auto shipMember = shipObject->getPlayerOnBoard(i);
 
-				if (shipMember != nullptr && shipMember != player) {
-					try {
-						Locker memberLock(shipMember, shipObject);
+				if (shipMember == nullptr) {
+					continue;
+				}
 
-						shipMember->switchZone(zoneName, shipObject->getPositionX(), shipObject->getPositionZ(), shipObject->getPositionY(), shipMember->getParentID(), false, shipMember->getContainmentType());
-					} catch (...) {
-						shipMember->error() << "Failed to transport player onboard ship in hyperspace - ShipID: " << shipObject->getObjectID() << " Ship Member ID: " << shipMember->getObjectID();
+				try {
+					Locker memberLock(shipMember, shipObject);
+
+					Vector3 memberPosition = shipMember->getPosition();
+					uint64 parentID = shipMember->getParentID();
+
+					// shipObject->info(true) << "Transferring Ship Member: " << shipMember->getDisplayedName() << " To Position: " << memberPosition.toString() << " ID: " << parentID;
+
+					const Quaternion* direction = nullptr;
+
+					if (parentID != shipObject->getObjectID() && zoneServer != nullptr) {
+						auto parentObject = zoneServer->getObject(parentID);
+
+						if (parentObject != nullptr) {
+							direction = parentObject->getDirection();
+						}
+					} else {
+						direction = shipObject->getDirection();
 					}
+
+					if (direction != nullptr) {
+						shipMember->setDirection(direction->getW(), direction->getX(), direction->getY(), direction->getZ());
+					}
+
+					shipMember->switchZone(zoneName, memberPosition.getX(), memberPosition.getZ(), memberPosition.getY(), parentID, false, shipMember->getContainmentType());
+				} catch (...) {
+					shipMember->error() << "Failed to transport player onboard ship in hyperspace - ShipID: " << shipObject->getObjectID() << " Ship Member ID: " << shipMember->getObjectID();
 				}
 			}
 
-			shipObject->setHyperspacing(false);
+			Reference<ShipObject*> shipRef = shipObject;
+
+			Core::getTaskManager()->scheduleTask([shipRef] () {
+				if (shipRef == nullptr) {
+					return;
+				}
+
+				Locker lock(shipRef);
+
+				shipRef->setHyperspacing(false);
+			}, "ShipRemoveHyperspaceLambda", 1000);
 
 			return;
 		}

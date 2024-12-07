@@ -65,13 +65,41 @@ public:
 					oid = Long::valueOf(arg);
 			}
 
-			if (tokenizer.hasMoreTokens())
+			if (tokenizer.hasMoreTokens()) {
 				showAll = true;
+			}
 
 			auto resp = dumpCOV(player->getZoneServer(), oid, showAll);
+
 			ChatManager* chatManager = player->getZoneServer()->getChatManager();
-			chatManager->sendMail("System", "Dump COV" , resp, player->getFirstName());
+
+			if (chatManager != nullptr) {
+				chatManager->sendMail("System", "Dump COV" , resp, player->getFirstName());
+			}
+
 			player->sendSystemMessage(resp);
+
+			ManagedReference<SuiMessageBox*> suiBox1 = new SuiMessageBox(player, SuiWindowType::NONE);
+
+			if (suiBox1 != nullptr) {
+				suiBox1->setPromptTitle("System - Dump COV");
+				suiBox1->setPromptText(resp);
+				suiBox1->setForceCloseDistance(0);
+
+				player->sendMessage(suiBox1->generateMessage());
+			}
+
+			auto resp2 = debugTree(player);
+
+			ManagedReference<SuiMessageBox*> suiBox2 = new SuiMessageBox(player, SuiWindowType::NONE);
+
+			if (suiBox2 != nullptr) {
+				suiBox2->setPromptTitle("System - Debug inRange");
+				suiBox2->setPromptText(resp2);
+				suiBox2->setForceCloseDistance(0);
+
+				player->sendMessage(suiBox2->generateMessage());
+			}
 #ifdef NDEBUG
 			Logger::console.info(true) << "\033[32;40m" << __FILE__ << ":" << __LINE__ << " dumpcov results:\n" << resp << "\033[0m";
 #endif
@@ -313,6 +341,71 @@ public:
 		}
 
 		return resp.toString();
+	}
+
+	static String debugTree(CreatureObject* player) {
+		float range = 2048.f;
+
+		auto root = player->getRootParent();
+
+		if (root == nullptr) {
+			return "!root";
+		}
+
+		auto zone = root->getZone();
+
+		if (zone == nullptr) {
+			return "!zone";
+		}
+
+		auto ship = root->asShipObject();
+
+		if (ship == nullptr) {
+			return "!ship";
+		}
+
+		Locker pLock(player);
+		Locker sLock(ship, player);
+
+		float x = ship->getPositionX();
+		float y = ship->getPositionY();
+		float z = ship->getPositionZ();
+
+		auto inRange = SortedVector<ManagedReference<TreeEntry*>>();
+		inRange.setAllowDuplicateInsertPlan();
+		zone->getInRangeObjects(x, z, y, range, &inRange, false, false);
+
+		StringBuffer msg;
+
+		auto playerCov = player->getCloseObjects();
+
+		auto playerCopy = SortedVector<ManagedReference<TreeEntry*>>();
+		playerCov->safeCopyTo(playerCopy);
+
+		msg << endl;
+		msg << "playerCov: " << playerCopy.size() << endl;
+
+		for (int i = 0; i < playerCopy.size(); ++i) {
+			auto entry = static_cast<SceneObject*>(playerCopy.get(i).get());
+
+			if (entry->getZone() == nullptr) {
+				msg << i << " cov error: !zone: " << entry->getDisplayedName() << endl;
+			}
+
+			if (entry->getNode() == nullptr) {
+				msg << i << " tree error: !node: " << entry->getDisplayedName() << " Position: " << entry->getWorldPosition().toString() << endl;
+			}
+		}
+
+		msg << endl << "inRangeCov: " << inRange.size() << endl;
+
+		for (int i = 0; i < inRange.size(); ++i) {
+			auto entry = static_cast<SceneObject*>(inRange.get(i).get());
+
+			msg << i << "  " << entry->getDisplayedName() << "  " << entry->getPosition().distanceTo(ship->getPosition()) << endl;
+		}
+
+		return msg.toString();
 	}
 };
 

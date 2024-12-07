@@ -1,0 +1,36 @@
+/*
+				Copyright <SWGEmu>
+		See file COPYING for copying conditions.*/
+
+package server.zone.objects.tangible.ship.interiorComponents;
+
+import server.zone.objects.tangible.TangibleObject;
+
+@json
+class ShipInteriorComponent extends TangibleObject {
+	protected int componentSlot;
+	protected int plasmaConduitType;
+
+	public ShipInteriorComponent() {
+		setLoggingName("ShipInteriorComponent");
+
+		componentSlot = -2;
+		plasmaConduitType = -1;
+	}
+
+	public void setComponentSlot(int slot) {
+		componentSlot = slot;
+	}
+
+	public void setPlasmaConduitType(int type) {
+		plasmaConduitType = type;
+	}
+
+	public int getComponentSlot() {
+		return componentSlot;
+	}
+
+	public int getPlasmaConduitType() {
+		return plasmaConduitType;
+	}
+}

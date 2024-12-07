@@ -23,6 +23,12 @@ class SpaceStationObject extends ShipAiAgent {
 	@preLocked
 	public native boolean sendConversationStartTo(SceneObject player);
 
+	@read
+	public native abstract float getOutOfRangeDistance();
+
+	@read
+	public native int getReceiverFlags();
+
 	@dirty
 	public boolean isSpaceStation() {
 		return true;

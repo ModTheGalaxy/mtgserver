@@ -39,6 +39,8 @@
 #include "server/zone/objects/transaction/TransactionLog.h"
 #include "server/zone/objects/player/FactionStatus.h"
 
+// #define DEBUG_COV
+
 void BuildingObjectImplementation::initializeTransientMembers() {
 	cooldownTimerMap = new CooldownTimerMap();
 
@@ -142,7 +144,7 @@ void BuildingObjectImplementation::sendTo(SceneObject* player, bool doClose, boo
 	if (!isStaticBuilding()) { // send Baselines etc..
 		debug("sending building object create");
 
-		SceneObjectImplementation::sendTo(player, doClose, forceLoadContainer);
+		TangibleObjectImplementation::sendTo(player, doClose, forceLoadContainer);
 	} //else { // just send the objects that are in the building, without the cells because they are static in the client
 
 	auto closeObjects = player->getCloseObjects();
@@ -575,9 +577,6 @@ void BuildingObjectImplementation::notifyDissapear(TreeEntry* object) {
 	uint64 scnoID = sceneO->getObjectID();
 
 #ifdef DEBUG_COV
-	info(true) << getObjectName() << " - BuildingObjectImplementation::notifyDissapear for Object: " << sceneO->getDisplayedName() << " ID: " << sceneO->getObjectID();
-
-	/*
 	if (getObjectID() == 88) { // Theed Cantina
 		info("BuildingObjectImplementation::notifyDissapear(" + String::valueOf(scnoID) + ")", true);
 
@@ -585,19 +584,31 @@ void BuildingObjectImplementation::notifyDissapear(TreeEntry* object) {
 
 		if (c != nullptr)
 			c->info("BuildingObjectImplementation::notifyDissapear from " + String::valueOf(getObjectID()), true);
-	}*/
+	} else if (getObjectID() == 1082874 && (sceneO->isPlayerCreature() || sceneO->isVehicleObject())) {
+		info(true) << "BuildingObjectImplementation::notifyDissapear ----- Mos Eisley cantina removing player or vehicle from nearby objects: " << sceneO->getDisplayedName();
+	}
 #endif // DEBUG_COV
 
-	// Prevent players that are mounted from being loaded on their own. When their mount loads it will send the player on its own
+	// Prevent players that are mounted from being removed on their own. When their mount disappears it will remove its contained & children objects
 	if (sceneO->isPlayerCreature()) {
+#ifdef DEBUG_COV
+		if (sceneO->isPlayerCreature()) {
+			info(true) << getObjectName() << " - BuildingObjectImplementation::notifyDissapear for Player: " << sceneO->getDisplayedName() << " ID: " << sceneO->getObjectID();
+		}
+#endif // DEBUG_COV
+
 		auto player = sceneO->asCreatureObject();
 
 		if (player != nullptr && player->isRidingMount()) {
 #ifdef DEBUG_COV
-			// Theed Medical Center & Theed Cloning Facility
-			if (((getObjectID() == 1697358) || (getObjectID() == 1697350) || !isClientObject()) && ((sceneO->isPlayerCreature() || sceneO->isVehicleObject())))
-				info(true) << "Blocked the removing of player that is riding mount: " << sceneO->getDisplayedName();
+			uint64 structureID = getObjectID();
+
+			// Mos Eisley Cantina, Theed Medical Center, Theed Cloning Facility Tests, and Player Structures
+			if ((structureID == 1082874) || (structureID == 1697358) || (structureID == 1697350) || !isClientObject()) {
+				info(true) << "Blocked notifyDissapear for player that is riding vehicle or mount: " << sceneO->getDisplayedName();
+			}
 #endif // DEBUG_COV
+
 			return;
 		}
 	}
@@ -605,21 +616,24 @@ void BuildingObjectImplementation::notifyDissapear(TreeEntry* object) {
 	for (int i = 0; i < cells.size(); ++i) {
 		auto& cell = cells.get(i);
 
-		if (!cell->isContainerLoaded())
+		if (!cell->isContainerLoaded()) {
 			continue;
+		}
 
 		try {
-			for (int j = 0; j < cell->getContainerObjectsSize(); ++j) {
+			for (int j = cell->getContainerObjectsSize() - 1; j >= 0 ; j--) {
 				auto child = cell->getContainerObject(j);
 
 				// Child should not remove itself
-				if (child == nullptr || child->getObjectID() == scnoID)
+				if (child == nullptr || child->getObjectID() == scnoID) {
 					continue;
+				}
 
 #ifdef DEBUG_COV
 				// Theed Medical Center & Theed Cloning Facility
-				if (((getObjectID() == 1697358) || (getObjectID() == 1697350) || !isClientObject()) && child->isPlayerCreature() && (sceneO->isPlayerCreature() || sceneO->isVehicleObject()))
-					info(true) << child->getDisplayedName() << " - removing inRangeObject Entry Object: " << sceneO->getDisplayedName();
+				if (((getObjectID() == 1082874) || (getObjectID() == 1697358) || (getObjectID() == 1697350)) && child->isPlayerCreature() && (sceneO->isPlayerCreature() || sceneO->isVehicleObject())) {
+					info(true) << child->getDisplayedName() << " - removing inRangeObject Object: " << sceneO->getDisplayedName();
+				}
 #endif // DEBUG_COV
 
 				if (child->getCloseObjects() != nullptr) {
@@ -635,7 +649,7 @@ void BuildingObjectImplementation::notifyDissapear(TreeEntry* object) {
 				}
 			}
 		} catch (const Exception& exception) {
-			warning("could not remove all container objects in BuildingObject::notifyDissapear");
+			warning() << "Could not remove all container objects in BuildingObject::notifyDissapear -- ID: " << getObjectID() << " -- Object Leaving Range: " << sceneO->getDisplayedName() << " ID: " << sceneO->getObjectID();
 
 			exception.printStackTrace();
 		}
@@ -1404,190 +1418,199 @@ void BuildingObjectImplementation::updatePaidAccessList() {
 }
 
 void BuildingObjectImplementation::createChildObjects() {
-	if (isGCWBase()) {
-		int controlIndex = 0;
+	if (!isGCWBase()) {
+		StructureObjectImplementation::createChildObjects();
+		return;
+	}
 
-		SharedObjectTemplate* serverTemplate = getObjectTemplate();
+	int controlIndex = 0;
 
-		if (serverTemplate == nullptr)
-			return;
+	SharedObjectTemplate* serverTemplate = getObjectTemplate();
 
-		Vector3 position = getPosition();
+	if (serverTemplate == nullptr) {
+		return;
+	}
 
-		ZoneServer* server = getZoneServer();
+	Vector3 position = getPosition();
 
-		if (server == nullptr)
-			return;
+	ZoneServer* server = getZoneServer();
 
-		Zone* thisZone = asBuildingObject()->getZone();
+	if (server == nullptr) {
+		return;
+	}
 
-		if (thisZone == nullptr)
-			return;
+	auto thisZone = getZone();
 
-		GCWManager* gcwMan = thisZone->getGCWManager();
+	if (thisZone == nullptr) {
+		return;
+	}
 
-		if (gcwMan == nullptr) {
-			return;
+	GCWManager* gcwMan = thisZone->getGCWManager();
+
+	if (gcwMan == nullptr) {
+		return;
+	}
+
+	for (int i = 0; i < serverTemplate->getChildObjectsSize();i++) {
+		const ChildObject* child = serverTemplate->getChildObject(i);
+
+		if (child == nullptr) {
+			continue;
 		}
 
-		for (int i = 0; i < serverTemplate->getChildObjectsSize();i++) {
-			const ChildObject* child = serverTemplate->getChildObject(i);
+		String templateString = child->getTemplateFile();
 
-			if (child == nullptr) {
+		SharedObjectTemplate* thisTemplate = TemplateManager::instance()->getTemplate(templateString.hashCode());
+
+		if (thisTemplate == nullptr) {
+			continue;
+		}
+
+		int objectType = thisTemplate->getGameObjectType();
+
+		if (objectType == SceneObjectType::NPCCREATURE || objectType == SceneObjectType::CREATURE) {
+			continue;
+		}
+
+		if (templateString.contains("alarm_") && !gcwMan->shouldSpawnBaseAlarms()) {
+			continue;
+		// Minefields are not placed when the base is created, they must be donated by players
+		} else if (objectType == SceneObjectType::MINEFIELD) {
+			gcwMan->addMinefield(asBuildingObject(), nullptr);
+			continue;
+		}
+
+		bool spawnDefenses = gcwMan->shouldSpawnDefenses();
+
+		// Prevent Scanners from spawning from GCW base templates if covert/overt system is disabled
+		if (objectType == SceneObjectType::COVERTSCANNER) {
+			if (!ConfigManager::instance()->useCovertOvertSystem()) {
+				continue;
+			} else if (!spawnDefenses) {
+				gcwMan->addScanner(asBuildingObject(), nullptr);
 				continue;
 			}
+		// Child object is a turret but bases should not spawn defenses, add the slot and continue the list
+		} else if (thisTemplate->getDataObjectComponent().hashCode() == STRING_HASHCODE("TurretDataComponent") && !spawnDefenses) {
+			gcwMan->addTurret(asBuildingObject(), nullptr);
+			continue;
+		}
 
-			String templateString = child->getTemplateFile();
+		String dbString = "sceneobjects";
 
-			SharedObjectTemplate* thisTemplate = TemplateManager::instance()->getTemplate(templateString.hashCode());
+		if (objectType == SceneObjectType::DESTRUCTIBLE || objectType == SceneObjectType::STATICOBJECT) {
+			dbString = "playerstructures";
+		}
 
-			if (thisTemplate == nullptr || thisTemplate->getGameObjectType() == SceneObjectType::NPCCREATURE || thisTemplate->getGameObjectType() == SceneObjectType::CREATURE) {
-				continue;
-			}
+		ManagedReference<SceneObject*> obj = server->createObject(templateString.hashCode(), dbString, getPersistenceLevel());
 
-			if (templateString.contains("alarm_") && !gcwMan->shouldSpawnBaseAlarms()) {
-				continue;
-			}
+		if (obj == nullptr) {
+			continue;
+		}
 
-			String dbString = "sceneobjects";
+		Locker crossLocker(obj, asBuildingObject());
 
-			if (thisTemplate->getGameObjectType() == SceneObjectType::MINEFIELD || thisTemplate->getGameObjectType() == SceneObjectType::DESTRUCTIBLE || thisTemplate->getGameObjectType() == SceneObjectType::STATICOBJECT) {
-				dbString = "playerstructures";
-			}
+		if (obj->isCreatureObject()) {
+			obj->destroyObjectFromDatabase(true);
+			continue;
+		}
 
-			ManagedReference<SceneObject*> obj = server->createObject(templateString.hashCode(), dbString, getPersistenceLevel());
+		Vector3 childPosition = child->getPosition();
+		childObjects.put(obj);
 
-			if (obj == nullptr) {
-				continue;
-			}
+		obj->initializePosition(childPosition.getX(), childPosition.getZ(), childPosition.getY());
+		obj->setDirection(child->getDirection());
+		obj->initializeChildObject(asBuildingObject());
 
-			Locker crossLocker(obj, asBuildingObject());
+		// Place child Objects inside cells
+		if (child->getCellId() > 0) {
+			int totalCells = getTotalCellNumber();
 
-			if (obj->isCreatureObject()) {
-				obj->destroyObjectFromDatabase(true);
-				continue;
-			}
+			try {
+				if (totalCells >= child->getCellId()) {
+					CellObject* cellObject = getCell(child->getCellId());
 
-			Vector3 childPosition = child->getPosition();
-			childObjects.put(obj);
-			obj->initializePosition(childPosition.getX(), childPosition.getZ(), childPosition.getY());
-			obj->setDirection(child->getDirection());
-			obj->initializeChildObject(asBuildingObject());
-
-			// if it's inside
-			if (child->getCellId() > 0) {
-				int totalCells = getTotalCellNumber();
-
-				try {
-					if (totalCells >= child->getCellId()) {
-						CellObject* cellObject = getCell(child->getCellId());
-
-						if (cellObject != nullptr) {
-							if (!cellObject->transferObject(obj, child->getContainmentType(), true)) {
-								obj->destroyObjectFromDatabase(true);
-							} else if (templateString.contains("alarm_")) {
-								gcwMan->addBaseAlarm(asBuildingObject(), obj);
-							}
-						} else {
+					if (cellObject != nullptr) {
+						if (!cellObject->transferObject(obj, child->getContainmentType(), true)) {
 							obj->destroyObjectFromDatabase(true);
-							error("nullptr CELL OBJECT");
+						} else if (templateString.contains("alarm_")) {
+							gcwMan->addBaseAlarm(asBuildingObject(), obj);
 						}
+					} else {
+						obj->destroyObjectFromDatabase(true);
+						error("nullptr CELL OBJECT");
 					}
-				} catch (Exception& e) {
-					error("unreported exception caught in void BuildingObjectImplementation::createChildObjects()!");
-					e.printStackTrace();
 				}
+			} catch (Exception& e) {
+				error("unreported exception caught in void BuildingObjectImplementation::createChildObjects()!");
+				e.printStackTrace();
+			}
+		// Place exterior child objects
+		} else {
+			float angle = getDirection()->getRadians();
+			float x = (Math::cos(angle) * childPosition.getX()) + (childPosition.getY() * Math::sin(angle));
+			float y = (Math::cos(angle) * childPosition.getY()) - (childPosition.getX() * Math::sin(angle));
+			x += position.getX();
+			y += position.getY();
+
+			float z = position.getZ() + childPosition.getZ();
+			float degrees = getDirection()->getDegrees();
+
+			Quaternion dir = child->getDirection();
+
+			obj->initializePosition(x, z, y);
+			obj->setDirection(dir.rotate(Vector3(0, 1, 0), degrees));
+
+			if (obj->isTurret() || obj->isMinefield()) {
+				obj->createChildObjects();
+			}
+
+			thisZone->transferObject(obj, -1, true);
+		}
+
+		if (obj->isTurretControlTerminal()) {
+			DataObjectComponentReference* data  = obj->getDataObjectComponent();
+			if (data != nullptr) {
+				TurretControlTerminalDataComponent* controlData = cast<TurretControlTerminalDataComponent*>(data->get());
+				if (controlData != nullptr) {
+					controlData->setTurretIndex(controlIndex);
+					controlIndex++;
+				}
+			}
+		}
+
+		ContainerPermissions* permissions = obj->getContainerPermissionsForUpdate();
+		permissions->setOwner(getObjectID());
+		permissions->setInheritPermissionsFromParent(false);
+		permissions->setDefaultDenyPermission(ContainerPermissions::MOVECONTAINER);
+		permissions->setDenyPermission("owner", ContainerPermissions::MOVECONTAINER);
+
+		if (obj->isTurret() || obj->isMinefield() || obj->isScanner()) {
+			TangibleObject* tano = cast<TangibleObject*>(obj.get());
+
+			if (tano != nullptr) {
+				tano->setFaction(getFaction());
+				tano->setPvpStatusBitmask(getPvpStatusBitmask() | tano->getPvpStatusBitmask());
+			}
+
+			InstallationObject* installation = cast<InstallationObject*>(obj.get());
+
+			if (installation != nullptr) {
+				installation->setOwner(getObjectID());
+			}
+
+			if (gcwMan != nullptr) {
+				if (obj->isTurret())
+					gcwMan->addTurret(asBuildingObject(), obj);
+				else if (obj->isMinefield())
+					gcwMan->addMinefield(asBuildingObject(), obj);
+				else if (obj->isScanner())
+					gcwMan->addScanner(asBuildingObject(), obj);
 
 			} else {
-				if ((obj->isTurret() || obj->isMinefield() || obj->isScanner()) && gcwMan != nullptr) {
-					if (!gcwMan->shouldSpawnDefenses()) {
-						if (obj->isTurret())
-							gcwMan->addTurret(asBuildingObject(), nullptr);
-						else if (obj->isMinefield())
-							gcwMan->addMinefield(asBuildingObject(), nullptr);
-						else if (obj->isScanner())
-							gcwMan->addScanner(asBuildingObject(), nullptr);
-
-						obj->destroyObjectFromDatabase(true);
-						continue;
-					}
-
-					// Prevent Scanners from spawning from GCW base templates if covert/overt system is disabled
-					if (obj->isScanner() && !ConfigManager::instance()->useCovertOvertSystem()) {
-						gcwMan->addScanner(asBuildingObject(), nullptr);
-
-						obj->destroyObjectFromDatabase(true);
-						continue;
-					}
-				}
-
-				float angle = getDirection()->getRadians();
-				float x = (Math::cos(angle) * childPosition.getX()) + (childPosition.getY() * Math::sin(angle));
-				float y = (Math::cos(angle) * childPosition.getY()) - (childPosition.getX() * Math::sin(angle));
-				x += position.getX();
-				y += position.getY();
-
-				float z = position.getZ() + childPosition.getZ();
-				float degrees = getDirection()->getDegrees();
-
-				Quaternion dir = child->getDirection();
-
-				obj->initializePosition(x, z, y);
-				obj->setDirection(dir.rotate(Vector3(0, 1, 0), degrees));
-
-				if (obj->isTurret() || obj->isMinefield())
-					obj->createChildObjects();
-
-				thisZone->transferObject(obj, -1, true);
-			}
-
-			if (obj->isTurretControlTerminal()) {
-				DataObjectComponentReference* data  = obj->getDataObjectComponent();
-				if (data != nullptr) {
-					TurretControlTerminalDataComponent* controlData = cast<TurretControlTerminalDataComponent*>(data->get());
-					if (controlData != nullptr) {
-						controlData->setTurretIndex(controlIndex);
-						controlIndex++;
-					}
-				}
-			}
-
-			ContainerPermissions* permissions = obj->getContainerPermissionsForUpdate();
-			permissions->setOwner(getObjectID());
-			permissions->setInheritPermissionsFromParent(false);
-			permissions->setDefaultDenyPermission(ContainerPermissions::MOVECONTAINER);
-			permissions->setDenyPermission("owner", ContainerPermissions::MOVECONTAINER);
-
-			if (obj->isTurret() || obj->isMinefield() || obj->isScanner()) {
-				TangibleObject* tano = cast<TangibleObject*>(obj.get());
-
-				if (tano != nullptr) {
-					tano->setFaction(getFaction());
-					tano->setDetailedDescription("DEFAULT BASE TURRET");
-					tano->setPvpStatusBitmask(getPvpStatusBitmask() | tano->getPvpStatusBitmask());
-				}
-
-				InstallationObject* installation = cast<InstallationObject*>(obj.get());
-
-				if (installation != nullptr) {
-					installation->setOwner(getObjectID());
-				}
-
-				if (gcwMan != nullptr) {
-					if (obj->isTurret())
-						gcwMan->addTurret(asBuildingObject(), obj);
-					else if (obj->isMinefield())
-						gcwMan->addMinefield(asBuildingObject(), obj);
-					else if (obj->isScanner())
-						gcwMan->addScanner(asBuildingObject(), obj);
-
-				} else {
-					info("ERROR: Unable to add faction installation to gCWmanager",true);
-				}
+				info("ERROR: Unable to add faction installation to gCWmanager",true);
 			}
 		}
-	} else {
-		StructureObjectImplementation::createChildObjects();
 	}
 }
 

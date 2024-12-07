@@ -21,10 +21,13 @@ class CellObject extends SceneObject {
 	@dereferenced
 	protected AtomicInteger forceLoadObjectCount;
 
+	protected float cellFireVariable;
+
 	public CellObject() {
 		Logger.setLoggingName("CellObject");
 
 		cellNumber = 0;
+		cellFireVariable = 0;
 
 		forceLoadObjectCount.set(0);
 	}
@@ -101,7 +104,7 @@ class CellObject extends SceneObject {
 	 * @param notifyClient not used currently
 	 * @return returns true if the object has been successfully removed
 	 */
-	public native boolean removeObject(SceneObject object, SceneObject destination, boolean notifyClient = false);
+	public native boolean removeObject(SceneObject object, SceneObject destination, boolean notifyClient = false, boolean nullifyParent = true);
 
 	public native void initializeTransientMembers();
 
@@ -125,6 +128,14 @@ class CellObject extends SceneObject {
 	public void setCellNumber(int number) {
 		cellNumber = number;
 	}
+
+	@read
+	public float getCellFireVariable() {
+		return cellFireVariable;
+	}
+
+	@preLocked
+	public native void setCellFireVariable(float damageVar);
 
 	@dirty
 	public boolean isCellObject() {

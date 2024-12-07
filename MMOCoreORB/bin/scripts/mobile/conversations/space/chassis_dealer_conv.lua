@@ -1,7 +1,7 @@
-chassis_dealer_convotemplate = ConvoTemplate:new {
+chassis_dealer_convo_template = ConvoTemplate:new {
 	initialScreen = "chassis_dealer_greeting",
 	templateType = "Lua",
-	luaClassHandler = "chassis_dealer_conv_handler",
+	luaClassHandler = "chassisDealerConvoHandler",
 	screens = {}
 }
 
@@ -10,14 +10,14 @@ chassis_dealer_greeting = ConvoScreen:new {
 	leftDialog = "@conversation/chassis_npc:s_9ed93871",
 	stopConversation = "false",
 	options = {
-		{"@conversation/chassis_npc:s_2f553ea8", "chassis_dealer_buy_chassis"},
 		{"@conversation/chassis_npc:s_94e3013f", "chassis_dealer_sell_components"},
+		{"@conversation/chassis_npc:s_2f553ea8", "chassis_dealer_buy_chassis"},
 		{"@conversation/chassis_npc:s_93a92e8", "chassis_dealer_how_do_i"},
 		{"@conversation/chassis_npc:s_42d3759c", "chassis_dealer_come_back_later"},
 	}
 }
 
-chassis_dealer_convotemplate:addScreen(chassis_dealer_greeting);
+chassis_dealer_convo_template:addScreen(chassis_dealer_greeting);
 
 chassis_dealer_buy_chassis = ConvoScreen:new {
 	id = "chassis_dealer_buy_chassis",
@@ -27,7 +27,7 @@ chassis_dealer_buy_chassis = ConvoScreen:new {
 	}
 }
 
-chassis_dealer_convotemplate:addScreen(chassis_dealer_buy_chassis);
+chassis_dealer_convo_template:addScreen(chassis_dealer_buy_chassis);
 
 chassis_dealer_sell_components = ConvoScreen:new {
 	id = "chassis_dealer_sell_components",
@@ -37,7 +37,7 @@ chassis_dealer_sell_components = ConvoScreen:new {
 	}
 }
 
-chassis_dealer_convotemplate:addScreen(chassis_dealer_sell_components);
+chassis_dealer_convo_template:addScreen(chassis_dealer_sell_components);
 
 chassis_dealer_how_do_i = ConvoScreen:new {
 	id = "chassis_dealer_how_do_i",
@@ -47,7 +47,7 @@ chassis_dealer_how_do_i = ConvoScreen:new {
 	}
 }
 
-chassis_dealer_convotemplate:addScreen(chassis_dealer_how_do_i);
+chassis_dealer_convo_template:addScreen(chassis_dealer_how_do_i);
 
 chassis_dealer_come_back_later = ConvoScreen:new {
 	id = "chassis_dealer_come_back_later",
@@ -57,6 +57,6 @@ chassis_dealer_come_back_later = ConvoScreen:new {
 	}
 }
 
-chassis_dealer_convotemplate:addScreen(chassis_dealer_come_back_later);
+chassis_dealer_convo_template:addScreen(chassis_dealer_come_back_later);
 
-addConversationTemplate("chassis_dealer_convotemplate", chassis_dealer_convotemplate);
+addConversationTemplate("chassis_dealer_convo_template", chassis_dealer_convo_template);

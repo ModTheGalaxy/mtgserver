@@ -13,84 +13,156 @@
 #include "server/zone/objects/creature/CreatureObject.h"
 #include "server/zone/packets/scene/PlayClientEffectLocMessage.h"
 #include "server/zone/objects/creature/commands/CombatQueueCommand.h"
+#include "server/zone/objects/installation/components/MinefieldDataComponent.h"
+#include "server/zone/objects/installation/components/TurretDataComponent.h"
 
 class MinefieldAttackTask : public Task {
-	ManagedReference<SceneObject*> sceneObject;
-	ManagedReference<CreatureObject*> player;
+	ManagedWeakReference<TangibleObject*> weakMinefield;
+	ManagedWeakReference<CreatureObject*> weakTarget;
 
 public:
-	MinefieldAttackTask(SceneObject* scene, CreatureObject* player) {
-		sceneObject = scene;
-		this->player = player;
+	MinefieldAttackTask(TangibleObject* minefield, CreatureObject* creatureTarget) {
+		weakMinefield = minefield;
+		weakTarget = creatureTarget;
 	}
 
 	void run() {
-		if(sceneObject == nullptr)
-			return;
+		ManagedReference<TangibleObject*> minefield = weakMinefield.get();
 
-		Locker locker(sceneObject);
-
-		if(sceneObject->getContainerObjectsSize() <= 0)
-			return;
-
-		DataObjectComponentReference* ref = sceneObject->getDataObjectComponent();
-		if(ref == nullptr){
+		if (minefield == nullptr) {
 			return;
 		}
 
-		MinefieldDataComponent* mineData = cast<MinefieldDataComponent*>(ref->get());
+		auto zone = minefield->getZone();
 
-		if(mineData == nullptr || !mineData->canExplode()){
+		if (zone == nullptr) {
 			return;
 		}
 
-		//Locker clocker(player, sceneObject);
+		ManagedReference<CreatureObject*> creatureTarget = weakTarget.get();
 
-		ManagedReference<WeaponObject*> weapon = sceneObject->getContainerObject(0).castTo<WeaponObject*>();
-
-		if (weapon == nullptr || sceneObject->getZone() == nullptr)
+		if (creatureTarget == nullptr) {
 			return;
+		}
 
-		PlayClientEffectLoc* explodeLoc = new PlayClientEffectLoc("clienteffect/lair_damage_heavy.cef", sceneObject->getZone()->getZoneName(), sceneObject->getPositionX(), sceneObject->getPositionZ(), sceneObject->getPositionY());
-		sceneObject->broadcastMessage(explodeLoc, false);
+		auto zoneServer = minefield->getZoneServer();
 
-		sceneObject->removeObject(weapon,nullptr,true);
+		if (zoneServer == nullptr) {
+			return;
+		}
 
-		if(sceneObject->getZoneServer() != nullptr){
-			ManagedReference<ObjectController*> objectController = sceneObject->getZoneServer()->getObjectController();
-			const QueueCommand* command = objectController->getQueueCommand(STRING_HASHCODE("minefieldattack"));
+		Locker locker(minefield);
 
-			if(command != nullptr){
-				const CombatQueueCommand* combatCommand = cast<const CombatQueueCommand*>(command);
-				if(combatCommand != nullptr){
-					CombatManager::instance()->doCombatAction(sceneObject.castTo<TangibleObject*>(), weapon, player, combatCommand);
-				}
+		if (minefield->getContainerObjectsSize() <= 0) {
+			return;
+		}
+
+		DataObjectComponentReference* dataComponent = minefield->getDataObjectComponent();
+
+		if (dataComponent == nullptr) {
+			return;
+		}
+
+		if (!CollisionManager::checkLineOfSight(creatureTarget, minefield)) {
+			return;
+		}
+
+		ManagedReference<WeaponObject*> weapon = minefield->getContainerObject(0).castTo<WeaponObject*>();
+
+		if (weapon == nullptr) {
+			return;
+		}
+
+		if (minefield->isTurret()) {
+			TurretDataComponent* turretData = cast<TurretDataComponent*>(dataComponent->get());
+
+			if (turretData == nullptr || !turretData->canExplodeMine()) {
+				return;
 			}
 
-		}
+			// Update cooldown
+			turretData->updateMineCooldown((uint64)(weapon->getAttackSpeed() * 1000));
+		} else {
+			MinefieldDataComponent* mineData = cast<MinefieldDataComponent*>(dataComponent->get());
 
-		mineData->updateCooldown(weapon->getAttackSpeed());
-		mineData->setMaxRange(weapon->getMaxRange());
-
-		if(sceneObject->getContainerObjectsSize() <= 0){
-			TangibleObject* tano = sceneObject.castTo<TangibleObject*>();
-			if(tano == nullptr)
+			if (mineData == nullptr || !mineData->canExplode()) {
 				return;
+			}
 
-			tano->setPvpStatusBitmask(tano->getPvpStatusBitmask() | ObjectFlag::ATTACKABLE);
+			// Update cooldown
+			mineData->updateCooldown((uint64)(weapon->getAttackSpeed() * 1000));
 		}
 
-		//clocker.release();
-		locker.release();
+		float damageRadius = weapon->getDamageRadius();
 
-		Locker lockerw(weapon);
+		auto targetCov = creatureTarget->getCloseObjects();
 
-		weapon->destroyObjectFromWorld(true);
-		weapon->destroyObjectFromDatabase(true);
+		if (targetCov == nullptr) {
+			return;
+		}
 
+		SortedVector<TreeEntry*> closeObjects;
+
+		closeObjects.removeAll(targetCov->size(), 10);
+		targetCov->safeCopyReceiversTo(closeObjects, CloseObjectsVector::CREOTYPE);
+
+		for (int i = 0; i < closeObjects.size(); i++) {
+			SceneObject* object = static_cast<SceneObject*>(closeObjects.get(i));
+
+			if (object == nullptr) {
+				continue;
+			}
+
+			Reference<CreatureObject*> targetCreo = object->asCreatureObject();
+
+			if (targetCreo == nullptr) {
+				continue;
+			}
+
+			// Check target is within range
+			if (!targetCreo->isInRange(creatureTarget, damageRadius)) {
+				continue;
+			}
+
+			// Check target is valid attackable target
+			if (!targetCreo->isAttackableBy(minefield)) {
+				continue;
+			}
+
+			// Check that the mine has LoS of the creature to damage
+			if (!CollisionManager::checkLineOfSight(targetCreo, creatureTarget)) {
+				continue;
+			}
+
+			// Damage the creature target
+			Locker targetClock(targetCreo, minefield);
+
+			// Player mine explosion animation
+			auto explodeLoc = new PlayClientEffectLoc("clienteffect/lair_damage_heavy.cef", zone->getZoneName(), targetCreo->getPositionX(), targetCreo->getPositionZ(), targetCreo->getPositionY());
+
+			if (explodeLoc != nullptr) {
+				targetCreo->broadcastMessage(explodeLoc, true, false);
+			}
+
+			float minDamage = weapon->getMinDamage();
+			float maxDamage = weapon->getMaxDamage();
+
+			CombatManager::instance()->doObjectDetonation(minefield, targetCreo, (System::frandom(maxDamage - minDamage) + minDamage), weapon);
+		}
+
+		Locker lockerw(weapon, minefield);
+
+		int weaponUses = weapon->getUseCount();
+
+		// Mine has greater than 1 use count
+		if (weaponUses > 1) {
+			weapon->setUseCount(weaponUses - 1, true);
+		// Mine is down to one use count, destroy
+		} else {
+			weapon->destroyObjectFromWorld(true);
+			weapon->destroyObjectFromDatabase(true);
+		}
 	}
-
 };
-
 
 #endif /* MINEFIELDATTACKTASK_H_ */

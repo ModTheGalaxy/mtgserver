@@ -21,28 +21,24 @@
 #include "server/zone/managers/stringid/StringIdManager.h"
 
 
-
-bool ShipControlDeviceImplementation::launchShip(CreatureObject* player, const String& zoneName, const Vector3& position) {
+ShipObject* ShipControlDeviceImplementation::launchShip(CreatureObject* player, const String& zoneName, const Vector3& position) {
 	auto ship = controlledObject.get().castTo<ShipObject*>();
 
 	if (ship == nullptr) {
-		return false;
+		return nullptr;
 	}
 
 	auto zoneServer = getZoneServer();
 
-	if (zoneServer ==  nullptr)
-		return false;
+	if (zoneServer ==  nullptr) {
+		return nullptr;
+	}
 
-	Zone* zone = zoneServer->getZone(zoneName);
+	auto zone = zoneServer->getZone(zoneName);
 
-	if (zone == nullptr || !zone->isSpaceZone())
-		return false;
-
-	SpaceZone* spaceZone = cast<SpaceZone*>(zone);
-
-	if (spaceZone == nullptr)
-		return false;
+	if (zone == nullptr) {
+		return nullptr;
+	}
 
 	Locker sLock(ship, _this.getReferenceUnsafeStaticCast());
 
@@ -52,23 +48,25 @@ bool ShipControlDeviceImplementation::launchShip(CreatureObject* player, const S
 
 	ship->clearPlayersOnBoard();
 
-	if (spaceZone->transferObject(ship, -1, true)) {
-		ship->setFactionStatus(player->getFactionStatus());
-		ship->setShipFaction(player->getFaction());
-		ship->scheduleRecovery();
-
-		if (player->isInvulnerable()) {
-			ship->setOptionBit(OptionBitmask::INVULNERABLE, false);
-		} else {
-			ship->clearOptionBit(OptionBitmask::INVULNERABLE, false);
-		}
-
-		updateStatus(true, true);
-
-		return true;
+	if (!zone->transferObject(ship, -1, true)) {
+		return nullptr;
 	}
 
-	return false;
+	ship->setFactionStatus(player->getFactionStatus());
+	ship->setShipFaction(player->getFaction());
+	ship->scheduleRecovery();
+
+	if (player->isInvulnerable()) {
+		ship->setOptionBit(OptionBitmask::INVULNERABLE, false);
+	} else {
+		ship->clearOptionBit(OptionBitmask::INVULNERABLE, false);
+	}
+
+	updateStatus(true, true);
+
+	// ship->info(true) << ship->getDisplayedName() << " ship succesfully launched into space zone";
+
+	return ship;
 }
 
 void ShipControlDeviceImplementation::fillObjectMenuResponse(ObjectMenuResponse* menuResponse, CreatureObject* player) {
@@ -83,6 +81,9 @@ void ShipControlDeviceImplementation::fillObjectMenuResponse(ObjectMenuResponse*
 
 	// Name Ship
 	menuResponse->addRadialMenuItem(RadialOptions::SET_NAME, 3, "@sui:rename_ship"); // Rename Ship
+
+	// Deed Ship
+	menuResponse->addRadialMenuItem(RadialOptions::SERVER_MENU1, 3, "@sui:pack_ship"); // Deed Ship
 
 	auto root = player->getRootParent();
 
@@ -106,7 +107,7 @@ void ShipControlDeviceImplementation::fillObjectMenuResponse(ObjectMenuResponse*
 
 	if (isShipLaunched()) {
 		String zoneName = StringIdManager::instance()->getStringId("@planet_n:" + storedZoneName).toString();
-		menuResponse->addRadialMenuItem(LANDSHIP, 3, "Land Ship: " + storedCityName + ", " + zoneName);
+		menuResponse->addRadialMenuItem(LANDSHIP, 3, "Land Ship: " + parkingLocation + ", " + zoneName);
 	} else {
 		menuResponse->addRadialMenuItem(LAUNCHSHIP, 3, "Launch Ship");
 
@@ -142,10 +143,20 @@ int ShipControlDeviceImplementation::handleObjectMenuSelect(CreatureObject* play
 	if (selectedID == RadialOptions::SET_NAME) {
 		auto shipManager = ShipManager::instance();
 
-		if (shipManager == nullptr)
+		if (shipManager == nullptr) {
 			return 1;
+		}
 
 		shipManager->promptNameShip(player, _this.getReferenceUnsafeStaticCast());
+	// Deed Ship
+	} else if (selectedID == RadialOptions::SERVER_MENU1) {
+		auto shipManager = ShipManager::instance();
+
+		if (shipManager == nullptr) {
+			return 1;
+		}
+
+		shipManager->reDeedShip(player, _this.getReferenceUnsafeStaticCast());
 	} else if (isShipLaunched()) {
 		if (selectedID == LANDSHIP) {
 			auto zone = zoneServer->getZone(storedZoneName);
@@ -174,7 +185,7 @@ int ShipControlDeviceImplementation::handleObjectMenuSelect(CreatureObject* play
 
 			Vector<uint64> dummyVec;
 
-			LaunchShipTask* launchTask = new LaunchShipTask(player, _this.getReferenceUnsafeStaticCast(), dummyVec);
+			LaunchShipTask* launchTask = new LaunchShipTask(player, _this.getReferenceUnsafeStaticCast(), dummyVec, zone->getZoneName());
 
 			if (launchTask != nullptr)
 				launchTask->execute();
@@ -184,6 +195,10 @@ int ShipControlDeviceImplementation::handleObjectMenuSelect(CreatureObject* play
 	}
 
 	return 1;
+}
+
+void ShipControlDeviceImplementation::fillAttributeList(AttributeListMessage* alm, CreatureObject* object) {
+	alm->insertAttribute("parking_spot", getParkingLocation());
 }
 
 bool ShipControlDeviceImplementation::canBeTradedTo(CreatureObject* player, CreatureObject* receiver, int numberInTrade) {
@@ -269,7 +284,7 @@ int ShipControlDeviceImplementation::canBeDestroyed(CreatureObject* player) {
 void ShipControlDeviceImplementation::destroyObjectFromDatabase(bool destroyContainedObjects) {
 	auto ship = getControlledObject();
 
-	if (ship != nullptr) {
+	if (ship != nullptr && ship->getLocalZone() != nullptr) {
 		Locker clock(ship, _this.getReferenceUnsafeStaticCast());
 
 		ship->destroyObjectFromDatabase(true);
@@ -321,12 +336,16 @@ void ShipControlDeviceImplementation::setStoredLocationData(CreatureObject* play
 	position.setZ(z);
 
 	storedPosition = position;
-	storedCityName = pointName;
+	parkingLocation = pointName;
 	storedZoneName = zoneName;
 
 	ghost->setSpaceLaunchLocation(position);
 	ghost->setSpaceLaunchCityName(pointName);
 	ghost->setSpaceLaunchZone(zoneName);
+
+	ship->setSpaceLaunchLocation(position);
+	ship->setSpaceLaunchCityName(pointName);
+	ship->setSpaceLaunchZone(zoneName);
 }
 
 Vector3 ShipControlDeviceImplementation::getStoredPosition(bool randomPosition) {

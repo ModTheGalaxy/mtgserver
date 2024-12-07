@@ -46,8 +46,14 @@ object_installation_faction_perk_turret_dish_sm = object_installation_faction_pe
 	pvpStatusBitmask = ATTACKABLE,
 	optionsBitmask = 0,
 	maxCondition = 75000,
+
+	gameObjectType = 4105,
+
 	groundZoneComponent = "TurretZoneComponent",
 	dataObjectComponent = "TurretDataComponent",
+	containerComponent = "TurretContainerComponent",
+	objectMenuComponent = "TurretMenuComponent",
+
 	-- Damagetypes in WeaponObject
 	vulnerability = BLAST + LIGHTSABER,
 	-- LIGHT, MEDIUM, HEAVY
@@ -64,7 +70,6 @@ object_installation_faction_perk_turret_dish_sm = object_installation_faction_pe
 	lightSaber = -1,
 	chanceHit = 4,
 	weapon = "object/weapon/ranged/turret/turret_dish_large.iff",
-
 }
 
 ObjectTemplates:addTemplate(object_installation_faction_perk_turret_dish_sm, "object/installation/faction_perk/turret/dish_sm.iff")

@@ -37,12 +37,7 @@ mercenary_commander = Creature:new {
 	lootGroups = {
 		{
 			groups = {
-				{group = "junk", chance = 3000000},
-				{group = "wearables_common", chance = 1500000},
-				{group = "wearables_uncommon", chance = 500000},
-				{group = "loot_kit_parts", chance = 2000000},
-				{group = "tailor_components", chance = 1000000},
-				{group = "heavy_weapons", chance = 2000000}
+				{group = "lok_mercenaries_tier_2", chance = 10000000}
 			}
 		}
 	},
@@ -53,7 +48,7 @@ mercenary_commander = Creature:new {
 	secondaryWeapon = "unarmed",
 	conversationTemplate = "",
 	reactionStf = "@npc_reaction/slang",
-	
+
 	-- primaryAttacks and secondaryAttacks should be separate skill groups specific to the weapon type listed in primaryWeapon and secondaryWeapon
 	-- Use merge() to merge groups in creatureskills.lua together. If a weapon is set to "none", set the attacks variable to empty brackets
 	primaryAttacks = merge(commandomaster,marksmanmaster,brawlermaster),

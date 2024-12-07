@@ -5,6 +5,7 @@
 package server.zone.managers.space;
 
 import engine.core.ManagedService;
+import server.zone.Zone;
 import server.zone.SpaceZone;
 import server.zone.ZoneProcessServer;
 import engine.log.Logger;
@@ -14,6 +15,9 @@ include engine.lua.LuaObject;
 import server.zone.CloseObjectsVector;
 include engine.util.u3d.Vector3;
 import server.zone.objects.ship.ShipObject;
+include server.zone.managers.space.SpaceRegionMap;
+include server.zone.managers.ship.SpaceSpawn;
+include server.zone.objects.tangible.space.content_infrastructure.SpaceSpawner;
 
 @dirty
 class SpaceManager extends ManagedService implements Logger {
@@ -21,11 +25,14 @@ class SpaceManager extends ManagedService implements Logger {
 
 	protected transient ZoneProcessServer server;
 
+	@dereferenced
+	protected SpaceRegionMap regionMap;
+
 	@rawTemplate(value="String, Vector3")
 	@dereferenced
 	protected transient VectorMap jtlTravelDestinations;
 
-	@rawTemplate(value="String, VectorMap<uint64, Vector3>")
+	@rawTemplate(value="unsigned int, VectorMap<uint64, Vector3>")
 	@dereferenced
 	protected transient VectorMap spaceStationMap;
 
@@ -53,6 +60,12 @@ class SpaceManager extends ManagedService implements Logger {
 	public native void loadLuaConfig();
 
 	@local
+	public native void loadRegions();
+
+	@local
+	public native void readRegionObject(@dereferenced LuaObject luaObject);
+
+	@local
 	public native void loadNebulaAreas();
 
 	@local
@@ -68,6 +81,12 @@ class SpaceManager extends ManagedService implements Logger {
 
 	public native void broadcastNebulaLightning(ShipObject ship, @dereferenced final Vector3 nebulaCenter, unsigned short lightningCount, int nebulaID, int startMili, int endMili, @dereferenced final Vector3 startPoint, @dereferenced final Vector3 endPoint);
 
+	public native SceneObject spaceDynamicSpawn(unsigned int shipCRC, Zone zone, SpaceSpawner spaceSpawner);
+
+	public native boolean isSpawningPermittedAt(float x, float z, float y, float distance);
+
+	public native boolean findNearbySpawner(float x, float z, float y, float distance);
+
 	@dirty
 	@local
 	@dereferenced
@@ -82,7 +101,7 @@ class SpaceManager extends ManagedService implements Logger {
 
 	@local
 	@dereferenced
-	public native unsigned long getClosestSpaceStationObjectID(@dereferenced final Vector3 position, @dereferenced final string faction);
+	public native unsigned long getClosestSpaceStationObjectID(@dereferenced final Vector3 position, unsigned int factionHash);
 
 	@local
 	@dereferenced

@@ -4,6 +4,7 @@
 #include "server/zone/objects/building/PoiBuilding.h"
 #include "server/zone/objects/intangible/TheaterObject.h"
 #include "server/zone/Zone.h"
+#include "server/zone/objects/tangible/space/content_infrastructure/SpaceSpawner.h"
 
 DespawnLairOnPlayerDisappear::DespawnLairOnPlayerDisappear(SceneObject* l) {
 	lair = l;
@@ -25,6 +26,8 @@ void DespawnLairOnPlayerDisappear::run() {
 
 	if (zone == nullptr)
 		return;
+
+	// zone->info(true) << "DespawnLairOnPlayerDisappear -- for lair: " << strongRef->getDisplayedName();
 
 	if (strongRef->isLairObject()) {
 		ManagedReference<LairObject*> strongLair = strongRef.castTo<LairObject*>();
@@ -56,6 +59,20 @@ void DespawnLairOnPlayerDisappear::run() {
 
 		if (strongTheater->getNumberOfPlayersInRange() <= 0) {
 			strongTheater->destroyObjectFromWorld(true);
+		}
+	} else if (strongRef->isSpaceSpawner()) {
+		ManagedReference<SpaceSpawner*> strongSpaceSpawner = strongRef.castTo<SpaceSpawner*>();
+
+		if (strongSpaceSpawner == nullptr) {
+			return;
+		}
+
+		Locker locker(strongSpaceSpawner);
+
+		strongSpaceSpawner->clearDespawnEvent();
+
+		if (strongSpaceSpawner->getNumberOfPlayersInRange() <= 0) {
+			strongSpaceSpawner->destroyObjectFromWorld(true);
 		}
 	}
 }

@@ -224,17 +224,19 @@ public:
 	uint64 evadeDelay;
 };
 
-class EngageTarget : public BehaviorSpace {
+class EngageSingleTarget : public BehaviorSpace {
 public:
-	EngageTarget(const String& className, const uint32 id, const LuaObject& args) : BehaviorSpace(className, id, args) {
+	EngageSingleTarget(const String& className, const uint32 id, const LuaObject& args) : BehaviorSpace(className, id, args) {
 	}
 
-	EngageTarget(const EngageTarget& a) : BehaviorSpace(a) {
+	EngageSingleTarget(const EngageSingleTarget& a) : BehaviorSpace(a) {
 	}
 
-	EngageTarget& operator=(const EngageTarget& a) {
-		if (this == &a)
+	EngageSingleTarget& operator=(const EngageSingleTarget& a) {
+		if (this == &a) {
 			return *this;
+		}
+
 		BehaviorSpace::operator=(a);
 
 		return *this;
@@ -251,44 +253,67 @@ public:
 			return FAILURE;
 		}
 
-		auto shipManager = ShipManager::instance();
+		Vector<uint32> weaponVector = agent->getActiveWeaponVector();
 
-		if (shipManager == nullptr) {
+		if (weaponVector.size() == 0) {
 			return FAILURE;
 		}
 
+		Locker clock(targetShip, agent);
+
+		for (int i = 0; i < weaponVector.size(); i++) {
+			int slot = weaponVector.get(i);
+
+			agent->fireWeaponAtTarget(targetShip, slot, Components::CHASSIS);
+		}
+
+		uint64 timeNow = System::getMiliTime();
+		agent->writeBlackboard("refireInterval", timeNow);
+
+		return SUCCESS;
+	}
+
+	String print() const {
+		StringBuffer msg;
+		msg << className << "-";
+
+		return msg.toString();
+	}
+};
+
+class EngageTurrets : public BehaviorSpace {
+public:
+	EngageTurrets(const String& className, const uint32 id, const LuaObject& args) : BehaviorSpace(className, id, args) {
+	}
+
+	EngageTurrets(const EngageTurrets& a) : BehaviorSpace(a) {
+	}
+
+	EngageTurrets& operator=(const EngageTurrets& a) {
+		if (this == &a) {
+			return *this;
+		}
+
+		BehaviorSpace::operator=(a);
+
+		return *this;
+	}
+
+	BehaviorSpace::Status execute(ShipAiAgent* agent, unsigned int startIdx = 0) const {
 		auto targetVector = agent->getTargetVector();
 
 		if (targetVector == nullptr || targetVector->size() == 0) {
 			return FAILURE;
 		}
 
-		Vector<uint32> weaponsIndex;
+		auto weaponVector = agent->getActiveWeaponVector();
+
+		if (weaponVector.size() == 0) {
+			return FAILURE;
+		}
 
 		int weaponsFiredMax = 10;
 		int weaponsFired = 0;
-
-		for (uint32 slot = Components::WEAPON_START; slot <= Components::CAPITALSLOTMAX; ++slot) {
-			uint32 crc = agent->getShipComponentMap()->get(slot);
-
-			if (crc == 0) {
-				continue;
-			}
-
-			int hitpoints = agent->getCurrentHitpointsMap()->get(slot);
-
-			if (hitpoints <= 0.f) {
-				continue;
-			}
-
-			int flags = agent->getComponentOptionsMap()->get(slot);
-
-			if (flags & ShipComponentFlag::DISABLED) {
-				continue;
-			}
-
-			weaponsIndex.add(slot);
-		}
 
 		Vector<ManagedReference<ShipObject*>> targetVectorCopy;
 		targetVector->safeCopyTo(targetVectorCopy);
@@ -302,34 +327,21 @@ public:
 
 			Locker cLock(targetEntry, agent);
 
-			Vector<uint32> weaponsCopy = weaponsIndex;
-
-			for (int ii = weaponsCopy.size(); -1 < --ii;) {
+			for (int ii = weaponVector.size(); -1 < --ii;) {
 				int key = System::random(ii);
-				int slot = weaponsCopy.get(key);
+				int slot = weaponVector.get(key);
 
-				weaponsCopy.remove(key);
-
-				auto turretData = shipManager->getShipTurretData(agent->getShipChassisName(), slot - Components::WEAPON_START);
-
-				if (turretData != nullptr) {
-					if (agent->fireTurretAtTarget(targetEntry, slot, Components::CHASSIS)) {
-						weaponsIndex.remove(key);
-						weaponsFired += 1;
-					}
-				} else {
-					if (agent->fireWeaponAtTarget(targetEntry, slot, Components::CHASSIS)) {
-						weaponsIndex.remove(key);
-						weaponsFired += 1;
-					}
+				if (agent->fireWeaponAtTarget(targetEntry, slot, Components::CHASSIS)) {
+					weaponVector.remove(key);
+					weaponsFired += 1;
 				}
 
-				if (weaponsIndex.size() == 0 || weaponsFired >= weaponsFiredMax) {
+				if (weaponVector.size() == 0 || weaponsFired >= weaponsFiredMax) {
 					break;
 				}
 			}
 
-			if (weaponsIndex.size() == 0 || weaponsFired >= weaponsFiredMax) {
+			if (weaponVector.size() == 0 || weaponsFired >= weaponsFiredMax) {
 				break;
 			}
 		}

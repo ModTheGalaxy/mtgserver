@@ -54,14 +54,14 @@ void PetControlDeviceImplementation::callObject(CreatureObject* player) {
 
 	if (player->getParent() != nullptr) {
 		ManagedReference<SceneObject*> strongRef = player->getRootParent();
-		ManagedReference<BuildingObject*> building = nullptr;
 
-		if (strongRef != nullptr)
-			building = strongRef.castTo<BuildingObject*>();
+		if (strongRef != nullptr && !strongRef->isPobShip()) {
+			ManagedReference<BuildingObject*> building = strongRef.castTo<BuildingObject*>();
 
-		if (building == nullptr || building->isPrivateStructure()) {
-			player->sendSystemMessage("@pet/pet_menu:private_house"); // You cannot call pets in a private building.
-			return;
+			if (building == nullptr || building->isPrivateStructure()) {
+				player->sendSystemMessage("@pet/pet_menu:private_house"); // You cannot call pets in a private building.
+				return;
+			}
 		}
 	}
 
@@ -890,7 +890,24 @@ void PetControlDeviceImplementation::fillAttributeList(AttributeListMessage* alm
 		ManagedReference<AiAgent*> pet = cast<AiAgent*>(this->controlledObject.get().get());
 
 		if (pet != nullptr) {
-			alm->insertAttribute("challenge_level", pet->getLevel());
+			int petLevel = pet->getLevel();
+
+			if (pet->isCreature()) {
+				auto petCreature = cast<Creature*>(pet.get());
+				int adultLevel = 0;
+
+				if (petCreature != nullptr) {
+					adultLevel = petCreature->getAdultLevel();
+				}
+
+				StringBuffer levelMsg;
+
+				levelMsg << petLevel << " (" << adultLevel << ")";
+
+				alm->insertAttribute("challenge_level", levelMsg.toString());
+			} else {
+				alm->insertAttribute("challenge_level", petLevel);
+			}
 
 			if (petType == PetManager::CREATUREPET)
 				alm->insertAttribute("creature_vitality", String::valueOf(vitality) + "/" + String::valueOf(maxVitality));

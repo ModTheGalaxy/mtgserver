@@ -50,6 +50,8 @@ import server.zone.objects.player.events.OnlinePlayerLogTask;
 import system.lang.Time;
 include server.zone.managers.player.PlayerNameIterator;
 include server.zone.objects.region.CityRegion;
+include server.zone.objects.ship.ai.ShipAiAgent;
+import engine.util.u3d.Vector3;
 
 @dirty
 class PlayerManager extends Observer implements Logger {
@@ -206,7 +208,7 @@ class PlayerManager extends Observer implements Logger {
 	public native void awardBadge(PlayerObject ghost, final Badge badge);
 
 	public native void setExperienceMultiplier(float globalMultiplier);
-	public native int awardExperience(CreatureObject player, final string xpType, int amount, boolean sendSystemMessage = true, float localMultiplier = 1.0f, boolean applyModifiers = true);
+	public native int awardExperience(CreatureObject player, final string xpType, int amount, boolean sendSystemMessage = true, float localMultiplier = 1.0f, boolean applyModifiers = true, boolean spaceBonus = false);
 
 	@local @dereferenced
 	public native SortedVector<SceneObject> getInsurableItems(CreatureObject player, boolean onlyInsurable = true);
@@ -382,6 +384,10 @@ class PlayerManager extends Observer implements Logger {
 	@local
 	public native void disseminateExperience(TangibleObject destructedObject, ThreatMap threatMap, SynchronizedVector<CreatureObject> lairSpawnedCreatures = null,Zone lairZone=null);
 
+	@local
+	@arg1preLocked
+	public native void disseminateSpaceExperience(ShipAiAgent destructedObject, ThreatMap threatMap);
+
 	public native int calculatePlayerLevel(CreatureObject player);
 	public native int calculatePlayerLevel(CreatureObject player, string xpType);
 
@@ -401,9 +407,11 @@ class PlayerManager extends Observer implements Logger {
 
 	@local
 	public native void updateSwimmingState(CreatureObject player, float newZ, IntersectionResults intersections = null, CloseObjectsVector closeObjects = null);
+
 	@local
-	public native int checkSpeedHackFirstTest(CreatureObject player, float parsedSpeed, @dereferenced ValidatedPosition teleportPosition, float errorMultiplier = 1);
-	public native int checkSpeedHackSecondTest(CreatureObject player, float newX, float newZ, float newY, unsigned int newStamp, SceneObject newParent = null);
+	public native boolean checkPlayerSpeedTest(CreatureObject player, SceneObject parent, float parsedSpeed, @dereferenced ValidatedPosition teleportPosition, @dereferenced final Vector3 newWorldPosition, float errorMultiplier = 1);
+
+	public native boolean checkSpeedHackTests(CreatureObject player, PlayerObject ghost, @dereferenced final Vector3 newWorldPosition, unsigned int newStamp, SceneObject newParent = null);
 
 	@dirty
 	public native boolean existsName(final string name);

@@ -3,15 +3,19 @@
 		See file COPYING for copying conditions.
 */
 
-package server.zone.objects.area;
+package server.zone.objects.area.space;
 
 import server.zone.objects.scene.SceneObject;
 import server.zone.objects.area.ActiveArea;
+
+include engine.util.u3d.Vector3;
 
 @mock
 @json
 class SpaceActiveArea extends ActiveArea {
 	public SpaceActiveArea() {
+		super();
+
 		Logger.setLoggingName("SpaceActiveArea");
 	}
 
@@ -20,4 +24,9 @@ class SpaceActiveArea extends ActiveArea {
 
 	@dirty
 	public native abstract void notifyExit(SceneObject object);
+
+	@local
+	@dereferenced
+	@dirty
+	public native Vector3 getRandomPosition();
 }

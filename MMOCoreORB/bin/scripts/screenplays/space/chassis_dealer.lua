@@ -147,13 +147,29 @@ function ChassisDealer:getShipComponents(pPlayer)
 	for i = 1, SceneObject(pInventory):getContainerObjectsSize(), 1 do
 		local pObject = SceneObject(pInventory):getContainerObject(i - 1)
 
-		if (pObject ~= nil) then
-			--local objectName = SceneObject(pObject):getObjectName()
+		if (pObject ~= nil and SceneObject(pObject):isShipComponent()) then
+			-- "item_list", "[%DI] ----------- %TO"
 
-			--if string.find(objectName, "chassis_token") then
-			--	local option = {"@space_crafting_n:" .. objectName, objectName}
-			--	table.insert(returnBluePrints, option)
-			--end
+			local rELevel = LuaShipComponent(pObject):getReverseEngineeringLevel()
+
+			if (rELevel < 1) then
+				goto skip
+			end
+
+			local itemCost = 1000
+
+			if (rELevel < 10) then
+				itemCost = itemCost * rELevel
+			else
+				itemCost = 500
+			end
+
+			local itemName = "@space/space_item:" .. SceneObject(pObject):getObjectName() .. " ----------- " .. itemCost
+
+			local option = {itemName, SceneObject(pObject):getObjectID()}
+			table.insert(returnComponents, option)
+
+			::skip::
 		end
 	end
 

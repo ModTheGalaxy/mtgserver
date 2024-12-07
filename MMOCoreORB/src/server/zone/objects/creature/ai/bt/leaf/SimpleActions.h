@@ -372,13 +372,11 @@ public:
 
 class Wait : public Behavior {
 public:
-	Wait(const String& className, const uint32 id, const LuaObject& args)
-			: Behavior(className, id, args), duration(-1) {
+	Wait(const String& className, const uint32 id, const LuaObject& args) : Behavior(className, id, args), duration(-1) {
 		parseArgs(args);
 	}
 
-	Wait(const Wait& a)
-			: Behavior(a), duration(a.duration) {
+	Wait(const Wait& a) : Behavior(a), duration(a.duration) {
 	}
 
 	Wait& operator=(const Wait& a) {
@@ -390,7 +388,7 @@ public:
 	}
 
 	void parseArgs(const LuaObject& args) {
-		duration = (int) (getArg<float>()(args, "duration") * 1000);
+		duration = (int)(getArg<float>()(args, "duration") * 1000);
 	}
 
 	Behavior::Status execute(AiAgent* agent, unsigned int startIdx = 0) const {
@@ -401,11 +399,12 @@ public:
 				return RUNNING;
 			} else {
 				agent->eraseBlackboard("isWaiting");
+
 				return SUCCESS;
 			}
 		}
 
-		agent->setWait(duration);
+		agent->setWait((uint64) abs(duration));
 		agent->writeBlackboard("isWaiting", true);
 
 		return RUNNING;
@@ -624,12 +623,16 @@ public:
 	}
 
 	Behavior::Status execute(AiAgent* agent, unsigned int startIdx = 0) const {
-		ManagedReference<CreatureObject*> healTarget = nullptr;
+		// agent->info(true) << "ID: " << agent->getObjectID() << "  SimpleAction - HealTarget called";
 
-		if (agent->peekBlackboard("healTarget"))
-			healTarget = agent->readBlackboard("healTarget").get<ManagedReference<CreatureObject*> >().get();
+		ManagedReference<TangibleObject*> healTarget = nullptr;
 
-		if (healTarget == nullptr || healTarget->isDead()) {
+		if (agent->peekBlackboard("healTarget")) {
+			healTarget = agent->readBlackboard("healTarget").get<ManagedReference<TangibleObject*> >().get();
+		}
+
+		// Check if heal target exists
+		if (healTarget == nullptr) {
 			agent->eraseBlackboard("healTarget");
 			agent->setMovementState(AiAgent::FOLLOWING);
 			return FAILURE;
@@ -643,20 +646,50 @@ public:
 			range = 32.f;
 		}
 
-		if (healTarget->getHAM(CreatureAttribute::HEALTH) < healTarget->getMaxHAM(CreatureAttribute::HEALTH) || healTarget->getHAM(CreatureAttribute::ACTION) < healTarget->getMaxHAM(CreatureAttribute::ACTION)) {
-			agent->clearQueueActions(true);
+		// Creature Object heal target
+		if (healTarget->isCreatureObject()) {
+			// agent->info(true) << "ID: " << agent->getObjectID() << " healTarget is a creature -- Target: " << healTarget->getDisplayedName();
 
-			if (healTarget == agent) {
-				agent->healTarget(healTarget);
-				healExecuted = true;
-			} else {
-				if (agent->isInRange(healTarget, range)) {
-					Locker clocker(healTarget, agent);
+			auto healTargetCreO = healTarget->asCreatureObject();
 
-					agent->healTarget(healTarget);
+			if (healTargetCreO == nullptr || healTargetCreO->isDead()) {
+				agent->eraseBlackboard("healTarget");
+				agent->setMovementState(AiAgent::FOLLOWING);
+
+				return FAILURE;
+			}
+
+			if (healTargetCreO->getHAM(CreatureAttribute::HEALTH) < healTargetCreO->getMaxHAM(CreatureAttribute::HEALTH) || healTargetCreO->getHAM(CreatureAttribute::ACTION) < healTargetCreO->getMaxHAM(CreatureAttribute::ACTION)) {
+				agent->clearQueueActions(true);
+
+				if (healTargetCreO == agent) {
+					agent->healCreatureTarget(healTargetCreO);
+					healExecuted = true;
+				} else if (agent->isInRange(healTarget, range)) {
+					Locker clocker(healTargetCreO, agent);
+
+					agent->healCreatureTarget(healTargetCreO);
 
 					healExecuted = true;
 				}
+			}
+		// Tangible Object heal target (Lairs, etc)
+		} else {
+			// agent->info(true) << "ID: " << agent->getObjectID() << " healTarget is a Tangible Object -- Target: " << healTarget->getDisplayedName();
+
+			if (healTarget->getZone() == nullptr || healTarget->getConditionDamage() < 1) {
+				agent->eraseBlackboard("healTarget");
+				agent->setMovementState(AiAgent::FOLLOWING);
+
+				return FAILURE;
+			}
+
+			if (agent->isInRange(healTarget, 2.0f)) {
+				Locker clocker(healTarget, agent);
+
+				agent->healTangibleTarget(healTarget);
+
+				healExecuted = true;
 			}
 		}
 

@@ -67,23 +67,23 @@ CreatureObject* CreatureManagerImplementation::spawnCreature(uint32 templateCRC,
 	return creature;
 }
 
-SceneObject* CreatureManagerImplementation::spawn(unsigned int lairTemplate, int difficultyLevel, int difficulty, float x, float z, float y, float size) {
+SceneObject* CreatureManagerImplementation::spawn(unsigned int lairTemplate, int difficultyLevel, int lairBuildingLevel, float x, float z, float y, float size) {
 	LairTemplate* lairTmpl = creatureTemplateManager->getLairTemplate(lairTemplate);
 
 	if (lairTmpl == nullptr)
 		return nullptr;
 
 	if (lairTmpl->getBuildingType() == LairTemplate::LAIR)
-		return spawnLair(lairTemplate, difficultyLevel, difficulty, x, z, y, size);
+		return spawnLair(lairTemplate, difficultyLevel, lairBuildingLevel, x, z, y, size);
 	else if (lairTmpl->getBuildingType() == LairTemplate::THEATER)
-		return spawnTheater(lairTemplate, difficulty, x, z, y, size);
+		return spawnTheater(lairTemplate, lairBuildingLevel, x, z, y, size);
 	else if (lairTmpl->getBuildingType() == LairTemplate::NONE)
-		return spawnDynamicSpawn(lairTemplate, difficulty, x, z, y, size);
+		return spawnDynamicSpawn(lairTemplate, lairBuildingLevel, x, z, y, size);
 
 	return nullptr;
 }
 
-SceneObject* CreatureManagerImplementation::spawnLair(unsigned int lairTemplate, int difficultyLevel, int difficulty, float x, float z, float y, float size) {
+SceneObject* CreatureManagerImplementation::spawnLair(unsigned int lairTemplate, int difficultyLevel, int lairBuildingLevel, float x, float z, float y, float size) {
 	LairTemplate* lairTmpl = creatureTemplateManager->getLairTemplate(lairTemplate);
 
 	if (lairTmpl == nullptr || lairTmpl->getBuildingType() != LairTemplate::LAIR)
@@ -96,7 +96,7 @@ SceneObject* CreatureManagerImplementation::spawnLair(unsigned int lairTemplate,
  	if (mobiles->size() == 0)
  		return nullptr;
 
- 	buildingToSpawn = lairTmpl->getBuilding((uint32)difficulty);
+ 	buildingToSpawn = lairTmpl->getBuilding(Math::max(1, (lairBuildingLevel - 1)));
 
  	if (buildingToSpawn.isEmpty()) {
  		error("error spawning " + buildingToSpawn);
@@ -106,24 +106,56 @@ SceneObject* CreatureManagerImplementation::spawnLair(unsigned int lairTemplate,
  	Reference<LairObject*> building = zoneServer->createObject(buildingToSpawn.hashCode(), 0).castTo<LairObject*>();
 
  	if (building == nullptr) {
- 		error("error spawning " + buildingToSpawn);
+ 		error() << "Failed to create lair spawn: " << buildingToSpawn;
  		return nullptr;
  	}
 
  	Locker blocker(building);
 
+	float baseCondition = CreatureManager::CREATURE_LAIR_MIN;
+
+	switch(lairBuildingLevel) {
+		case 2: {
+			baseCondition = 3000.f;
+			break;
+		}
+		case 3: {
+			baseCondition = 6000.f;
+			break;
+		}
+		case 4: {
+			baseCondition = 9000.f;
+			break;
+		}
+		case 5: {
+			baseCondition = 18000.f;
+			break;
+		}
+		default:
+			break;
+	}
+
+	uint32 conditionCalc = Math::min((float)CreatureManager::CREATURE_LAIR_MAX, (System::random(baseCondition) + ((baseCondition / 10) * difficultyLevel)));
+
+	building->setMaxCondition(conditionCalc);
+	building->setConditionDamage(0, false);
+
  	building->setFaction(lairTmpl->getFaction());
  	building->setPvpStatusBitmask(ObjectFlag::ATTACKABLE);
  	building->setOptionsBitmask(0, false);
- 	building->setMaxCondition(difficultyLevel * (900 + System::random(200)));
- 	building->setConditionDamage(0, false);
+
  	building->initializePosition(x, z, y);
  	building->setDespawnOnNoPlayersInRange(true);
 
  	ManagedReference<LairObserver*> lairObserver = new LairObserver();
+
+	if (lairObserver == nullptr) {
+		return nullptr;
+	}
+
  	lairObserver->deploy();
  	lairObserver->setLairTemplate(lairTmpl);
- 	lairObserver->setDifficulty(difficulty);
+ 	lairObserver->setDifficulty(lairBuildingLevel);
  	lairObserver->setObserverType(ObserverType::LAIR);
  	lairObserver->setSize(size);
 
@@ -132,6 +164,8 @@ SceneObject* CreatureManagerImplementation::spawnLair(unsigned int lairTemplate,
  	building->registerObserver(ObserverEventType::AIMESSAGE, lairObserver);
  	building->registerObserver(ObserverEventType::OBJECTREMOVEDFROMZONE, lairObserver);
 	building->registerObserver(ObserverEventType::NOPLAYERSINRANGE, lairObserver);
+	building->registerObserver(ObserverEventType::CREATUREDESPAWNED, lairObserver);
+	building->registerObserver(ObserverEventType::HEALINGRECEIVED, lairObserver);
 
  	zone->transferObject(building, -1, true);
 
@@ -1034,17 +1068,28 @@ void CreatureManagerImplementation::harvest(Creature* creature, CreatureObject* 
 }
 
 void CreatureManagerImplementation::tame(Creature* creature, CreatureObject* player, bool force, bool adult) {
-	Zone* zone = creature->getZone();
-
-	if (zone == nullptr || !creature->isCreature())
+	if (creature == nullptr || player == nullptr) {
 		return;
+	}
 
-	if(player->getPendingTask("tame_pet") != nullptr) {
+	auto zoneServer = creature->getZoneServer();
+
+	if (zoneServer == nullptr) {
+		return;
+	}
+
+	auto zone = creature->getZone();
+
+	if (zone == nullptr || !creature->isCreature()) {
+		return;
+	}
+
+	if (player->getPendingTask("tame_pet") != nullptr) {
 		player->sendSystemMessage("You are already taming a pet");
 		return;
 	}
 
-	if(player->getPendingTask("call_pet") != nullptr) {
+	if (player->getPendingTask("call_pet") != nullptr) {
 		player->sendSystemMessage("You cannot tame a pet while another is being called");
 		return;
 	}
@@ -1134,12 +1179,15 @@ void CreatureManagerImplementation::tame(Creature* creature, CreatureObject* pla
 		}
 	}
 
-	if (force && !ghost->isPrivileged())
+	if (force && !ghost->isPrivileged()) {
 		force = false;
+	}
 
-	ChatManager* chatManager = player->getZoneServer()->getChatManager();
+	auto chatManager = zoneServer->getChatManager();
 
-	chatManager->broadcastChatMessage(player, "@hireling/hireling:taming_" + String::valueOf(System::random(4) + 1), 0, 0, player->getMoodID(), 0, ghost->getLanguageID());
+	if (chatManager != nullptr) {
+		chatManager->broadcastChatMessage(player, "@hireling/hireling:taming_" + String::valueOf(System::random(4) + 1), 0, 0, player->getMoodID(), 0, ghost->getLanguageID());
+	}
 
 	Locker clocker(creature);
 
@@ -1148,6 +1196,10 @@ void CreatureManagerImplementation::tame(Creature* creature, CreatureObject* pla
 
 	creature->clearPatrolPoints();
 	creature->addObjectFlag(ObjectFlag::STATIONARY);
+	creature->setFollowObject(nullptr);
+	creature->setMovementState(AiAgent::OBLIVIOUS);
+
+	// Update AI Behavior Tree
 	creature->setAITemplate();
 
 	Reference<TameCreatureTask*> task = new TameCreatureTask(creature, player, mask, force, adult);
@@ -1231,33 +1283,48 @@ SpawnArea* CreatureManagerImplementation::getWorldSpawnArea() {
 	return nullptr;
 }
 
-bool CreatureManagerImplementation::addWearableItem(CreatureObject* creature, TangibleObject* clothing) {
+bool CreatureManagerImplementation::addWearableItem(CreatureObject* creature, TangibleObject* clothing, bool isVendor) {
+	if (creature == nullptr || clothing == nullptr) {
+		return false;
+	}
+
 	if (!clothing->isWearableObject() && !clothing->isWeaponObject())
 		return false;
 
-	ChatManager* chatMan = zoneServer->getChatManager();
-
+	ChatManager* chatManager = zoneServer->getChatManager();
 	SharedTangibleObjectTemplate* tanoData = dynamic_cast<SharedTangibleObjectTemplate*>(clothing->getObjectTemplate());
 
-	if (tanoData == nullptr || chatMan == nullptr)
+	if (tanoData == nullptr || chatManager == nullptr)
 		return false;
 
 	const Vector<uint32>* races = tanoData->getPlayerRaces();
-	const String& race = creature->getObjectTemplate()->getFullTemplateString();
+	const String race = creature->getObjectTemplate()->getFullTemplateString();
 
-	if (clothing->isWearableObject()) {
-		if (!races->contains(race.hashCode())) {
-			UnicodeString message;
+	if (clothing->isWearableObject() && !races->contains(race.hashCode())) {
+		int species = creature->getSpecies();
+		UnicodeString message;
 
-			if(creature->getObjectTemplate()->getFullTemplateString().contains("ithorian"))
+		// Vendor fail messages
+		if (isVendor) {
+			if (species == CreatureObject::ITHORIAN) {
 				message = "@player_structure:wear_not_ithorian";
-			else
+			} else {
 				message = "@player_structure:wear_no";
-
-			chatMan->broadcastChatMessage(creature, message, clothing->getObjectID(), 0, creature->getMoodID());
-
-			return false;
+			}
+		// NPC actor fail messages
+		} else {
+			if (species == CreatureObject::ITHORIAN) {
+				message = "@event_perk_npc_actor:wear_no_ithorian";
+			} else if (species == CreatureObject::WOOKIE) {
+				message = "@event_perk_npc_actor:wear_no_wookiee";
+			} else {
+				message = "@event_perk_npc_actor:wear_no";
+			}
 		}
+
+		chatManager->broadcastChatMessage(creature, message, clothing->getObjectID(), 0, creature->getMoodID());
+
+		return false;
 	}
 
 	ManagedReference<SceneObject*> clothingParent = clothing->getParent().get();
@@ -1273,6 +1340,7 @@ bool CreatureManagerImplementation::addWearableItem(CreatureObject* creature, Ta
 
 			if (slot != nullptr) {
 				Locker locker(slot);
+
 				slot->destroyObjectFromWorld(true);
 				slot->destroyObjectFromDatabase(true);
 			}
@@ -1280,16 +1348,27 @@ bool CreatureManagerImplementation::addWearableItem(CreatureObject* creature, Ta
 	}
 
 	creature->transferObject(clothing, 4, false);
-	creature->doAnimation("pose_proudly");
 	creature->broadcastObject(clothing, true);
 
-	UnicodeString message;
-	if (clothing->isWeaponObject())
-		message = "@player_structure:wear_yes_weapon";
-	else
-		message = "@player_structure:wear_yes";
+	creature->doAnimation("pose_proudly");
 
-	chatMan->broadcastChatMessage(creature, message, clothing->getObjectID(), 0, creature->getMoodID());
+	UnicodeString message;
+
+	if (isVendor) {
+		if (clothing->isWeaponObject()) {
+			message = "@player_structure:wear_yes_weapon";
+		} else {
+			message = "@player_structure:wear_yes";
+		}
+	} else {
+		if (clothing->isWeaponObject()) {
+			message = "@event_perk_npc_actor:wear_yes_weapon";
+		} else {
+			message = "@event_perk_npc_actor:wear_yes";
+		}
+	}
+
+	chatManager->broadcastChatMessage(creature, message, clothing->getObjectID(), 0, creature->getMoodID());
 
 	return true;
 }

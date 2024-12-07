@@ -9,7 +9,6 @@
 #include "server/zone/objects/cell/CellObject.h"
 
 WorldCoordinates::WorldCoordinates() : Object() {
-
 }
 
 WorldCoordinates::WorldCoordinates(const WorldCoordinates& c) : Object() {
@@ -18,8 +17,9 @@ WorldCoordinates::WorldCoordinates(const WorldCoordinates& c) : Object() {
 }
 
 WorldCoordinates& WorldCoordinates::operator=(const WorldCoordinates& c) {
-	if (this == &c)
+	if (this == &c) {
 		return *this;
+	}
 
 	point = c.point;
 	cell = c.cell;
@@ -32,17 +32,22 @@ WorldCoordinates::WorldCoordinates(SceneObject* obj) : Object() {
 
 	ManagedReference<CellObject*> parent = obj->getParent().get().castTo<CellObject*>();
 
-	if (parent != nullptr && obj != parent)
+	if (parent != nullptr && obj != parent) {
 		cell = parent;
+	}
 }
 
 WorldCoordinates::WorldCoordinates(const Vector3& position, CellObject* parent) : Object() {
 	point = position;
 
-	if (parent != nullptr)
+	if (parent != nullptr) {
 		cell = parent;
+	}
 }
 
+WorldCoordinates::~WorldCoordinates() {
+	cell = nullptr;
+}
 
 bool WorldCoordinates::toBinaryStream(ObjectOutputStream* stream) {
 	point.toBinaryStream(stream);
@@ -59,24 +64,32 @@ bool WorldCoordinates::parseFromBinaryStream(ObjectInputStream* stream) {
 }
 
 Vector3 WorldCoordinates::getWorldPosition() const {
-	if (cell == nullptr)
+	if (cell == nullptr) {
 		return point;
+	}
 
 	SceneObject* root = cell->getRootParent();
 
-	if (root == nullptr)
+	if (root == nullptr) {
 		return point;
+	}
 
-	float length = Math::sqrt(point.getX() * point.getX() + point.getY() * point.getY());
-	float angle = root->getDirection()->getRadians() + atan2(point.getX(), point.getY());
+	float rootRad = -root->getDirection()->getRadians();
+	float rootCos = cos(rootRad);
+	float rootSin = sin(rootRad);
 
-	float posX = root->getPositionX() + (sin(angle) * length);
-	float posY = root->getPositionY() + (cos(angle) * length);
-	float posZ = root->getPositionZ() + point.getZ();
+	float localX = point.getX();
+	float localY = point.getY();
+	float localZ = point.getZ();
 
-	Vector3 pos(posX, posY, posZ);
+	float rotatedX = (localX * rootCos) - (localY * rootSin);
+	float rotatedY = (localX * rootSin) + (localY * rootCos);
 
-	return pos;
+	float worldX = root->getPositionX() + rotatedX;
+	float worldY = root->getPositionY() + rotatedY;
+	float worldZ = root->getPositionZ() + localZ;
+
+	return Vector3(worldX, worldY, worldZ);
 }
 
 

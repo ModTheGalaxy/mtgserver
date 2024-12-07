@@ -88,13 +88,11 @@ FactionMap* FactionManager::getFactionMap() {
 }
 
 void FactionManager::awardFactionStanding(CreatureObject* player, const String& factionName, int level) {
-	if (player == nullptr)
+	if (player == nullptr || !factionMap.contains(factionName)) {
 		return;
+	}
 
 	ManagedReference<PlayerObject*> ghost = player->getPlayerObject();
-
-	if (!factionMap.contains(factionName))
-		return;
 
 	const Faction& faction = factionMap.get(factionName);
 	const SortedVector<String>* enemies = faction.getEnemies();
@@ -152,6 +150,89 @@ void FactionManager::awardFactionStanding(CreatureObject* player, const String& 
 	}
 }
 
+void FactionManager::awardSpaceFactionPoints(CreatureObject* player, uint32 shipTypeHash, const String& factionName, uint32 shipLevel, int totalShipmates, int imperialReward, int rebelReward) {
+	if (player == nullptr || !factionMap.contains(factionName)) {
+		return;
+	}
+
+	auto ghost = player->getPlayerObject();
+
+	if (ghost == nullptr) {
+		return;
+	}
+
+	const Faction& faction = factionMap.get(factionName);
+
+	if (!faction.isPlayerAllowed()) {
+		return;
+	}
+
+	float gain = 0.f;
+	float loss = 0.f;
+
+	if (imperialReward > 0) {
+		gain = imperialReward;
+		loss = rebelReward;
+	} else {
+		gain = rebelReward;
+		loss = imperialReward;
+	}
+
+	// info(true) << "awardSpaceFactionPoints -- Player Tier: " << pilotTier << " ShipLevel: " << shipLevel << " Gain: " << gain << " Loss: " << loss;
+
+	bool gcw = false;
+
+	if (factionName == "rebel" || factionName == "imperial") {
+		gcw = true;
+	}
+
+	const SortedVector<String>* enemies = faction.getEnemies();
+	const SortedVector<String>* allies = faction.getAllies();
+
+	// Gain faction standing to enemies of the creature.
+	for (int i = 0; i < enemies->size(); ++i) {
+		const String& enemy = enemies->get(i);
+
+		if ((enemy == "rebel" || enemy == "imperial") && !gcw) {
+			continue;
+		}
+
+		if (!factionMap.contains(enemy)) {
+			continue;
+		}
+
+		const Faction& enemyFaction = factionMap.get(enemy);
+
+		if (!enemyFaction.isPlayerAllowed()) {
+			continue;
+		}
+
+		ghost->increaseFactionStanding(enemy, gain);
+	}
+
+	ghost->decreaseFactionStanding(factionName, loss);
+
+	// Lose faction standing to allies of the creature.
+	for (int i = 0; i < allies->size(); ++i) {
+		const String& ally = allies->get(i);
+
+		if ((ally == "rebel" || ally == "imperial")) {
+			continue;
+		}
+
+		if (!factionMap.contains(ally)) {
+			continue;
+		}
+
+		const Faction& allyFaction = factionMap.get(ally);
+
+		if (!allyFaction.isPlayerAllowed()) {
+			continue;
+		}
+
+		ghost->decreaseFactionStanding(ally, loss);
+	}
+}
 
 void FactionManager::awardPvpFactionPoints(TangibleObject* killer, CreatureObject* destructedObject) {
 	if (killer->isPlayerCreature() && destructedObject->isPlayerCreature()) {

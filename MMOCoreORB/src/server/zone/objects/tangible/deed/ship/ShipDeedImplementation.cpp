@@ -15,6 +15,7 @@
 #include "server/zone/managers/player/PlayerManager.h"
 #include "server/zone/Zone.h"
 #include "server/zone/managers/ship/ShipManager.h"
+#include "server/zone/managers/planet/PlanetManager.h"
 
 void ShipDeedImplementation::loadTemplateData(SharedObjectTemplate* templateData) {
 	DeedImplementation::loadTemplateData(templateData);
@@ -65,7 +66,7 @@ void ShipDeedImplementation::fillAttributeList(AttributeListMessage* alm, Creatu
 	alm->insertAttribute("chassismass", msg);
 	msg.deleteAll();
 
-	alm->insertAttribute("parking_spot", getParkingLocaiton());
+	alm->insertAttribute("parking_spot", getParkingLocation());
 }
 
 void ShipDeedImplementation::initializeTransientMembers() {
@@ -90,7 +91,7 @@ int ShipDeedImplementation::handleObjectMenuSelect(CreatureObject* player, byte 
 		if (generated || !isASubChildOf(player))
 			return 1;
 
-		ManagedReference<SceneObject*> datapad = player->getSlottedObject("datapad");
+		ManagedReference<SceneObject*> datapad = player->getDatapad();
 
 		if (datapad == nullptr) {
 			error() << "Players datapad is a nullptr";
@@ -99,14 +100,34 @@ int ShipDeedImplementation::handleObjectMenuSelect(CreatureObject* player, byte 
 
 		ZoneServer* zoneServer = player->getZoneServer();
 
-		if (zoneServer == nullptr)
+		if (zoneServer == nullptr) {
 			return 1;
+		}
 
 		// Check if this will exceed maximum number of vehicles allowed
 		ManagedReference<PlayerManager*> playerManager = zoneServer->getPlayerManager();
 
-		if (playerManager == nullptr)
+		if (playerManager == nullptr) {
 			return 1;
+		}
+
+		auto zone = player->getZone();
+
+		if (zone == nullptr) {
+			return 1;
+		}
+
+		auto planetManager = zone->getPlanetManager();
+
+		if (planetManager == nullptr) {
+			return 1;
+		}
+
+		auto travelPoint = planetManager->getNearestPlanetTravelPoint(player->getWorldPosition());
+
+		if (travelPoint == nullptr) {
+			return 1;
+		}
 
 		// Sorosuub Luxury Yacht veteran reward deed check
 		bool isYachtDeed = generatedObjectTemplate.hashCode() == 388127163; // object/ship/player/player_sorosuub_space_yacht.iff
@@ -146,7 +167,7 @@ int ShipDeedImplementation::handleObjectMenuSelect(CreatureObject* player, byte 
 		// Sorosuub Luxury Yacht veteran reward should come with components
 		bool componentCreation = (isYachtDeed ? true : shouldCreateComponents());
 
-		ManagedReference<ShipObject*> ship = ShipManager::instance()->createPlayerShip(player, generatedObjectTemplate, componentCreation);
+		ManagedReference<ShipObject*> ship = ShipManager::instance()->createPlayerShip(player, generatedObjectTemplate, certRequired, componentCreation);
 
 		if (ship == nullptr) {
 			error() << "Failed to generate ship object from template: " << generatedObjectTemplate;
@@ -155,6 +176,14 @@ int ShipDeedImplementation::handleObjectMenuSelect(CreatureObject* player, byte 
 
 		// Player is locked, cross lock the ship to the player
 		Locker slocker(ship, player);
+
+		ship->setMaxCondition(getMaxHitPoints(), false);
+		ship->setConditionDamage(getHitPointsDamage(), false);
+
+		ship->setChassisMaxMass(getMass(), false);
+
+		// release ship cross lock
+		slocker.release();
 
 		uint64 controlDeviceID = ship->getControlDeviceID();
 
@@ -168,13 +197,20 @@ int ShipDeedImplementation::handleObjectMenuSelect(CreatureObject* player, byte 
 			return 1;
 		}
 
-		ship->setMaxCondition(maxHitPoints);
-		ship->setConditionDamage(0);
+		Locker deviceLock(shipControlDevice, player);
 
-		ship->setChassisMaxMass(mass);
+		if (isYachtDeed) {
+			shipControlDevice->setParkingLocation(travelPoint->getPointName());
+		} else {
+			shipControlDevice->setParkingLocation(getParkingLocation());
+		}
 
-		// release ship cross lock
-		slocker.release();
+		for (int i = 0; i < getTotalSkillsRequired(); i++) {
+			auto skillName = getSkillRequired(i);
+			shipControlDevice->addSkillRequired(skillName);
+		}
+
+		deviceLock.release();
 
 		// Sorosuub Luxury Yacht veteran reward deeds do not get destroyed
 		if (isYachtDeed) {

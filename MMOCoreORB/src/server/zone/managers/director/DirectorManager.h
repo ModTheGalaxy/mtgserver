@@ -126,6 +126,7 @@ namespace server {
 		static int hasObserver(lua_State* L);
 		static int spawnMobile(lua_State* L);
 		static int spawnEventMobile(lua_State* L);
+		static int spawnShipAgent(lua_State* L);
 		static int spawnSceneObject(lua_State* L);
 		static int spawnActiveArea(lua_State* L);
 		static int spawnBuilding(lua_State* L);
@@ -225,6 +226,7 @@ namespace server {
 
 		// JTL
 		static int generateShipDeed(lua_State* L);
+		static int sellSpaceLoot(lua_State* L);
 
 	private:
 		static void setupLuaPackagePath(Lua* luaEngine);

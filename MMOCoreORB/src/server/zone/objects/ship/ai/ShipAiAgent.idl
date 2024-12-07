@@ -11,6 +11,7 @@ import system.lang.Exception;
 import server.zone.Zone;
 
 import server.zone.objects.ship.FighterShipObject;
+import server.zone.objects.ship.ai.ShipAgentTemplate;
 include server.zone.objects.ship.ShipObject;
 import server.zone.objects.ship.ai.events.ShipAiBehaviorEvent;
 import server.zone.objects.ship.ai.events.DespawnAiShipOnNoPlayersInRange;
@@ -36,10 +37,16 @@ include engine.util.u3d.Vector3;
 include server.zone.objects.creature.variables.CooldownTimerMap;
 include engine.util.u3d.Quaternion;
 include server.zone.objects.creature.CreatureObject;
+include server.zone.objects.ship.ShipProjectileData;
+include server.zone.objects.ship.ShipMissileData;
+include server.zone.objects.ship.ShipTurretData;
 
 @json
 class ShipAiAgent extends FighterShipObject {
 	protected transient ShipAiBehaviorEvent behaviorEvent;
+
+	@dereferenced
+	protected transient ReadWriteLock despawnMutex;
 
 	@dereferenced
 	protected transient SpacePatrolPointsVector patrolPoints;
@@ -51,12 +58,6 @@ class ShipAiAgent extends FighterShipObject {
 	protected transient SpacePatrolPoint nextStepPosition;
 
 	@dereferenced
-	protected transient SpacePatrolPoint endMovementPosition;
-
-	@dereferenced
-	protected transient Vector3 lastPosition;
-
-	@dereferenced
 	protected transient Vector3 lastDirection;
 
 	@dereferenced
@@ -64,6 +65,15 @@ class ShipAiAgent extends FighterShipObject {
 
 	@dereferenced
 	protected transient Vector3 nextDirection;
+
+	@dereferenced
+	protected transient Vector3 lastRotation;
+
+	@dereferenced
+	protected transient Vector3 currentRotation;
+
+	@dereferenced
+	protected transient Vector3 nextRotation;
 
 	protected boolean despawnOnNoPlayerInRange;
 
@@ -95,13 +105,24 @@ class ShipAiAgent extends FighterShipObject {
 	protected float coordinateMin;
 	protected float coordinateMax;
 
-	private float currentSpeed;
 	private float lastSpeed;
 
 	@dereferenced
 	protected transient AtomicInteger numberOfPlayersInRange;
 
+	@dereferenced
+	protected transient AtomicInteger behaviorIntervalSchedule;
+
+	@dereferenced
+	protected transient AtomicInteger behaviorIntervalIterator;
+
 	protected transient DespawnAiShipOnNoPlayersInRange despawnEvent;
+
+	@dereferenced
+	protected Vector<unsigned int> alliedFactions;
+
+	@dereferenced
+	protected Vector<unsigned int> enemyFactions;
 
 	// btree bit
 	@dereferenced
@@ -131,10 +152,25 @@ class ShipAiAgent extends FighterShipObject {
 
 	protected unsigned int shipBitmask;
 
-	public static final int BEHAVIORINTERVAL = 200; // msec
+	protected transient unsigned long updateZoneTime;
+
+	protected transient float lastDeltaTime;
+
+	protected transient float deltaTime;
+
+	protected transient float missileLockTime;
+
+	@weakReference
+	protected SceneObject homeObject;
+
+	public static final int UPDATEZONEINTERVAL = 2000; // msec
+	public static final int BEHAVIORINTERVALMAX = 1000; // msec
+	public static final int BEHAVIORINTERVAL = 500; // msec
+	public static final int BEHAVIORINTERVALMIN = 200; // msec
 
 	public static final float DEFAULTAGGRORADIUS = 768.f;
 	public static final float MAX_ATTACK_DISTANCE = 1280.f;
+	public static final float MAX_EVADE_DURATION = 5.f; // sec
 
 	public static final int OBLIVIOUS = 0;
 	public static final int WATCHING = 1;
@@ -151,7 +187,44 @@ class ShipAiAgent extends FighterShipObject {
 	public static final int REBEL_PROJECTILE = 4;
 	public static final int IMPERIAL_PROJECTILE = 6;
 
+	public static final float DEFAULT_PROJECTILE_SPEED = 500.f;
+	public static final float DEFAULT_PROJECTILE_RANGE = 512.f;
+	public static final float DEFAULT_PROJECTILE_REFIRE = 0.5f;
+	public static final float DEFAULT_MISSILE_REFIRE = 5.f;
+
 	protected transient unsigned long customShipAiMap;
+
+	protected transient ShipAgentTemplate agentTemplate;
+
+	protected transient int experienceValue;
+
+	protected transient float lootChance;
+	protected transient int lootRolls;
+
+	@dereferenced
+	protected transient string lootTable;
+
+	protected transient int minCredits;
+	protected transient int maxCredits;
+
+	protected transient int imperialFactionReward;
+	protected transient int rebelFactionReward;
+
+	protected transient unsigned int conversationTemplate;
+	protected transient unsigned int conversationMobile;
+	protected transient unsigned int conversationMessage;
+
+	protected transient float minGuardPatrol;
+	protected transient float maxGuardPatrol;
+
+	@dereferenced
+	protected transient Vector<unsigned int> fixedPatrolPoints;
+
+	@dereferenced
+	private transient Mutex enemyListMutex;
+
+	@dereferenced
+	protected transient Vector<unsigned long> enemyShipList;
 
 	public ShipAiAgent() {
 		movementState = OBLIVIOUS;
@@ -169,6 +242,28 @@ class ShipAiAgent extends FighterShipObject {
 
 		coordinateMin = -8192;
 		coordinateMax = 8192;
+
+		agentTemplate = null;
+
+		experienceValue = 0;
+
+		lootChance = 0;
+		lootRolls = 0;
+
+		lootTable = "";
+
+		minCredits = 0;
+		maxCredits = 0;
+
+		imperialFactionReward = 0;
+		rebelFactionReward = 0;
+
+		conversationTemplate = 0;
+		conversationMobile = 0;
+		conversationMessage = 0;
+
+		minGuardPatrol = 0;
+		maxGuardPatrol = 0;
 	}
 
 	/**
@@ -181,7 +276,7 @@ class ShipAiAgent extends FighterShipObject {
 	public native abstract void loadTemplateData(SharedObjectTemplate templateData);
 
 	@local
-	public native abstract void loadTemplateData(SharedShipObjectTemplate shipTemp);
+	public native abstract void loadTemplateData(ShipAgentTemplate agentTemp);
 
 	/**
 	 * Initializes the transient members of SceneObject, must call the inherited object method first.
@@ -193,11 +288,16 @@ class ShipAiAgent extends FighterShipObject {
 	public void finalize() {
 	}
 
+	public native void notifyInsertToZone(Zone zone);
+
 	@local
 	public native void notifyInsert(TreeEntry entry);
 
 	@local
-	public native void notifyDissapear(TreeEntry entry);
+	public abstract native void notifyDissapear(TreeEntry entry);
+
+	@preLocked
+	public abstract native void notifyDespawn();
 
 	@weakReference
 	public ShipObject getFollowShipObject() {
@@ -252,7 +352,7 @@ class ShipAiAgent extends FighterShipObject {
 
 	@local
 	@dereferenced
-	public native Vector3 getInterceptPosition(ShipObject targetShip, float speed, int slot);
+	public native Vector3 getInterceptPosition(ShipObject targetShip, float speed, int slot = -1, int targetSlot = -1);
 
 	@dirty
 	public abstract native float getMaxDistance();
@@ -261,35 +361,66 @@ class ShipAiAgent extends FighterShipObject {
 	public abstract native int setDestination();
 
 	@local
-	public native final Quaternion unitVectorToQuaternion();
+	@dereferenced
+	public native Quaternion radiansToQuaterion(float yaw, float pitch, float roll);
 
-	public native float getRotationRate(float currentRadians, float lastRadians);
+	@local
+	@dereferenced
+	public native Vector3 radiansToUnitVector(float yaw, float pitch);
+
+	@local
+	@dereferenced
+	public native Quaternion unitVectorToQuaternion();
+
+	@local
+	@dereferenced
+	public native Vector3 unitVectorToRotation();
+
+	@local
+	@dereferenced
+	public native Vector3 matrixToUnitVector();
 
 	public native float getMaxThrottle();
 
 	public native float getMinThrottle();
 
+	public native float getMaxTurnRate();
+
+	public native float getRotationRate(float currentRadians, float lastRadians = 0.f);
+
 	public native float qInvSqrt(float x);
+
+	public native float qSqrt(float x);
 
 	public native float qNormalize(@dereferenced Vector3 vec);
 
 	public native boolean setDisabledEngineSpeed();
 
-	public native void setSpeed();
+	public native void setNextSpeed();
 
-	public native void setShipDirection();
+	public native void setNextDirection();
 
 	public native void setNextPosition();
+
+	public native void updateTransform(boolean lightUpdate = true);
+
+	public native void setDeltaTime();
+
+	public native int getNextBehaviorInterval();
 
 	@preLocked
 	public abstract native boolean findNextPosition(int maxDistance);
 
-	public abstract native boolean generatePatrol(int num, float dist);
+	public abstract native boolean generatePatrol(int totalPoints, float distance, int pathShape = 0);
+
+	public abstract native void updatePatrolPoints();
 
 	@preLocked
 	public abstract native void leash();
 
 	public abstract native void broadcastTransform(@dereferenced final Vector3 position);
+
+	public native float calculatePixelHeight(@dereferenced final Vector3 position);
 
 	public void clearPatrolPoints() {
 		synchronized (targetMutex) {
@@ -309,6 +440,18 @@ class ShipAiAgent extends FighterShipObject {
 		homeLocation.setPosition(x, z, y);
 		homeLocation.setReached(true);
 		homeLocation.setDirection(direction.getW(), direction.getX(), direction.getZ(), direction.getY());
+	}
+
+	@preLocked
+	public void setHomeObject(SceneObject home) {
+		homeObject = home;
+	}
+
+	@read
+	@local
+	@weakReference
+	public SceneObject getHomeObject() {
+		return homeObject;
 	}
 
 	public void setFollowShipObject(ShipObject ship) {
@@ -362,6 +505,13 @@ class ShipAiAgent extends FighterShipObject {
 
 	@dirty
 	public native boolean isAttackableBy(CreatureObject object);
+
+	public native boolean addEnemyShip(unsigned long enemyShipID);
+
+	public native boolean removeEnemyShip(unsigned long enemyShipID);
+
+	@dirty
+	public native boolean isEnemyShip(unsigned long shipID);
 
 	/**
 	 * Evaluates if this creature is aggresive to the object
@@ -460,11 +610,40 @@ class ShipAiAgent extends FighterShipObject {
 		shipBitmask = mask;
 	}
 
+	@read
+	public native boolean isFixedPatrolShipAgent();
+
+	@dirty
+	public void setConversationTemplate(unsigned int convoTemplateCrc) {
+		conversationTemplate = convoTemplateCrc;
+	}
+
+	@dirty
+	public void setConversationMobile(unsigned int mobile) {
+		conversationMobile = mobile;
+	}
+
+	@dirty
+	public void setConversationMessage(unsigned int message) {
+		conversationMessage = message;
+	}
+
+	public void setMinimumGuardPatrol(float min) {
+		minGuardPatrol = min;
+	}
+
+	public void setMaximumGuardPatrol(float max) {
+		maxGuardPatrol = max;
+	}
+
 	@preLocked
 	public native void addShipFlag(unsigned int option);
 
 	@preLocked
 	public native void removeShipFlag(unsigned int option);
+
+	@preLocked
+	public native void addFixedPatrolPoint(unsigned int pointHash);
 
 	@preLocked
 	public void destroyObjectFromWorld(boolean sendSelfDestroy) {
@@ -505,13 +684,66 @@ class ShipAiAgent extends FighterShipObject {
 		return numberOfPlayersInRange.get();
 	}
 
-	@local
-	@dirty
+	public int getExperienceValue() {
+		return experienceValue;
+	}
+
+	public float getLootChance() {
+		return lootChance;
+	}
+
+	public int getLootRolls() {
+		return lootRolls;
+	}
+
 	@dereferenced
-	public native Vector3 getCurrentDirectionVector();
+	public native string getLootTable();
+
+	public int getMinLootCredits() {
+		return minCredits;
+	}
+
+	public int getMaxLootCredits() {
+		return maxCredits;
+	}
+
+	public int getImperialFactionReward() {
+		return imperialFactionReward;
+	}
+
+	public int getRebelFactionReward() {
+		return rebelFactionReward;
+	}
+
+	public unsigned int getConversationTemplate() {
+		return conversationTemplate;
+	}
+
+	public unsigned int getConversationMobile() {
+		return conversationMobile;
+	}
+
+	public unsigned int getConversationMessage() {
+		return conversationMessage;
+	}
+
+	public float getMinimumGuardPatrol() {
+		return minGuardPatrol;
+	}
+
+	public float getMaximumGuardPatrol() {
+		return maxGuardPatrol;
+	}
 
 	@preLocked
 	public native void setDespawnOnNoPlayerInRange(boolean val);
+
+	/**
+	 * Schedules despawn of the AiAgent.
+	 * @param timeToDespawn the time to despawn the AiAgent in seconds.
+	 */
+	@preLocked
+	public abstract native void scheduleDespawn(int timeToDespawn, boolean force = false);
 
 	@preLocked
 	public abstract void clearDespawnEvent() {
@@ -591,17 +823,89 @@ class ShipAiAgent extends FighterShipObject {
 
 	public native void sendDebugPath();
 
-	public float getCurrentSpeed() {
-		return currentSpeed;
-	}
-
 	@preLocked
 	public native boolean validateTarget();
 
 	@preLocked
 	public native boolean validateTarget(ShipObject targetShip);
 
+	/**
+	* Is called when this object is destroyed
+	* @pre { this, attacker locked }
+	* @post { this, attacker locked }
+	*/
+	@preLocked
+	@arg1preLocked
+	public native int notifyObjectDestructionObservers(TangibleObject attacker, int condition, boolean isCombatAction);
+
+	@preLocked
+	public native void sendReactionChat(SceneObject object, int type, int state = 0, boolean force = false);
+
+	@local
+	@dereferenced
+	public native Vector<unsigned int> getActiveWeaponVector();
+
+	@local
 	public native boolean fireWeaponAtTarget(ShipObject targetShip, unsigned int slot, unsigned int targetSlot);
 
-	public native boolean fireTurretAtTarget(ShipObject targetShip, unsigned int slot, unsigned int targetSlot);
+	@local
+	public native boolean fireProjectileAtTarget(ShipObject targetShip, final ShipProjectileData projectileData, unsigned int slot, unsigned int targetSlot);
+
+	@local
+	public native boolean fireMissileAtTarget(ShipObject targetShip, final ShipProjectileData projectileData, final ShipMissileData missileData, unsigned int slot, unsigned int targetSlot);
+
+	@local
+	public native boolean fireTurretAtTarget(ShipObject targetShip, final ShipProjectileData projectileData, final ShipTurretData turretData, unsigned int slot, unsigned int targetSlot);
+
+	public native float getWeaponRefireDeltaTime(unsigned int slot);
+
+	public native void setWeaponRefireDeltaTime(unsigned int slot);
+
+	public native void initializeTransform(@dereferenced final Vector3 position, @dereferenced final Quaternion direction);
+
+	@local
+	@dereferenced
+	public native Vector3 getHomePosition();
+
+	@local
+	@dereferenced
+	public native Vector3 getNextStepPosition();
+
+	@read
+	@local
+	@dereferenced
+	public native Vector3 getNextDirectionVector();
+
+	@read
+	@local
+	@dereferenced
+	public native Vector3 getCurrentDirectionVector();
+
+	@read
+	@local
+	@dereferenced
+	public native Vector3 getLastDirectionVector();
+
+	@read
+	@local
+	@dereferenced
+	public native Vector3 getNextRotationVector();
+
+	@read
+	@local
+	@dereferenced
+	public native Vector3 getCurrentRotationVector();
+
+	@read
+	@local
+	@dereferenced
+	public native Vector3 getLastRotationVector();
+
+	@read
+	public native float getLastSpeed();
+
+	public native string getShipAgentTemplateName();
+
+	@read
+	public native abstract float getOutOfRangeDistance();
 }
