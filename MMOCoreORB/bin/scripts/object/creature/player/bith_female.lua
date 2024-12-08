@@ -44,7 +44,10 @@
 object_creature_player_bith_female = object_creature_player_shared_bith_female:new {
 	baseHAM = { 100, 100, 100, 100, 100, 100, 100, 100, 100 },
 	gameObjectType = 1033,
-	zoneComponent = "PlayerZoneComponent",
+
+	groundZoneComponent = "PlayerZoneComponent",
+	spaceZoneComponent = "PlayerSpaceZoneComponent",
+
 	objectMenuComponent = "PlayerObjectMenuComponent",
 	containerComponent = "PlayerContainerComponent",
 	pvpStatusBitmask = PLAYER,
