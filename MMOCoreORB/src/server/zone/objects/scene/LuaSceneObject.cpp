@@ -28,6 +28,7 @@ Luna<LuaSceneObject>::RegType LuaSceneObject::Register[] = {
 		{ "getPositionY", &LuaSceneObject::getPositionY },
 		{ "getPositionZ", &LuaSceneObject::getPositionZ },
 		{ "getDirectionAngle", &LuaSceneObject::getDirectionAngle },
+		{ "getDirection", &LuaSceneObject::getDirection },
 		{ "getWorldPositionX", &LuaSceneObject::getWorldPositionX },
 		{ "getWorldPositionY", &LuaSceneObject::getWorldPositionY },
 		{ "getWorldPositionZ", &LuaSceneObject::getWorldPositionZ },
@@ -64,9 +65,9 @@ Luna<LuaSceneObject>::RegType LuaSceneObject::Register[] = {
 		{ "isPlayerCreature", &LuaSceneObject::isPlayerCreature },
 		{ "isCreature", &LuaSceneObject::isCreature },
 		{ "isBuildingObject", &LuaSceneObject::isBuildingObject },
+		{ "isCellObject", &LuaSceneObject::isCellObject },
 		{ "isActiveArea", &LuaSceneObject::isActiveArea },
-		{ "isShipObject", &LuaSceneObject::isShipObject },
-		{ "isShipAiAgent", &LuaSceneObject::isShipAiAgent },
+		{ "isMissionObject", &LuaSceneObject::isMissionObject },
 		{ "sendTo", &LuaSceneObject::sendTo },
 		{ "getCustomObjectName", &LuaSceneObject::getCustomObjectName },
 		{ "getDisplayedName", &LuaSceneObject::getDisplayedName },
@@ -101,6 +102,11 @@ Luna<LuaSceneObject>::RegType LuaSceneObject::Register[] = {
 		{ "getPlayersInRange", &LuaSceneObject::getPlayersInRange },
 		{ "isInNavMesh", &LuaSceneObject::isInNavMesh },
 		{ "checkInConversationRange", &LuaSceneObject::checkInConversationRange },
+
+		// JTL
+		{ "isShipObject", &LuaSceneObject::isShipObject },
+		{ "isShipAiAgent", &LuaSceneObject::isShipAiAgent },
+		{ "isPlayerShip", &LuaSceneObject::isPlayerShip },
 		{ "isShipComponent", &LuaSceneObject::isShipComponent },
 		{ "isShipComponentRepairKit", &LuaSceneObject::isShipComponentRepairKit },
 		{ 0, 0 }
@@ -235,6 +241,30 @@ int LuaSceneObject::getPositionZ(lua_State* L) {
 
 int LuaSceneObject::getDirectionAngle(lua_State* L) {
 	lua_pushnumber(L, realObject->getDirectionAngle());
+
+	return 1;
+}
+
+int LuaSceneObject::getDirection(lua_State* L) {
+	auto direction = realObject->getDirection();
+
+	lua_newtable(L);
+
+	if (!lua_checkstack(L, 5)) {
+		Logger::console.fatal("getDirection - lua_checkstack failed.");
+	}
+
+	lua_pushnumber(L, direction->getZ());
+	lua_rawseti(L, -2, 4);
+
+	lua_pushnumber(L, direction->getY());
+	lua_rawseti(L, -2, 3);
+
+	lua_pushnumber(L, direction->getX());
+	lua_rawseti(L, -2, 2);
+
+	lua_pushnumber(L, direction->getW());
+	lua_rawseti(L, -2, 1);
 
 	return 1;
 }
@@ -655,6 +685,14 @@ int LuaSceneObject::isBuildingObject(lua_State* L) {
 	return 1;
 }
 
+int LuaSceneObject::isCellObject(lua_State* L) {
+	bool val = realObject->isCellObject();
+
+	lua_pushboolean(L, val);
+
+	return 1;
+}
+
 int LuaSceneObject::isActiveArea(lua_State* L) {
 	bool val = realObject->isActiveArea();
 
@@ -663,32 +701,8 @@ int LuaSceneObject::isActiveArea(lua_State* L) {
 	return 1;
 }
 
-int LuaSceneObject::isShipObject(lua_State* L) {
-	bool val = realObject->isShipObject();
-
-	lua_pushboolean(L, val);
-
-	return 1;
-}
-
-int LuaSceneObject::isShipAiAgent(lua_State* L) {
-	bool val = realObject->isShipAiAgent();
-
-	lua_pushboolean(L, val);
-
-	return 1;
-}
-
-int LuaSceneObject::isShipComponent(lua_State* L) {
-	bool val = realObject->isShipComponentObject();
-
-	lua_pushboolean(L, val);
-
-	return 1;
-}
-
-int LuaSceneObject::isShipComponentRepairKit(lua_State* L) {
-	bool val = realObject->isShipComponentRepairKit();
+int LuaSceneObject::isMissionObject(lua_State* L) {
+	bool val = realObject->isMissionObject();
 
 	lua_pushboolean(L, val);
 
@@ -1028,5 +1042,49 @@ int LuaSceneObject::checkInConversationRange(lua_State* L) {
 	bool val = realObject->checkInConversationRange(targetObject);
 
 	lua_pushboolean(L, val);
+	return 1;
+}
+
+/*
+	JTL
+*/
+
+int LuaSceneObject::isShipObject(lua_State* L) {
+	bool val = realObject->isShipObject();
+
+	lua_pushboolean(L, val);
+
+	return 1;
+}
+
+int LuaSceneObject::isShipAiAgent(lua_State* L) {
+	bool val = realObject->isShipAiAgent();
+
+	lua_pushboolean(L, val);
+
+	return 1;
+}
+
+int LuaSceneObject::isPlayerShip(lua_State* L) {
+	bool val = realObject->isPlayerShip();
+
+	lua_pushboolean(L, val);
+
+	return 1;
+}
+
+int LuaSceneObject::isShipComponent(lua_State* L) {
+	bool val = realObject->isShipComponentObject();
+
+	lua_pushboolean(L, val);
+
+	return 1;
+}
+
+int LuaSceneObject::isShipComponentRepairKit(lua_State* L) {
+	bool val = realObject->isShipComponentRepairKit();
+
+	lua_pushboolean(L, val);
+
 	return 1;
 }

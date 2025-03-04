@@ -100,6 +100,15 @@ Luna<LuaPlayerObject>::RegType LuaPlayerObject::Register[] = {
 		{ "hasPvpTef", &LuaPlayerObject::hasPvpTef },
 		{ "hasGcwTef", &LuaPlayerObject::hasGcwTef },
 		{ "getPvpRating", &LuaPlayerObject::getPvpRating },
+
+		// JTL
+		{ "incrementPilotTier", &LuaPlayerObject::incrementPilotTier },
+		{ "resetPilotTier", &LuaPlayerObject::resetPilotTier },
+		{ "getPilotTier", &LuaPlayerObject::getPilotTier },
+		{ "isSquadronType", &LuaPlayerObject::isSquadronType },
+		{ "setSquadronType", &LuaPlayerObject::setSquadronType },
+		{ "getSquadronType", &LuaPlayerObject::getSquadronType },
+
 		{ 0, 0 }
 };
 
@@ -176,26 +185,34 @@ int LuaPlayerObject::setFactionStanding(lua_State* L) {
 int LuaPlayerObject::addWaypoint(lua_State* L) {
 	int numberOfArguments = lua_gettop(L) - 1;
 
+	if (numberOfArguments != 10 && numberOfArguments != 11) {
+
+		realObject->error() << "Improper number of arguments in LuaPlayerObject::addWaypoint.";
+		return 0;
+	}
+
 	String planet, customName, desc;
-	float x, y;
+	float x, z, y;
 	int color, persistence = 1, specialTypeID;
 	bool active, notifyClient;
 
-	if (numberOfArguments == 9) {
-		planet = lua_tostring(L, -9);
-		customName = lua_tostring(L, -8);
-		desc = lua_tostring(L, -7);
-		x = lua_tonumber(L, -6);
+	if (numberOfArguments == 10) {
+		planet = lua_tostring(L, -10);
+		customName = lua_tostring(L, -9);
+		desc = lua_tostring(L, -8);
+		x = lua_tonumber(L, -7);
+		z = lua_tonumber(L, -6);
 		y = lua_tonumber(L, -5);
 		color = lua_tointeger(L, -4);
 		active = lua_toboolean(L, -3);
 		notifyClient = lua_toboolean(L, -2);
 		specialTypeID = lua_tointeger(L, -1);
 	} else {
-		planet = lua_tostring(L, -10);
-		customName = lua_tostring(L, -9);
-		desc = lua_tostring(L, -8);
-		x = lua_tonumber(L, -7);
+		planet = lua_tostring(L, -11);
+		customName = lua_tostring(L, -10);
+		desc = lua_tostring(L, -9);
+		x = lua_tonumber(L, -8);
+		z = lua_tonumber(L, -7);
 		y = lua_tonumber(L, -6);
 		color = lua_tointeger(L, -5);
 		active = lua_toboolean(L, -4);
@@ -209,14 +226,15 @@ int LuaPlayerObject::addWaypoint(lua_State* L) {
 	Locker locker(waypoint);
 
 	waypoint->setPlanetCRC(planet.hashCode());
-	waypoint->setPosition(x, 0, y);
+	waypoint->setPosition(x, z, y);
 	waypoint->setSpecialTypeID(specialTypeID);
 	waypoint->setCustomObjectName(customName, false);
 	waypoint->setColor(color);
 	waypoint->setActive(active);
 
-	if (!desc.isEmpty())
+	if (!desc.isEmpty()) {
 		waypoint->setDetailedDescription(desc);
+	}
 
 	realObject->addWaypoint(waypoint, false, notifyClient);
 
@@ -930,6 +948,63 @@ int LuaPlayerObject::hasGcwTef(lua_State* L) {
 
 int LuaPlayerObject::getPvpRating(lua_State* L) {
 	lua_pushinteger(L, realObject->getPvpRating());
+
+	return 1;
+}
+
+int LuaPlayerObject::incrementPilotTier(lua_State* L) {
+	Locker lock(realObject);
+
+	realObject->incrementPilotTier();
+
+	return 0;
+}
+
+int LuaPlayerObject::resetPilotTier(lua_State* L) {
+	Locker lock(realObject);
+
+	realObject->resetPilotTier();
+
+	return 0;
+}
+
+int LuaPlayerObject::getPilotTier(lua_State* L) {
+	lua_pushinteger(L, realObject->getPilotTier());
+
+	return 1;
+}
+
+int LuaPlayerObject::isSquadronType(lua_State* L) {
+	uint32 squadron = lua_tointeger(L, -1);
+	bool ret = false;
+
+	if (squadron > 0 && squadron < 10) {
+		ret = realObject->getPilotSquadron() == squadron;
+	}
+
+	lua_pushboolean(L, ret);
+
+	return 1;
+}
+
+int LuaPlayerObject::setSquadronType(lua_State* L) {
+	uint32 squadron = lua_tointeger(L, -1);
+
+	if (squadron < 1 || squadron > 9) {
+		return 0;
+	}
+
+	Locker lock(realObject);
+
+	realObject->setPilotSquadron(squadron);
+
+	return 0;
+}
+
+int LuaPlayerObject::getSquadronType(lua_State* L) {
+	uint32 squadronType = realObject->getPilotSquadron();
+
+	lua_pushinteger(L, squadronType);
 
 	return 1;
 }

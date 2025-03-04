@@ -73,13 +73,6 @@ corellia = {
 		{name = "Bela Vistal Shuttleport B", x = 6930.8042, z = 330, y = -5534.8936, interplanetaryTravelAllowed = 0, incomingTravelAllowed = 1, landingRange = 3},
 	},
 
-	jtlTravelPoints = {
-		{"Coronet Starport", -66.760902, 28, -4641.23},
-		{"Doaba Guerfel Starport", 3349.8933, 308, 5598.1362},
-		{"Kor Vella Starport", -3157.2834, 31, 2876.2029},
-		{"Tyrena Starport", -5003.0649, 21, -2228.3665}
-	},
-
 	jtlLaunchPoint = {"space_corellia", 6520, -5400, -2600},
 
 	badgeAreas = {
@@ -118,13 +111,6 @@ dantooine = {
 		{name = "Abandoned Rebel Base", x = -6799.6, z = 46.0, y = 5574.3, interplanetaryTravelAllowed = 0, incomingTravelAllowed = 0, landingRange = 3}
 	},
 
-	jtlTravelPoints = {
-		{"Dantooine Mining Outpost", -637.0, 3, 2504.4},
-		{"Dantooine Imperial Outpost", -4208.6602, 3, -2350.24},
-		{"Dantooine Agro Outpost", 1569.66, 4, -6415.7598},
-		{"Abandoned Rebel Base", -6799.6, 46.0, 5574.3}
-	},
-
 	jtlLaunchPoint = {"space_dantooine", 1380, -750, -5900},
 
 	badgeAreas = {
@@ -160,13 +146,7 @@ dathomir = {
 		{name = "Science Outpost", x = -49.021923, z = 18, y = -1584.7278, interplanetaryTravelAllowed = 1, incomingTravelAllowed = 1, landingRange = 3}
 	},
 
-	jtlTravelPoints = {
-		{"Trade Outpost", 618.89258, 6.039608, 3092.0142},
-		{"Science Outpost", -49.021923, 18, -1584.7278}
-	},
-
 	jtlLaunchPoint = {"space_dathomir", -6900, 2750, -4000},
-
 
 	badgeAreas = {
 		{"badge_crashed_ship",5676,1901,0,30,82},
@@ -238,13 +218,7 @@ endor = {
 		{name = "Research Outpost", x = 3201.6599, z = 24, y = -3499.76, interplanetaryTravelAllowed = 1, incomingTravelAllowed = 1, landingRange = 3}
 	},
 
-	jtlTravelPoints = {
-		{"Research Outpost", 3201.6599, 24, -3499.76},
-		{"Smuggler Outpost", -950.59241, 73, 1553.4125}
-	},
-
 	jtlLaunchPoint = {"space_endor", -5300, -1500, 5250},
-
 
 	badgeAreas = {
 		{"badge_dulok_villlage",5921,-2514,0,30,88},
@@ -337,12 +311,7 @@ lok = {
 		{name = "Nym's Stronghold", x = 478.92676, z = 9, y = 5511.9565, interplanetaryTravelAllowed = 1, incomingTravelAllowed = 1, landingRange = 3},
 	},
 
-	jtlTravelPoints = {
-		{"Nym's Stronghold", 478.92676, 9, 5511.9565}
-	},
-
 	jtlLaunchPoint = {"space_lok", -6200, -5350, 113},
-
 
 	badgeAreas = {
 		{"badge_imp_outpost",-1814,-3086,0,10,98},
@@ -411,16 +380,7 @@ naboo = {
 		{name = "Emperor's Retreat", x = 2442.8, z = 292.0, y = -3916.8, interplanetaryTravelAllowed = 0, incomingTravelAllowed = 0, landingRange = 3}
 	},
 
-	jtlTravelPoints = {
-		{"Theed Spaceport", -4858.834, 5.9483199, 4164.0679},
-		{"Keren Starport", 1371.5938, 13, 2747.9043},
-		{"Kaadara Starport", 5280.2002, -192, 6688.0498},
-		{"Moenia", 4731.1743, 4.1700001, -4677.5439},
-		{"Emperor's Retreat", 2442.8, 292.0, -3916.8}
-	},
-
 	jtlLaunchPoint = {"space_naboo", -2500, 900, -6500},
-
 
 	badgeAreas = {
 		{"badge_amidalas_sandy_beach",-5828,-93,0,10,77},
@@ -472,14 +432,7 @@ rori = {
 		{name = "Rebel Outpost", x = 3691.9023, z = 96, y = -6403.4404, interplanetaryTravelAllowed = 1, incomingTravelAllowed = 1, landingRange = 3}
 	},
 
-	jtlTravelPoints = {
-		{"Narmle Starport", -5374.0718, 80, -2188.6143},
-		{"Restuss Starport", 5340, 80, 5734},
-		{"Rebel Outpost", 3691.9023, 96, -6403.4404}
-	},
-
 	jtlLaunchPoint = {"space_naboo", 6300, -4400, 500},
-
 
 	badgeAreas = {
 		{"badge_imp_camp",-5633,-5661,0,10,96},
@@ -554,12 +507,6 @@ talus = {
 		{name = "Talus Imperial Outpost", x = -2227.4, z = 20, y = 2319.9, interplanetaryTravelAllowed = 1, incomingTravelAllowed = 1, landingRange = 2},
 		{name = "Nashal Shuttleport", x = 4334.5786, z = 9.8999996, y = 5431.0415, interplanetaryTravelAllowed = 0, incomingTravelAllowed = 1, landingRange = 6},
 		{name = "Nashal Starport", x = 4453.7212, z = 2, y = 5354.3345, interplanetaryTravelAllowed = 1, incomingTravelAllowed = 1, landingRange = 3}
-	},
-
-	jtlTravelPoints = {
-		{"Dearic Starport", 263.58401, 6, -2952.1284},
-		{"Nashal Starport", 4453.7212, 2, 5354.3345},
-		{"Talus Imperial Outpost", -2227.4, 20, 2319.9}
 	},
 
 	jtlLaunchPoint = {"space_corellia", -6400, -5300, -4000},
@@ -653,14 +600,6 @@ tatooine = {
 		{name = "Jabba's Palace", x = -6171.6, z = 90.0, y = -6381.5, interplanetaryTravelAllowed = 0, incomingTravelAllowed = 0, landingRange = 3}
 	},
 
-	jtlTravelPoints = {
-		{"Mos Eisley Starport", 3599.894, 5, -4780.4487},
-		{"Bestine Starport", -1361.1917, 12, -3600.0254},
-		{"Mos Espa Starport", -2833.1609, 5, 2107.3787},
-		{"Mos Entha Starport", 1266.0996, 7, 3065.1392},
-		{"Jabba's Palace", -6171.6, 90.0, -6381.5}
-	},
-
 	jtlLaunchPoint = {"space_tatooine",2300,-5900,1900},
 
 	badgeAreas = {
@@ -716,12 +655,6 @@ yavin4 = {
 		{name = "Yavin IV Labor Outpost", x = -6921.6733, z = 73, y = -5726.5161, interplanetaryTravelAllowed = 1, incomingTravelAllowed = 1, landingRange = 3},
 		{name = "Yavin IV Mining Outpost", x = -267.23914, z = 35, y = 4896.3013, interplanetaryTravelAllowed = 1, incomingTravelAllowed = 1, landingRange = 3},
 		{name = "Yavin IV Imperial Outpost", x = 4054.1, z = 37, y = -6216.9, interplanetaryTravelAllowed = 1, incomingTravelAllowed = 0, landingRange = 3}
-	},
-
-	jtlTravelPoints = {
-		{"Yavin IV Labor Outpost", -6921.6733, 73, -5726.5161},
-		{"Yavin IV Mining Outpost", -267.23914, 35, 4896.3013},
-		{"Yavin IV Imperial Outpost", 4054.1, 37, -6216.9}
 	},
 
 	jtlLaunchPoint = {"space_yavin4", -5600, -5200, -5200},

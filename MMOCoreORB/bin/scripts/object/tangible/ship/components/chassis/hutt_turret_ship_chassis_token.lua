@@ -43,7 +43,7 @@
 
 object_tangible_ship_components_chassis_hutt_turret_ship_chassis_token = object_tangible_ship_components_chassis_shared_hutt_turret_ship_chassis_token:new {
 	templateType = SHIPCHASSIS,
-	chassisDeed = "",
+	chassisDeed = "object/tangible/ship/crafted/chassis/hutt_turret_ship_deed.iff",
 	dealerFee = 100000,
 	certificationRequired = "cert_starships_hutt_turret_ship",
 	skillRequired = {"pilot_neutral_master"},

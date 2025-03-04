@@ -1,5 +1,13 @@
 -- Space Screenplays & Conversation Handlers
 
+includeFile("space/SpaceQuestLogic.lua")
+includeFile("space/SpaceAssassinateScreenplay.lua")
+includeFile("space/SpaceDestroyScreenplay.lua")
+includeFile("space/SpaceDutyDestroyScreenplay.lua")
+includeFile("space/SpaceEscortScreenplay.lua")
+includeFile("space/SpaceDutyEscortScreenplay.lua")
+includeFile("space/SpacePatrolScreenplay.lua")
+includeFile("space/SpaceSurpriseAttackScreenplay.lua")
 
 includeFile("space/chassis_dealer.lua")
 
@@ -34,16 +42,9 @@ includeFile("space/ship_components/ship_interior_component_menu_component.lua")
 --[[
 	Conversation Handlers
 ]]
+
+includeFile("space/conversations/defaultShipConvoHandler.lua")
 includeFile("space/conversations/chassisDealerConvoHandler.lua")
-
--- Neutral
-includeFile("space/conversations/neutral/gilBurtinConvoHandler.lua")
-
--- Rebel
-includeFile("space/conversations/rebel/jPaiBrekConvoHandler.lua")
-
--- Imperial
-includeFile("space/conversations/imperial/imperialBrokerConvoHandler.lua")
 
 -- Greeters
 
@@ -65,6 +66,48 @@ includeFile("space/conversations/greeters/tarthJaxxConvoHandler.lua")
 includeFile("space/conversations/greeters/raneYarrowConvoHandler.lua")
 includeFile("space/conversations/greeters/fernYarrowConvoHandler.lua")
 includeFile("space/conversations/greeters/kessYarrowConvoHandler.lua")
+
+-- Squadrons
+
+
+-- Neutral
+includeFile("space/conversations/neutral/gilBurtinConvoHandler.lua")
+
+-- Corsec
+includeFile("space/CorsecSquadronScreenplay.lua")
+includeFile("space/conversations/neutral/corsec_squadron/rheaConvoHandler.lua")
+
+-- Smuggler
+includeFile("space/SmugglerSquadronScreenplay.lua")
+
+-- RSF
+includeFile("space/RsfSquadronScreenplay.lua")
+
+
+-- Rebel
+includeFile("space/conversations/rebel/jPaiBrekConvoHandler.lua")
+
+-- Crimson Phoenix
+includeFile("space/CrimsonPhoenixSquadronScreenplay.lua")
+
+-- Havoc
+includeFile("space/HavocSquadronScreenplay.lua")
+
+-- Vortex
+includeFile("space/VortexSquadronScreenplay.lua")
+
+
+-- Imperial
+includeFile("space/conversations/imperial/imperialBrokerConvoHandler.lua")
+
+-- Black Epsilon
+includeFile("space/BlackEpsilonSquadronScreenplay.lua")
+
+-- Imperial Inquisition
+includeFile("space/InquisitionSquadronScreenplay.lua")
+
+-- Storm
+includeFile("space/StormSquadronScreenplay.lua")
 
 
 -- Spawning Sub Folder

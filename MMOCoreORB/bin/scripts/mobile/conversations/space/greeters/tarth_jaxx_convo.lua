@@ -7,7 +7,7 @@ tarth_jaxx_convo_template = ConvoTemplate:new {
 
 no_jtl = ConvoScreen:new {
 	id = "no_jtl",
-	leftDialog = "@conversation/greeter_coronet_shipwright_impatient:s_7", -- This is just great!! Our shipment of ship parts is finally located, but now it has apparently become involved in some spice smuggling investigation. CorSec is holding the entire shipment as evidence. At this rate, we'll never be able to get back to work. I think we were better off when the shipment was simply missing.
+	leftDialog = "@conversation/greeter_coronet_shipwright_impatient:s_ca20e884", -- I'm not really in a giving mood. Try asking the merchant. It's the least he could do.
 	stopConversation = "true",
 	options = {}
 }

@@ -138,7 +138,7 @@ function QuestManager.getJournalSummary(questID)
 	return LuaQuestInfo(pQuest):getJournalSummary()
 end
 
-function QuestManager.getCurrentQuestID(pPlayer)
+function QuestManager.getCurrentVillageQuestID(pPlayer)
 	local id = tonumber(readScreenPlayData(pPlayer, "VillageJediProgression", "CurrentQuestID"))
 
 	if (id == nil) then
@@ -148,7 +148,7 @@ function QuestManager.getCurrentQuestID(pPlayer)
 	return id
 end
 
-function QuestManager.setCurrentQuestID(pPlayer, qid)
+function QuestManager.setCurrentVillageQuestID(pPlayer, qid)
 	return writeScreenPlayData(pPlayer, "VillageJediProgression", "CurrentQuestID", qid)
 end
 

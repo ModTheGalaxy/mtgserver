@@ -52,6 +52,10 @@ function ShipOperationsMenuComponent:handleObjectMenuSelect(pOpsChair, pPlayer, 
 		return
 	end
 
+	if (CreatureObject(pPlayer):isIncapacitated() or CreatureObject(pPlayer):isDead()) then
+		return
+	end
+
 	-- print("Operations Seat Menu Selected ID " .. selectedID .. " Container ID: " .. SceneObject(pOpsChair):getObjectID() .. " Objects Size: " .. SceneObject(pOpsChair):getContainerObjectsSize())
 
 	-- Enter Ship Operations
@@ -89,13 +93,13 @@ function ShipOperationsMenuComponent:handleObjectMenuSelect(pOpsChair, pPlayer, 
 		-- Faction Check
 		local shipFaction = TangibleObject(pShip):getFaction()
 
-		if (shipFaction == FACTIONIMPERIAL and not player:isImperialPilot()) then
+		if (shipFaction == FACTIONIMPERIAL and not SpaceHelpers:isImperialPilot(pPlayer)) then
 			player:sendSystemMessage("@space/space_interaction:wrong_faction")
 			return 0
-		elseif (shipFaction == FACTIONREBEL and not player:isRebelPilot()) then
+		elseif (shipFaction == FACTIONREBEL and not SpaceHelpers:isRebelPilot(pPlayer)) then
 			player:sendSystemMessage("@space/space_interaction:wrong_faction")
 			return 0
-		elseif (shipFaction == FACTIONNEUTRAL and not player:isFreelancePilot()) then
+		elseif (shipFaction == FACTIONNEUTRAL and not SpaceHelpers:isNeutralPilot(pPlayer)) then
 			player:sendSystemMessage("@space/space_interaction:wrong_faction")
 			return 0
 		end

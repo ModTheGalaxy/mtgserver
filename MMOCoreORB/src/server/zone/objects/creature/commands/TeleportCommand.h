@@ -106,10 +106,11 @@ public:
 			if (!newZoneIsSpace) {
 				auto newZone = zoneServer->getZone(zoneName);
 
-				if (newZone != nullptr) {
+				if (newZone != nullptr && parentID == 0) {
 					newPosition.setZ(CollisionManager::getWorldFloorCollision(newPosition.getX(), newPosition.getY(), newZone, false));
-					creature->setDirection(0);
 				}
+
+				creature->setDirection(0);
 			}
 
 			creature->switchZone(zoneName, newPosition.getX(), newPosition.getZ(), newPosition.getY(), parentID);

@@ -161,21 +161,8 @@ void PlanetManagerImplementation::loadLuaConfig() {
 		planetTravelPointsTable.pop();
 
 		try {
-			LuaObject travelPoints = luaObject.getObjectField("jtlTravelPoints");
-			loadJTLData(&travelPoints);
-			travelPoints.pop();
-
 			LuaObject launchLocation = luaObject.getObjectField("jtlLaunchPoint");
-
-			if (launchLocation.isValidTable()) {
-				jtlZoneName = launchLocation.getStringAt(1);
-				float x = launchLocation.getFloatAt(2);
-				float z = launchLocation.getFloatAt(3);
-				float y = launchLocation.getFloatAt(4);
-
-				jtlLaunchLocation = Vector3(x, y, z);
-			}
-
+			loadJTLData(&launchLocation);
 			launchLocation.pop();
 		} catch (Exception &e) {
 			error(e.getMessage());
@@ -238,24 +225,20 @@ void PlanetManagerImplementation::loadLuaConfig() {
 	lua = nullptr;
 }
 
-void PlanetManagerImplementation::loadJTLData(LuaObject* luaObject) {
-	if (!luaObject->isValidTable())
+void PlanetManagerImplementation::loadJTLData(LuaObject* launchLocation) {
+	if (launchLocation == nullptr || !launchLocation->isValidTable()) {
 		return;
-
-	for (int i = 1; i <= luaObject->getTableSize(); ++i) {
-		lua_State *L = luaObject->getLuaState();
-		lua_rawgeti(L, -1, i);
-
-		LuaObject location(L);
-
-		String locationName = location.getStringAt(1);
-		float x = location.getFloatAt(2);
-		float z = location.getFloatAt(3);
-		float y = location.getFloatAt(4);
-
-		jtlTravelDestinations.put(locationName, Vector3(x, y, z));
-		location.pop();
 	}
+
+	// Set Planets Space Zone
+	jtlZoneName = launchLocation->getStringAt(1);
+
+	float x = launchLocation->getFloatAt(2);
+	float z = launchLocation->getFloatAt(3);
+	float y = launchLocation->getFloatAt(4);
+
+	// Set Planets Launch into Space Point
+	jtlLaunchLocation = Vector3(x, y, z);
 }
 
 void PlanetManagerImplementation::loadPlanetObjects(LuaObject* luaObject) {
@@ -714,8 +697,8 @@ void PlanetManagerImplementation::sendPlanetTravelPointListResponse(CreatureObje
 	player->sendMessage(ptplr);
 }
 
-PlanetTravelPoint* PlanetManagerImplementation::getNearestPlanetTravelPoint(SceneObject* object, float searchrange) {
-#ifdef DEBUG_TRAVEL
+PlanetTravelPoint* PlanetManagerImplementation::getNearestPlanetTravelPoint(SceneObject* object, float searchrange, bool interplanetaryOnly) {
+#if DEBUG_TRAVEL
 	auto callDesc = info(true);
 
 	callDesc << "\033[45;30m" << __FUNCTION__ << "(object="
@@ -726,7 +709,7 @@ PlanetTravelPoint* PlanetManagerImplementation::getNearestPlanetTravelPoint(Scen
 			<< "\033[0m\n\t";
 #endif
 
-	Reference<PlanetTravelPoint*> planetTravelPoint = getNearestPlanetTravelPoint(object->getWorldPosition(), searchrange);
+	Reference<PlanetTravelPoint*> planetTravelPoint = getNearestPlanetTravelPoint(object->getWorldPosition(), searchrange, interplanetaryOnly);
 
 #ifdef DEBUG_TRAVEL
 
@@ -741,12 +724,16 @@ PlanetTravelPoint* PlanetManagerImplementation::getNearestPlanetTravelPoint(Scen
 	return planetTravelPoint;
 }
 
-PlanetTravelPoint* PlanetManagerImplementation::getNearestPlanetTravelPoint(const Vector3& position, float range) {
+PlanetTravelPoint* PlanetManagerImplementation::getNearestPlanetTravelPoint(const Vector3& position, float range, bool interplanetaryOnly) {
 	Reference<PlanetTravelPoint*> planetTravelPoint = nullptr;
 	float rangeSq = range * range;
 
 	for (int i = 0; i < planetTravelPointList->size(); ++i) {
 		const auto& ptp = planetTravelPointList->get(i);
+
+		if (ptp == nullptr || (interplanetaryOnly && !ptp->isInterplanetary())) {
+			continue;
+		}
 
 		float distanceSq = position.squaredDistanceTo2d(ptp->getDeparturePosition());
 

@@ -36,10 +36,20 @@ public:
 	int setFixedPatrol(lua_State* L);
 	int setSquadronPatrol(lua_State* L);
 	int setSquadronFollow(lua_State* L);
+	int setEscort(lua_State* L);
 	int setDespawnOnNoPlayerInRange(lua_State* L);
 	int setMinimumGuardPatrol(lua_State* L);
 	int setMaximumGuardPatrol(lua_State* L);
 	int addFixedPatrolPoint(lua_State* L);
+	int setDefender(lua_State* L);
+	int getShipAgentTemplateName(lua_State* L);
+	int tauntPlayer(lua_State* L);
+	int addAggro(lua_State* L);
+	int addSpaceFactionAlly(lua_State* L);
+	int removeSpaceFactionAlly(lua_State* L);
+	int addSpaceFactionEnemy(lua_State* L);
+	int removeSpaceFactionEnemy(lua_State* L);
+	int setEscortSpeed(lua_State* L);
 
 private:
 	ShipAiAgent* realObject;

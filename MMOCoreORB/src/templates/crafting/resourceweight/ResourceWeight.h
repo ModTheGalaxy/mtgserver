@@ -201,7 +201,7 @@ public:
 	}
 
 	bool isFiller() {
-		return filler == true;
+		return filler;
 	}
 
 	short getCombineType() {

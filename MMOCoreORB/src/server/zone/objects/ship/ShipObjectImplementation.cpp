@@ -114,7 +114,8 @@ void ShipObjectImplementation::loadTemplateData(SharedObjectTemplate* templateDa
 	setChassisSpeed(shipTemp->getChassisSpeed(), false);
 	setChassisMaxMass(shipTemp->getChassisMass(), false);
 
-	setShipFaction(shipTemp->getShipFaction(), false);
+	setShipFactionString(shipTemp->getShipFaction(), false);
+
 	setShipDifficulty(shipTemp->getShipDifficulty(), false);
 
 	setHasWings(shipTemp->shipHasWings());
@@ -1338,19 +1339,6 @@ float ShipObjectImplementation::calculateCurrentEnergyCost() {
 	return energyCost;
 }
 
-void ShipObjectImplementation::setShipFaction(uint32 value, bool notifyClient) {
-	TangibleObjectImplementation::setFaction(value);
-	String faction = "";
-
-	if (value == Factions::FACTIONREBEL) {
-		faction = "rebel";
-	} else if (value == Factions::FACTIONIMPERIAL) {
-		faction = "imperial";
-	}
-
-	setShipFaction(faction, notifyClient);
-}
-
 void ShipObjectImplementation::sendPvpStatusTo(CreatureObject* player) {
 	if (player == nullptr)
 		return;
@@ -1966,7 +1954,15 @@ int ShipObjectImplementation::getReceiverFlags() const {
 	return type | TangibleObjectImplementation::getReceiverFlags();
 }
 
-float ShipObjectImplementation::getOutOfRangeDistance() const {
+float ShipObjectImplementation::getOutOfRangeDistance(uint64 specialRangeID) {
+	if (specialRangeID > 0) {
+		auto pilot = getPilot();
+
+		if (pilot != nullptr) {
+			return pilot->getOutOfRangeDistance(specialRangeID);
+		}
+	}
+
 	return ZoneServer::SPACECLOSEOBJECTRANGE;
 }
 
@@ -2139,6 +2135,10 @@ void ShipObjectImplementation::updateActualEngineValues(bool notifyClient, ShipD
 	}
 
 	if (getActualMaxSpeed() != actualSpeed) {
+		if (staffModifiedSpeed > 1.f) {
+			actualSpeed = staffModifiedSpeed;
+		}
+
 		setActualMaxSpeed(actualSpeed, false, nullptr, deltaVector);
 	}
 

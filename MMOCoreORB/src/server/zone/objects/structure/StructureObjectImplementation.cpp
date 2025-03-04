@@ -192,13 +192,24 @@ void StructureObjectImplementation::notifyInsertToZone(Zone* zone) {
 		maxCondition = getBaseMaintenanceRate() * 24 * 7 * 4;
 
 		scheduleMaintenanceExpirationEvent();
-	} else if(getOwnerObjectID() != 0 && getCityRegion().get() == nullptr && !isTurret() && !isMinefield() && !isScanner()) {
+	} else if((getOwnerObjectID() > 0) && (getCityRegion().get() == nullptr) && !isTurret() && !isMinefield() && !isScanner()) {
 		auto ssot = dynamic_cast<SharedStructureObjectTemplate*>(templateObject.get());
 
-		if (ssot == nullptr)
-			error("SharedStructureObjectTemplate is null?");
-		else if (ssot->getCityRankRequired() > 0 || ssot->isCivicStructure())
-			destroyOrphanCivicStructure();
+		if (ssot == nullptr) {
+			error() << "SharedStructureObjectTemplate is null";
+		} else if (ssot->getCityRankRequired() > 0 || ssot->isCivicStructure()) {
+			Reference<StructureObject*> strucRef = _this.getReferenceUnsafeStaticCast();
+
+			Core::getTaskManager()->scheduleTask([strucRef] {
+				if (strucRef == nullptr) {
+					return;
+				}
+
+				Locker locker(strucRef);
+
+				strucRef->destroyOrphanCivicStructure();
+			}, "destroyOrphanCivicStrucLambda", 240000);
+		}
 	}
 
 	if (isGCWBase() && !isClientObject()) {
@@ -214,12 +225,35 @@ void StructureObjectImplementation::notifyInsertToZone(Zone* zone) {
 }
 
 void StructureObjectImplementation::destroyOrphanCivicStructure() {
-	error("Civic structure but not in a city!");
-
-	if (!ConfigManager::instance()->getBool("Core3.Tweaks.StructureObject.DestoryOrphans", false))
+	if (!ConfigManager::instance()->getBool("Core3.Tweaks.StructureObject.DestoryOrphans", false)) {
 		return;
+	}
 
-	auto chatManager = getZoneServer()->getChatManager();
+	auto zoneServer = getZoneServer();
+
+	if (zoneServer == nullptr) {
+		return;
+	}
+
+	auto zone = getZone();
+
+	if (zone == nullptr) {
+		return;
+	}
+
+	// Double check to make sure there is no city region
+	if (getCityRegion().get() != nullptr) {
+		return;
+	}
+
+	auto errorMsg = error();
+
+	errorMsg << "StructureObjectImplementation::destroyOrphanCivicStructure - Civic Structure is not in a city: " << getDisplayedName() << "\n";
+	errorMsg << "Zone: " << zone->getZoneName() << " World Positon: " << getWorldPosition().toString() << " Position: " << getPosition().toString();
+
+	errorMsg.flush();
+
+	auto chatManager = zoneServer->getChatManager();
 	auto structureManager = StructureManager::instance();
 
 	if (chatManager == nullptr || structureManager == nullptr) {
@@ -227,26 +261,30 @@ void StructureObjectImplementation::destroyOrphanCivicStructure() {
 		return;
 	}
 
-	auto name = getZoneServer()->getPlayerManager()->getPlayerName(getOwnerObjectID());
+	auto playerManager = zoneServer->getPlayerManager();
 
-	if (!name.isEmpty()) {
-		UnicodeString subject = "Orphaned city structure destroyed!";
+	if (playerManager != nullptr) {
+		auto name = playerManager->getPlayerName(getOwnerObjectID());
 
-		StringBuffer msg;
+		if (!name.isEmpty()) {
+			UnicodeString subject = "Orphaned city structure destroyed!";
 
-		msg << name << "," << endl << endl;
-		msg << "You are the last known mayor releated to a " << StringIdManager::instance()->getStringId(getObjectName()->getFullPath().hashCode()).toString();
-		msg << " at " << (int)getPositionX() << ", " << (int)getPositionY() << " on " << getZone()->getZoneName() << "." << endl;
-		msg << endl;
-		msg << "This structre has been destroyed because it did not belong to an active city." << endl;
-		msg << endl;
-		msg << "-- The Planetary Civic Authority" << endl;
+			StringBuffer msg;
 
-		UnicodeString body = msg.toString();
+			msg << name << "," << endl << endl;
+			msg << "You are the last known mayor releated to a " << StringIdManager::instance()->getStringId(getObjectName()->getFullPath().hashCode()).toString();
+			msg << " at " << (int)getPositionX() << ", " << (int)getPositionY() << " on " << zone->getZoneName() << "." << endl;
+			msg << endl;
+			msg << "This structre has been destroyed because it did not belong to an active city." << endl;
+			msg << endl;
+			msg << "-- The Planetary Civic Authority" << endl;
 
-		chatManager->sendMail("@city/city:new_city_from", subject, body, name);
-	} else {
-		error("destroyOrphanCivicStructure: Unable to find owner oid: " + String::valueOf(getOwnerObjectID()) + ", destruction email not sent.");
+			UnicodeString body = msg.toString();
+
+			chatManager->sendMail("@city/city:new_city_from", subject, body, name);
+		} else {
+			error("destroyOrphanCivicStructure: Unable to find owner oid: " + String::valueOf(getOwnerObjectID()) + ", destruction email not sent.");
+		}
 	}
 
 	String path = exportJSON("Destroyed by destroyOrphanCivicStructure");

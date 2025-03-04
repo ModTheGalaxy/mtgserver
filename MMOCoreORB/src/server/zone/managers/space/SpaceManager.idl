@@ -28,10 +28,6 @@ class SpaceManager extends ManagedService implements Logger {
 	@dereferenced
 	protected SpaceRegionMap regionMap;
 
-	@rawTemplate(value="String, Vector3")
-	@dereferenced
-	protected transient VectorMap jtlTravelDestinations;
-
 	@rawTemplate(value="unsigned int, VectorMap<uint64, Vector3>")
 	@dereferenced
 	protected transient VectorMap spaceStationMap;
@@ -86,18 +82,6 @@ class SpaceManager extends ManagedService implements Logger {
 	public native boolean isSpawningPermittedAt(float x, float z, float y, float distance);
 
 	public native boolean findNearbySpawner(float x, float z, float y, float distance);
-
-	@dirty
-	@local
-	@dereferenced
-	public final Vector3 getJtlTravelDestination(string key) {
-		return jtlTravelDestinations.get(key);
-	}
-
-	@dirty
-	public boolean hasJtlTravelDestination(string key) {
-		return jtlTravelDestinations.contains(key);
-	}
 
 	@local
 	@dereferenced

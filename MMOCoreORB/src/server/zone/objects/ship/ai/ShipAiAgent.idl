@@ -106,6 +106,7 @@ class ShipAiAgent extends FighterShipObject {
 	protected float coordinateMax;
 
 	private float lastSpeed;
+	private transient float escortSpeed;
 
 	@dereferenced
 	protected transient AtomicInteger numberOfPlayersInRange;
@@ -254,6 +255,8 @@ class ShipAiAgent extends FighterShipObject {
 
 		minCredits = 0;
 		maxCredits = 0;
+
+		escortSpeed = 0.f;
 
 		imperialFactionReward = 0;
 		rebelFactionReward = 0;
@@ -513,6 +516,24 @@ class ShipAiAgent extends FighterShipObject {
 	@dirty
 	public native boolean isEnemyShip(unsigned long shipID);
 
+	@dirty
+	public native boolean isPlayerFactionAlly(CreatureObject player);
+
+	@dirty
+	public native boolean isPlayerFactionEnemy(CreatureObject player);
+
+	@preLocked
+	public native void addSpaceFactionAlly(unsigned int factionHash);
+
+	@preLocked
+	public native void removeSpaceFactionAlly(unsigned int factionHash);
+
+	@preLocked
+	public native void addSpaceFactionEnemy(unsigned int factionHash);
+
+	@preLocked
+	public native void removeSpaceFactionEnemy(unsigned int factionHash);
+
 	/**
 	 * Evaluates if this creature is aggresive to the object
 	 * @pre { }
@@ -612,6 +633,13 @@ class ShipAiAgent extends FighterShipObject {
 
 	@read
 	public native boolean isFixedPatrolShipAgent();
+
+	@dirty
+	@preLocked
+	public native boolean sendConversationStartTo(SceneObject player);
+
+	@preLocked
+	public native void tauntPlayer(CreatureObject player, final string message);
 
 	@dirty
 	public void setConversationTemplate(unsigned int convoTemplateCrc) {
@@ -904,8 +932,18 @@ class ShipAiAgent extends FighterShipObject {
 	@read
 	public native float getLastSpeed();
 
+	@read
+	public float getEscortSpeed() {
+		return escortSpeed;
+	}
+
+	@preLocked
+	public void setEscortSpeed(float speed) {
+		escortSpeed = speed;
+	}
+
 	public native string getShipAgentTemplateName();
 
-	@read
-	public native abstract float getOutOfRangeDistance();
+	@dirty
+	public native abstract float getOutOfRangeDistance(unsigned long specialRangeObjectID = 0);
 }

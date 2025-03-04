@@ -11,11 +11,11 @@ function OevittPiboiConversationHandler:runScreenHandlers(pConvTemplate, pPlayer
 		if (pInventory ~= nil) then
 			giveItem(pInventory, "object/tangible/mission/quest_item/warren_passkey_s01.iff", -1)
 		end
-		
+
 		local pGhost = CreatureObject(pPlayer):getPlayerObject()
-		
+
 		if (pGhost ~= nil) then
-			PlayerObject(pGhost):addWaypoint("dantooine", "@theme_park/warren/warren_system_messages:waypoint_name", "", -546, -3846, WAYPOINTBLUE, true, true, 0)
+			PlayerObject(pGhost):addWaypoint("dantooine", "@theme_park/warren/warren_system_messages:waypoint_name", "", -546, 0, -3846, WAYPOINT_BLUE, true, true, 0)
 		end
 	end
 

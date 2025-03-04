@@ -30,11 +30,21 @@ _localLuaCreatureObject3 = LuaCreatureObject(nil)
 
 _localLuaPlayerObject = LuaPlayerObject(nil)
 _localLuaBuildingObject = LuaBuildingObject(nil)
+
 _localLuaCityRegion = LuaCityRegion(nil)
 _localLuaActiveArea = LuaActiveArea(nil)
+
 _localLuaWaypointObject = LuaWaypointObject(nil)
+_localLuaMissionObject = LuaMissionObject(nil)
+
 _localLuaShipObject = LuaShipObject(nil)
 _localLuaPobShipObject = LuaPobShipObject(nil)
+
+_localLuaShipAiAgent = LuaShipAiAgent(nil)
+_localLuaShipAiAgent1 = LuaShipAiAgent(nil)
+_localLuaShipAiAgent2 = LuaShipAiAgent(nil)
+_localLuaShipAiAgent3 = LuaShipAiAgent(nil)
+
 
 AiAgent = function(pAiAgent)
   if (pAiAgent == nil) then
@@ -265,4 +275,44 @@ PobShipObject = function(pShip)
 	_localLuaPobShipObject:_setObject(pShip)
 
 	return _localLuaPobShipObject
+end
+
+ShipAiAgent = function(pShipAiAgent)
+  if (pShipAiAgent == nil) then
+    return nil
+  end
+
+  _localLuaShipAiAgent:_setObject(pShipAiAgent)
+
+  return _localLuaShipAiAgent
+end
+
+ShipAiAgent1 = function(pShipAiAgent)
+  if (pShipAiAgent == nil) then
+    return nil
+  end
+
+  _localLuaAiAgent1:_setObject(pShipAiAgent)
+
+  return _localLuaShipAiAgent1
+end
+
+ShipAiAgent2 = function(pShipAiAgent)
+  if (pShipAiAgent == nil) then
+    return nil
+  end
+
+  _localLuaAiAgent2:_setObject(pShipAiAgent)
+
+  return _localLuaShipAiAgent2
+end
+
+ShipAiAgent3 = function(pShipAiAgent)
+  if (pShipAiAgent == nil) then
+    return nil
+  end
+
+  _localLuaAiAgent3:_setObject(pShipAiAgent)
+
+  return _localLuaShipAiAgent3
 end

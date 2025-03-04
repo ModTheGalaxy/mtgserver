@@ -245,12 +245,13 @@ end
 
 
 function TatooineJabbasPalaceMobsScreenPlay:palaceConverse(pMobile)
-	if AiAgent(pMobile):isInCombat() or CreatureObject(pMobile):isDead() then
+	if (pMobile == nil or AiAgent(pMobile):isInCombat() or CreatureObject(pMobile):isDead()) then
 		return 0
 	end
 
 	local action
 	local int = getRandomNumber(1,12)
+
 	if int == 1 then action = "check_wrist_device"
 	elseif int == 2 then action = "angry"
 	elseif int == 3 then action = "cover_mouth"
@@ -269,6 +270,7 @@ function TatooineJabbasPalaceMobsScreenPlay:palaceConverse(pMobile)
 	end
 
 	createEvent(getRandomNumber(40,70) * 100, "TatooineJabbasPalaceMobsScreenPlay", "palaceConverse", pMobile, "")
+
 	return 0
 end
 

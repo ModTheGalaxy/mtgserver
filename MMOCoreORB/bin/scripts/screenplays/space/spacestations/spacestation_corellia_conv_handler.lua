@@ -45,10 +45,20 @@ function SpacestationCorelliaConvoHandler:runScreenHandlers(pConvTemplate, pPlay
 	-- Only show request repairs if the player has enough credits for the smallest repair
 	if (screenID == "spacestation_corellia_greeting" and SpaceStationScreenPlay:hasCreditsForRepair(pPlayer, pShip, 0.25)) then
 		pClonedConvo:addOption("@conversation/station_corellia:s_c358d041", "spacestation_corellia_repair") -- (Request Repairs)
-	end
+	elseif (screenID == "spacestation_corellia_land") then
+		if (SpaceHelpers:isCorsecSquadron(pPlayer)) then
+			pClonedConvo:addOption("@conversation/station_corellia:s_f6948278", "spacestation_corellia_land_coronet") -- Coronet Starport (Freelance Pilot Trainer).
+		else
+			pClonedConvo:addOption("@conversation/station_corellia:s_c3399297", "spacestation_corellia_land_coronet") -- Coronet Starport.
+		end
+
+		pClonedConvo:addOption("@conversation/station_corellia:s_ccc6f3ed", "spacestation_corellia_land_kor_vella") --Kor Vella Starport.
+		pClonedConvo:addOption("@conversation/station_corellia:s_19bf16ff", "spacestation_corellia_land_doaba_guerfel") --Doaba Guerfel Starport.
+		pClonedConvo:addOption("@conversation/station_corellia:s_63ccb695", "spacestation_corellia_land_tyrena") --Tyrena Starport.
+
 
 	-- Handle Landing
-	if (screenID == "spacestation_corellia_land_coronet_complete") then
+	elseif (screenID == "spacestation_corellia_land_coronet_complete") then
 		createEvent(3500, "SpaceStationScreenPlay", "landShip", pPlayer, "coronet")
 	elseif (screenID == "spacestation_corellia_land_kor_vella_complete") then
 		createEvent(3500, "SpaceStationScreenPlay", "landShip", pPlayer, "kor_vella")
@@ -56,10 +66,9 @@ function SpacestationCorelliaConvoHandler:runScreenHandlers(pConvTemplate, pPlay
 		createEvent(3500, "SpaceStationScreenPlay", "landShip", pPlayer, "doaba_guerfel")
 	elseif (screenID == "spacestation_corellia_land_tyrena_complete") then
 		createEvent(3500, "SpaceStationScreenPlay", "landShip", pPlayer, "tyrena")
-	end
 
 	-- Handle Repair Options
-	if (screenID == "spacestation_corellia_repair") then
+	elseif (screenID == "spacestation_corellia_repair") then
 		-- We already checked if player has enough credits for at least 25% repair, add that option
 		pClonedConvo:addOption("@conversation/station_corellia:s_d8f24b5b", "repair_small") -- Repair a little of the damage
 
@@ -74,10 +83,9 @@ function SpacestationCorelliaConvoHandler:runScreenHandlers(pConvTemplate, pPlay
 		end
 
 		pClonedConvo:addOption("@conversation/station_corellia:s_383d79b3", "spacestation_corellia_repair_deny") -- Nevermind
-	end
 
 	-- Repair selection
-	if (screenID == "repair_small") then
+	elseif (screenID == "repair_small") then
 		pClonedConvo:setDialogTextDI(SpaceStationScreenPlay:getRepairCost(pShip, 0.25))
 	elseif (screenID == "repair_half") then
 		pClonedConvo:setDialogTextDI(SpaceStationScreenPlay:getRepairCost(pShip, 0.50))
@@ -85,10 +93,9 @@ function SpacestationCorelliaConvoHandler:runScreenHandlers(pConvTemplate, pPlay
 		pClonedConvo:setDialogTextDI(SpaceStationScreenPlay:getRepairCost(pShip, 0.75))
 	elseif (screenID == "repair_full") then
 		pClonedConvo:setDialogTextDI(SpaceStationScreenPlay:getRepairCost(pShip, 1.0))
-	end
 
 	-- Handle Repairing Ship
-	if (screenID == "accept_repair_25") then
+	elseif (screenID == "accept_repair_25") then
 		SpaceStationScreenPlay:repairShip(pPlayer, pShip, 0.25, pNpc, true)
 	elseif (screenID == "accept_repair_50") then
 		SpaceStationScreenPlay:repairShip(pPlayer, pShip, 0.50, pNpc, true)

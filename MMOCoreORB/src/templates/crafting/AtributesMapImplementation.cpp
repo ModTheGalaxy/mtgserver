@@ -94,10 +94,21 @@ void AttributesMap::setHidden(const String& attribute) {
 
 	Reference<Values*> values = attributeValues.get(attribute);
 
-	if (values == nullptr)
+	if (values == nullptr) {
 		return;
+	}
+
+	const auto& experimentalGroup = getAttributeGroup(attribute);
+
+#ifdef DEBUG_ATTRIBUTES_MAP
+	info(true) << "AttributesMap::setHidden called for Attribute: " << attribute << " Group: " << experimentalGroup;
+#endif // DEBUG_ATTRIBUTES_MAP
 
 	values->setFiller(true);
+
+	if (visibleGroups.contains(experimentalGroup)) {
+		visibleGroups.removeElement(experimentalGroup);
+	}
 }
 
 void AttributesMap::unsetHidden(const String& attribute) {

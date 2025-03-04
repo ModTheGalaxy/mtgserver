@@ -666,13 +666,6 @@ ShipAiAgent* ShipManager::createAiShip(const String& shipName, uint32 shipCRC) {
 
 	// info(true) << "ShipManager::createAiShip -- ShipName: " << agentTemplate->getTemplateName() << " Game Object Type: " << shipTemp->getGameObjectType() << " Ship Hash: " << shipTemp->getServerObjectCRC() << " Full Template: " << shipTemp->getFullTemplateString();
 
-	// Set Special range
-	if (shipName.hashCode() == STRING_HASHCODE("star_destroyer")) {
-		shipAgent->setRadius(ZoneServer::SPACESTATIONRANGE);
-	} else if (shipName.contains("corvette")) {
-		shipAgent->setRadius(8192.f);
-	}
-
 	// Load data from ShipAgentTemplate
 	shipAgent->loadTemplateData(agentTemplate);
 
@@ -976,11 +969,46 @@ int ShipManager::notifyDestruction(ShipObject* destructorShip, ShipAiAgent* dest
 
 				auto attackerShip = attacker->asShipObject();
 
-				if (attackerShip == nullptr) {
+				if (attackerShip == nullptr || !attackerShip->isPlayerShip()) {
 					continue;
 				}
 
-				attackerShip->notifyObservers(ObserverEventType::QUESTKILL, destructedShip);
+				auto pilot = attackerShip->getPilot();
+
+				if (pilot == nullptr) {
+					continue;
+				}
+
+				pilot->notifyObservers(ObserverEventType::QUESTKILL, destructedShip);
+			}
+		}
+
+		ManagedReference<ShipObject*> playerShip = copyThreatMap.getHighestDamageGroupShip();
+
+		if (playerShip != nullptr) {
+			ManagedReference<CreatureObject*> pilot = playerShip->getPilot();
+
+			if (pilot != nullptr) {
+				if (pilot->isGrouped()) {
+					ManagedReference<GroupObject*> group = pilot->getGroup();
+
+					if (group != nullptr) {
+						for (int i = 0; i < group->getGroupSize(); i++) {
+							ManagedReference<CreatureObject*> groupMember = group->getGroupMember(i);
+
+							if (groupMember == nullptr || !groupMember->isPlayerCreature()) {
+								continue;
+							}
+
+							Locker locker(groupMember, destructedShip);
+
+							groupMember->notifyObservers(ObserverEventType::DESTROYEDSHIP, destructedShip);
+						}
+					}
+				} else {
+					Locker locker(pilot, destructedShip);
+					pilot->notifyObservers(ObserverEventType::DESTROYEDSHIP, destructedShip);
+				}
 			}
 		}
 
@@ -1157,7 +1185,13 @@ void ShipManager::promptNameShip(CreatureObject* player, ShipControlDevice* ship
 	if (ghost == nullptr)
 		return;
 
-	auto ship = shipDevice->getControlledObject()->asShipObject();
+	auto controlledObject = shipDevice->getControlledObject();
+
+	if (controlledObject == nullptr) {
+		return;
+	}
+
+	auto ship = controlledObject->asShipObject();
 
 	if (ship == nullptr) {
 		return;

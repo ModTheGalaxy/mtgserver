@@ -5,9 +5,9 @@ gilBurtinConvoHandler = conv_handler:new {}
 function gilBurtinConvoHandler:getInitialScreen(pPlayer, pNpc, pConvTemplate)
 	local convoTemplate = LuaConversationTemplate(pConvTemplate)
 
-	--if (not isJtlEnabled()) then
-		-- return convoTemplate:getScreen("you_dont_look")
-	--end
+	if (not isJtlEnabled()) then
+		return convoTemplate:getScreen("you_dont_look")
+	end
 
 	-- Player is a neutral pilot
 	if (SpaceHelpers:isNeutralPilot(pPlayer)) then
@@ -41,7 +41,7 @@ function gilBurtinConvoHandler:runScreenHandlers(pConvTemplate, pPlayer, pNpc, s
 	elseif (screenID == "i_want_to_retire") then
 		CreatureObject(pNpc):doAnimation("shake_head_no")
 
-		SpaceHelpers:surrenderPilot(pPlayer, "neutralPilot")
+		SpaceHelpers:surrenderPilot(pPlayer)
 	elseif (screenID == "yes_i_want") then
 		CreatureObject(pNpc):doAnimation("shrug_hands")
 
@@ -96,7 +96,7 @@ function gilBurtinConvoHandler:runScreenHandlers(pConvTemplate, pPlayer, pNpc, s
 	elseif (screenID == "tatooine") then
 		CreatureObject(pNpc):doAnimation("nod_head_multiple")
 	elseif (screenID == "tell_me_more_tatooine") then
-		SpaceHelpers:addTatooinePilotWaypoint(pPlayer)
+		SpaceHelpers:addSmugglersPilotWaypoint(pPlayer)
 
 	-- Rebel Alliance
 	elseif (screenID == "rebel_alliance") then

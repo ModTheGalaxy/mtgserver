@@ -51,7 +51,7 @@ function villageSivarraPhase1ConvoHandler:runScreenHandlers(pConvTemplate, pPlay
 	local clonedConversation = LuaConversationScreen(pConvScreen)
 
 	if (screenID == "great_explain") then
-		QuestManager.setCurrentQuestID(pPlayer, QuestManager.quests.FS_MEDIC_PUZZLE_QUEST_01)
+		QuestManager.setCurrentVillageQuestID(pPlayer, QuestManager.quests.FS_MEDIC_PUZZLE_QUEST_01)
 		QuestManager.activateQuest(pPlayer, QuestManager.quests.FS_MEDIC_PUZZLE_QUEST_01)
 		FsMedicPuzzle:setCuredVillagerCount(pPlayer, 0)
 		VillageJediManagerCommon.setActiveQuestThisPhase(pPlayer, VILLAGE_PHASE1_SIVARRA)

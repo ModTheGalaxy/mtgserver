@@ -30,6 +30,7 @@
 #include "templates/params/RangedIntCustomizationVariable.h"
 #include "server/zone/objects/transaction/TransactionLog.h"
 
+// #define DEBUG_CRAFTING_SESSION
 // #define DEBUG_EXPERIMENTATION
 
 int CraftingSessionImplementation::initializeSession(CraftingTool* tool, CraftingStation* station) {
@@ -731,8 +732,10 @@ void CraftingSessionImplementation::nextCraftingStage(int clientCounter) {
 }
 
 void CraftingSessionImplementation::initialAssembly(int clientCounter) {
-	// info(true) << "========== CraftingSessionImplementation::initialAssembly ===========";
-	// info(true) << "Client Counter: " << clientCounter;
+#ifdef DEBUG_CRAFTING_SESSION
+	info(true) << "========== CraftingSessionImplementation::initialAssembly ===========";
+	info(true) << "Client Counter: " << clientCounter;
+#endif
 
 	ManagedReference<CraftingTool*> craftingTool = this->craftingTool.get();
 	ManagedReference<CreatureObject*> crafter = this->crafter.get();
@@ -971,7 +974,9 @@ void CraftingSessionImplementation::initialAssembly(int clientCounter) {
 		crafter->sendSystemMessage(craftingValues->toString());
 	}
 
-	// info(true) << "========== END CraftingSessionImplementation::initialAssembly ===========";
+#ifdef DEBUG_CRAFTING_SESSION
+	info(true) << "========== END CraftingSessionImplementation::initialAssembly ===========";
+#endif
 }
 
 void CraftingSessionImplementation::finishAssembly(int clientCounter) {

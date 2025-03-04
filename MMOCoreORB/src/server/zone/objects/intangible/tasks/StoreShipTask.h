@@ -90,6 +90,9 @@ public:
 			playersOnBoard.remove(i);
 		}
 
+		// Clear Staff Speed
+		ship->setStaffShipSpeed(0.f);
+
 		// Destroy the ship from the zone.
 		ship->destroyObjectFromWorld(false);
 
@@ -130,8 +133,9 @@ public:
 		info(true) << "removePlayer called";
 #endif
 
-		if (player == nullptr)
+		if (player == nullptr) {
 			return false;
+		}
 
 		auto zoneServer = player->getZoneServer();
 
@@ -145,15 +149,18 @@ public:
 
 		auto parent = player->getParent().get();
 
+		// Clear the Players Space States
 		player->clearSpaceStates();
+
+		// Clear the Players Space Mission Objects
+		player->removeAllSpaceMissionObjects(false);
 
 		player->switchZone(newZoneName, location.getX(), location.getZ(), location.getY(), 0, false);
 
 		if (parent != nullptr && parent->hasObjectInContainer(player->getObjectID())) {
 #ifdef DEBUG_SHIP_STORE
-			info(true) << "Clearing player parent: " << parent->getDisplayedName();
+			info(true) << "Clearing player parent ID: " << parent->getObjectID();
 #endif
-
 			parent->removeObject(player, nullptr, false);
 		}
 

@@ -52,6 +52,10 @@ function PilotSeatMenuComponent:handleObjectMenuSelect(pPilotChair, pPlayer, sel
 		return
 	end
 
+	if (CreatureObject(pPlayer):isIncapacitated() or CreatureObject(pPlayer):isDead()) then
+		return
+	end
+
 	--print("Pilot Seat Menu Selected ID " .. selectedID .. " Container ID: " .. SceneObject(pPilotChair):getObjectID() .. " Objects Size: " .. SceneObject(pPilotChair):getContainerObjectsSize())
 
 	-- Pilot Ship

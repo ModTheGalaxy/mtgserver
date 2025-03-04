@@ -170,6 +170,8 @@ public:
 	const static int LIGHTOBJECT = 0x203D;
 	const static int SPACESPAWNER = 0x203E;
 	const static int CREDITCHIP = 0x203F;
+	const static int COMPONENTANALYSISTOOL = 0x2040;
+	const static int SCHEMATICFRAGMENT = 0x2041;
 	/// End Not in client **************
 
 	const static int TERMINAL = 0x4000;
@@ -331,7 +333,7 @@ public:
 	const static int ROBE = 0x100000D;
 	const static int SHIRT = 0x100000E;
 	const static int VEST = 0x100000F;
-	const static int WOOKIEGARB = 0x1000010;
+	const static int WOOKIEEGARB = 0x1000010;
 	const static int MISCCLOTHING = 0x1000011;
 	const static int SKIRT = 0x1000012;
 
@@ -374,7 +376,7 @@ public:
 	const static int SHIPWEAPON = 0x40000005;
 	const static int SHIPWEAPONCAPACITOR = 0x40000006;
 	const static int SHIPBOOSTER = 0x40000007;
-	const static int SHIPDRIODINTERFACE = 0x40000008;
+	const static int SHIPDROIDINTERFACE = 0x40000008;
 	const static int HANGER = 0x40000009;
 	const static int TARGETINGSTATION = 0x4000000A;
 	const static int BRIDGE = 0x4000000B;
@@ -386,7 +388,15 @@ public:
 
 	// Not in client ************
 	const static int SHIPINTERIORCOMPONENT = 0x40000011;
-	const static int SHIPPLASMACONDUIT= 0x40000012;
+	const static int SHIPPLASMACONDUIT = 0x40000012;
+	const static int SHIPARMORSUBCOMPONENT = 0x40000013;
+	const static int SHIPBOOSTERSUBCOMPONENT = 0x40000014;
+	const static int SHIPCAPACITORSUBCOMPONENT = 0x40000015;
+	const static int SHIPDROIDINTERFACESUBCOMPONENT = 0x40000016;
+	const static int SHIPENGINESUBCOMPONENT = 0x40000017;
+	const static int SHIPREACTORSUBCOMPONENT = 0x40000018;
+	const static int SHIPSHIELDSUBCOMPONENT = 0x40000019;
+	const static int SHIPWEAPONSUBCOMPONENT = 0x40000020;
 
 public:
 	static const String typeToString(int gameObjectType);

@@ -416,7 +416,7 @@ void SpaceManagerImplementation::loadLuaConfig() {
 
 			shipAgent->createChildObjects();
 
-			uint32 factionHash = shipAgent->getShipFaction().hashCode();
+			uint32 factionHash = shipAgent->getShipFaction();
 			uint64 stationID = shipAgent->getObjectID();
 			Vector3 stationPosition = shipAgent->getPosition();
 
@@ -428,25 +428,8 @@ void SpaceManagerImplementation::loadLuaConfig() {
 		}
 
 		try {
-			LuaObject travelPoints = luaObject.getObjectField("jtlTravelPoints");
-
-			loadJTLData(&travelPoints);
-			travelPoints.pop();
-
 			LuaObject launchLocation = luaObject.getObjectField("jtlLaunchPoint");
-
-			if (!launchLocation.isValidTable()) {
-				return;
-			}
-
-			jtlZoneName = launchLocation.getStringAt(1);
-
-			float x = launchLocation.getFloatAt(2);
-			float z = launchLocation.getFloatAt(3);
-			float y = launchLocation.getFloatAt(4);
-
-			jtlLaunchLocation = Vector3(x, y, z);
-
+			loadJTLData(&launchLocation);
 			launchLocation.pop();
 		} catch (Exception& e) {
 			error(e.getMessage());
@@ -456,24 +439,18 @@ void SpaceManagerImplementation::loadLuaConfig() {
 	}
 }
 
-void SpaceManagerImplementation::loadJTLData(LuaObject* luaObject) {
-	if (!luaObject->isValidTable())
+void SpaceManagerImplementation::loadJTLData(LuaObject* launchLocation) {
+	if (launchLocation == nullptr || !launchLocation->isValidTable()) {
 		return;
-
-	for (int i = 1; i <= luaObject->getTableSize(); ++i) {
-		lua_State* L = luaObject->getLuaState();
-		lua_rawgeti(L, -1, i);
-
-		LuaObject location(L);
-
-		String locationName = location.getStringAt(1);
-		float x = location.getFloatAt(2);
-		float z = location.getFloatAt(3);
-		float y = location.getFloatAt(4);
-
-		jtlTravelDestinations.put(locationName, Vector3(x, y, z));
-		location.pop();
 	}
+
+	jtlZoneName = launchLocation->getStringAt(1);
+
+	float x = launchLocation->getFloatAt(2);
+	float z = launchLocation->getFloatAt(3);
+	float y = launchLocation->getFloatAt(4);
+
+	jtlLaunchLocation = Vector3(x, y, z);
 }
 
 Vector3 SpaceManagerImplementation::getJtlLaunchLocationss() {
