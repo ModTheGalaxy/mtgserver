@@ -239,6 +239,7 @@ void ObjectManager::registerObjectTypes() {
 	objectFactory.registerObject<ResourceDeed>(SceneObjectType::RESOURCEDEED);
 	objectFactory.registerObject<EventPerkDeed>(SceneObjectType::EVENTPERKDEED);
 	objectFactory.registerObject<VetHarvesterDeed>(SceneObjectType::VETHARVESTERDEED);
+	objectFactory.registerObject<NavicomputerDeed>(SceneObjectType::NAVICOMPUTERDEED);
 	objectFactory.registerObject<ShipDeed>(SceneObjectType::SHIPDEED);
 	objectFactory.registerObject<GroupObject>(SceneObjectType::GROUPOBJECT);
 	objectFactory.registerObject<GuildObject>(SceneObjectType::GUILDOBJECT);
@@ -346,6 +347,7 @@ void ObjectManager::registerObjectTypes() {
 	objectFactory.registerObject<ShipCounterMeasureComponent>(SceneObjectType::SHIPCOUNTERMEASURE);
 	objectFactory.registerObject<ShipWeaponComponent>(SceneObjectType::SHIPWEAPONLAUNCHER);
 	objectFactory.registerObject<ShipWeaponComponent>(SceneObjectType::SHIPCOUNTERMEASURELAUNCHER);
+	objectFactory.registerObject<DroidProgrammingChip>(SceneObjectType::DROIDPROGRAMMINGCHIP);
 	objectFactory.registerObject<AsteroidObject>(SceneObjectType::ASTEROID);
 	objectFactory.registerObject<TangibleObject>(SceneObjectType::PILOTCHAIR);
 	objectFactory.registerObject<TangibleObject>(SceneObjectType::OPERATIONSCHAIR);

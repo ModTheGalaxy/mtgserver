@@ -873,6 +873,48 @@ bool PetControlDeviceImplementation::canBeTradedTo(CreatureObject* player, Creat
 void PetControlDeviceImplementation::fillAttributeList(AttributeListMessage* alm, CreatureObject* object) {
 	SceneObjectImplementation::fillAttributeList(alm, object);
 
+	if (petType == PetManager::FLIGHTCOMPUTER) {
+		auto flightComputerDatapad = getDatapad();
+
+ 		if (flightComputerDatapad == nullptr) {
+ 			return;
+ 		}
+
+ 		int containerSize = flightComputerDatapad->getContainerObjectsSize();
+ 		int currentDataSize = 0;
+ 		Vector<String> storedCommands;
+
+ 		for (int i = 0; i < containerSize; i++) {
+ 			auto commandModule = flightComputerDatapad->getContainerObject(i).castTo<IntangibleObject*>();
+
+ 			if (commandModule == nullptr) {
+ 				continue;
+ 			}
+
+ 			currentDataSize += commandModule->getDataSize();
+ 			storedCommands.add(commandModule->getItemIdentifier());
+ 		}
+
+ 		// Used Memory
+ 		alm->insertAttribute("droid_program_expended_memory", currentDataSize);
+
+ 		// Loaded Droid Programs
+ 		int totalPrograms = storedCommands.size();
+
+ 		if (totalPrograms > 0) {
+ 			alm->insertAttribute("droid_program_loaded", "");
+
+ 			for (int i = 0; i < totalPrograms; i++) {
+ 				String programName = storedCommands.get(i);
+ 
+ 				alm->insertAttribute("droid_program", "@space/droid_commands:" + programName);
+ 			}
+ 		}
+
+ 		// Pilot's Required Cert
+ 		//alm->insertAttribute("data_module_cert_needed", getStorageRating());
+	}
+
 	if (petType == PetManager::DROIDPET) {
 		alm->insertAttribute("creature_vitality", String::valueOf(vitality) + "/" + String::valueOf(maxVitality));
 
@@ -1358,4 +1400,31 @@ void PetControlDeviceImplementation::setVitality(int vit) {
 			petControlDevice->setVitalityMindPenalty(newVitalityMindPenalty);
 		}
 	}, "PetSetVitalityLambda");
+}
+
+int PetControlDeviceImplementation::getDataStorageCapacity() {
+	SceneObject* datapadObject = getSlottedObject("datapad").castTo<SceneObject*>();
+	if (datapadObject == nullptr)
+		return 0;
+	else
+		return datapadObject->getContainerVolumeLimit();
+}
+
+String PetControlDeviceImplementation::getRequiredAstromechCert() {
+	String requiredSkill = "cert_droid_astromech_";
+
+	auto flightDatapad = getDatapad();
+
+	if (flightDatapad == nullptr) {
+		return requiredSkill + "1";
+	}
+
+	auto templateData = flightDatapad->getObjectTemplate();
+
+	if (templateData == nullptr) {
+		return requiredSkill + "1";
+	}
+
+	String entry = templateData->getTemplateFileName();
+	return requiredSkill + entry.charAt(entry.length() - 1);
 }

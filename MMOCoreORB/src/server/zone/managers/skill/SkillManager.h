@@ -50,6 +50,10 @@ class SkillManager : public Singleton<SkillManager>, public Logger, public Objec
 
 	VectorMap<String, int> defaultXpLimits;
 
+	VectorMap<uint32, int> droidProgramSizes;
+
+	SortedVector<String> droidCommands;
+
 	bool apprenticeshipEnabled;
 
 public:
@@ -70,6 +74,9 @@ public:
 
 	void addAbilities(PlayerObject* ghost, const Vector<String>& abilityNames, bool notifyClient = true);
 	void removeAbilities(PlayerObject* ghost, const Vector<String>& abilityNames, bool notifyClient = true);
+
+	void addDroidCommand(PlayerObject* ghost, const String& abilityName);
+	void removeDroidCommands(PlayerObject* ghost);
 
 	bool awardSkill(const String& skillName, CreatureObject* creature, bool notifyClient = true, bool awardRequiredSkills = false, bool noXpRequired = false);
 	void awardDraftSchematics(Skill* skill, PlayerObject* ghost, bool notifyClient = true);
@@ -130,6 +137,12 @@ public:
 	}
 
 	void removeSkillRelatedMissions(CreatureObject* creature, Skill* skill);
+
+	int getDroidProgramSize(uint32 programHash) {
+		return droidProgramSizes.get(programHash);
+	}
+
+	void getPlayerDroidCommands(PlayerObject* ghost, Vector<String>& playerDroidCommands);
 };
 
 }

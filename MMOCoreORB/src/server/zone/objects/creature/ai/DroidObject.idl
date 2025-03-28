@@ -447,6 +447,7 @@ class DroidObject extends AiAgent {
 	}
 	@dirty
 	public native boolean isMerchantBarker();
+
 	@dirty
 	public native string getPersonalityStf();
 

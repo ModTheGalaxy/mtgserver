@@ -155,6 +155,8 @@ class ShipAiAgent extends FighterShipObject {
 
 	protected transient unsigned long updateZoneTime;
 
+	protected transient unsigned long doRecoveryTime;
+
 	protected transient float lastDeltaTime;
 
 	protected transient float deltaTime;
@@ -164,11 +166,13 @@ class ShipAiAgent extends FighterShipObject {
 	@weakReference
 	protected SceneObject homeObject;
 
+	public static final int DORECOVERYINTERVAL = 2000;
 	public static final int UPDATEZONEINTERVAL = 2000; // msec
 	public static final int BEHAVIORINTERVALMAX = 1000; // msec
 	public static final int BEHAVIORINTERVAL = 500; // msec
 	public static final int BEHAVIORINTERVALMIN = 200; // msec
 
+	public static final float VELOCITY_MAX = 512.f;
 	public static final float DEFAULTAGGRORADIUS = 768.f;
 	public static final float MAX_ATTACK_DISTANCE = 1280.f;
 	public static final float MAX_EVADE_DURATION = 5.f; // sec
@@ -387,8 +391,6 @@ class ShipAiAgent extends FighterShipObject {
 
 	public native float getMinThrottle();
 
-	public native float getMaxTurnRate();
-
 	public native float getRotationRate(float currentRadians, float lastRadians = 0.f);
 
 	public native float qInvSqrt(float x);
@@ -400,6 +402,10 @@ class ShipAiAgent extends FighterShipObject {
 	public native boolean setDisabledEngineSpeed();
 
 	public native void setNextSpeed();
+
+	public native float getRotationTime(@dereferenced final Vector3 rotation);
+
+	public native float getDirectionTime(@dereferenced final Vector3 direction);
 
 	public native void setNextDirection();
 

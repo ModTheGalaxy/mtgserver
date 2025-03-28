@@ -11,19 +11,17 @@
 
 class AssociateDroidControlDeviceWithShipCommand : public QueueCommand {
 public:
-
-	AssociateDroidControlDeviceWithShipCommand(const String& name, ZoneProcessServer* server)
-		: QueueCommand(name, server) {
-
+	AssociateDroidControlDeviceWithShipCommand(const String& name, ZoneProcessServer* server) : QueueCommand(name, server) {
 	}
 
 	int doQueueCommand(CreatureObject* creature, const uint64& target, const UnicodeString& arguments) const {
-
-		if (!checkStateMask(creature))
+		if (!checkStateMask(creature)) {
 			return INVALIDSTATE;
+		}
 
-		if (!checkInvalidLocomotions(creature))
+		if (!checkInvalidLocomotions(creature)) {
 			return INVALIDLOCOMOTION;
+		}
 
 		auto zoneServer = creature->getZoneServer();
 
@@ -79,13 +77,18 @@ public:
 			return GENERALERROR;
 		}
 
-		ManagedReference<TangibleObject*> droid = droidControl->getControlledObject();
+		PlayerObject* ghost = creature->getPlayerObject();
 
-		if (droid == nullptr || !droid->isDroidObject()) {
+		if (ghost == nullptr) {
 			return GENERALERROR;
 		}
 
-		uint32 droidType = ShipDroidData::getDroidType(droid->getServerObjectCRC());
+		if (!ghost->hasAbility(droidControl->getRequiredAstromechCert()) && !ghost->hasGodMode()) {
+			creature->sendSystemMessage("@space/space_interaction:droid_not_certified");
+			return GENERALERROR;
+		}
+
+		uint32 droidType = ShipDroidData::getDroidType(droidControl->getServerObjectCRC());
 		uint32 shipType = ShipDroidData::getShipDroidType(ship->getShipChassisName().hashCode());
 
 		if (droidType != shipType) {
@@ -107,11 +110,11 @@ public:
 
 		Locker sLock(ship, creature);
 
-		ship->setShipDroidID(droid->getObjectID(), true);
+		ship->setShipDroidID(droidControl->getObjectID(), true);
 
 		creature->sendSystemMessage("@space/space_interaction:ship_droid_set");
 		return SUCCESS;
 	}
 };
 
-#endif //ASSOCIATEDROIDCONTROLDEVICEWITHSHIPCOMMAND_H_
+#endif // ASSOCIATEDROIDCONTROLDEVICEWITHSHIPCOMMAND_H_
