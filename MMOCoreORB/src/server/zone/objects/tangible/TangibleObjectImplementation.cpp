@@ -1234,12 +1234,17 @@ Reference<FactoryCrate*> TangibleObjectImplementation::createFactoryCrate(int ma
 }
 
 void TangibleObjectImplementation::addTemplateSkillMods(TangibleObject* targetObject) const {
-	SharedTangibleObjectTemplate* tano = dynamic_cast<SharedTangibleObjectTemplate*>(templateObject.get());
-
-	if (tano == nullptr)
+	if (targetObject == nullptr) {
 		return;
+	}
 
-	const VectorMap<String, int>* mods = tano->getSkillMods();
+	SharedTangibleObjectTemplate* tanoTemplate = dynamic_cast<SharedTangibleObjectTemplate*>(templateObject.get());
+
+	if (tanoTemplate == nullptr) {
+		return;
+	}
+
+	const VectorMap<String, int>* mods = tanoTemplate->getSkillMods();
 
 	for (int i = 0; i < mods->size(); ++i) {
 		VectorMapEntry<String, int> entry = mods->elementAt(i);
@@ -1249,12 +1254,17 @@ void TangibleObjectImplementation::addTemplateSkillMods(TangibleObject* targetOb
 }
 
 void TangibleObjectImplementation::removeTemplateSkillMods(TangibleObject* targetObject) const {
-	const SharedTangibleObjectTemplate* tano = dynamic_cast<const SharedTangibleObjectTemplate*>(templateObject.get());
-
-	if (tano == nullptr)
+	if (targetObject == nullptr) {
 		return;
+	}
 
-	const VectorMap<String, int>* mods = tano->getSkillMods();
+	const SharedTangibleObjectTemplate* tanoTemplate = dynamic_cast<const SharedTangibleObjectTemplate*>(templateObject.get());
+
+	if (tanoTemplate == nullptr) {
+		return;
+	}
+
+	const VectorMap<String, int>* mods = tanoTemplate->getSkillMods();
 
 	for (int i = 0; i < mods->size(); ++i) {
 		const auto& entry = mods->elementAt(i);

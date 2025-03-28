@@ -21,8 +21,10 @@
 #include "server/zone/objects/ship/ShipCountermeasureData.h"
 #include "server/zone/objects/ship/components/ShipChassisComponent.h"
 #include "server/zone/objects/ship/ShipTurretData.h"
+#include "server/zone/managers/ship/DroidCommandData.h"
 #include "ShipUniqueIdMap.h"
 #include "SpaceSpawnGroup.h"
+#include "server/zone/objects/ship/ai/ShipAiAgentPilotData.h"
 
 namespace server {
 namespace zone {
@@ -109,6 +111,7 @@ protected:
 	HashTable<String, ShipProjectileData*> shipProjectiletTemplateNames;
 	HashTable<uint32, Reference<ShipCollisionData*>> shipCollisionData;
 	HashTable<String, Reference<ShipChassisData*>> chassisData;
+	HashTable<String, Reference<ShipAiAgentPilotData*>> pilotData;
 
 	HashTable<uint32, Reference<ShipMissileData*>> missileData;
 	HashTable<uint32, Reference<ShipCountermeasureData*>> countermeasureData;
@@ -118,6 +121,8 @@ protected:
 	VectorMap<String, String> hyperspaceZones;
 
 	HashTable<uint32, Reference<SpaceSpawnGroup*>> spawnGroupMap;
+
+	HashTable<uint32, Reference<DroidCommandData*>> DroidCommands;
 
 	ShipUniqueIdMap shipUniqueIdMap;
 	ShipAiAgentUpdateTransformTask* updateTransformTask;
@@ -133,6 +138,8 @@ protected:
 	void loadShipCollisionData();
 	void loadShipTurretIffData();
 	void loadShipTurretLuaData();
+	void loadDroidCommands();
+	void loadShipAiAgentPilotData();
 
 public:
 	enum {
@@ -224,6 +231,10 @@ public:
 		return countermeasureData.get(ammoType);
 	}
 
+	const ShipAiAgentPilotData* getPilotData(const String& pilotType) const {
+		return pilotData.get(pilotType);
+	}
+
 	ShipUniqueIdMap* getShipUniqueIdMap() {
 		return &shipUniqueIdMap;
 	}
@@ -290,6 +301,10 @@ public:
 	uint16 setShipUniqueID(ShipObject* ship);
 
 	void dropShipUniqueID(ShipObject* ship);
+
+	DroidCommandData* getDroidCommandData(uint32 hashCode) const {
+		return DroidCommands.get(hashCode);
+	}
 };
 
 } // namespace ship

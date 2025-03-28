@@ -102,6 +102,7 @@
 #include "server/zone/objects/tangible/deed/pet/PetDeed.h"
 #include "server/zone/objects/tangible/deed/droid/DroidDeed.h"
 #include "server/zone/objects/tangible/deed/ship/ShipDeed.h"
+#include "server/zone/objects/tangible/deed/navicomputer/NavicomputerDeed.h"
 #include "server/zone/objects/tangible/deed/structure/StructureDeed.h"
 #include "server/zone/objects/tangible/deed/resource/ResourceDeed.h"
 #include "server/zone/objects/tangible/deed/eventperk/EventPerkDeed.h"
@@ -167,5 +168,6 @@
 #include "server/zone/objects/tangible/misc/LightObject.h"
 #include "server/zone/objects/tangible/space/content_infrastructure/SpaceSpawner.h"
 #include "server/zone/objects/tangible/item/CreditChipObject.h"
+#include "server/zone/objects/tangible/misc/DroidProgrammingChip.h"
 
 #endif /* OBJECTS_H_ */
