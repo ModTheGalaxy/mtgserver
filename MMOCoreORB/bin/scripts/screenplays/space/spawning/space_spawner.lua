@@ -108,12 +108,12 @@ function SpaceSpawnerScreenPlay:spawnShipAgent(pNil, indexString)
 	local pShipAgent = spawnShipAgent(shipName, self.spaceZone, x, z, y)
 
 	if pShipAgent ~= nil then
-		LuaShipAiAgent(pShipAgent):setDespawnOnNoPlayerInRange(false)
+		ShipAiAgent(pShipAgent):setDespawnOnNoPlayerInRange(false)
 
 		createObserver(SHIPAGENTDESPAWNED, self.screenplayName, "onDespawn", pShipAgent)
 
 		if (spawnType == SHIP_AI_FIXED_PATROL) then
-			LuaShipAiAgent(pShipAgent):setFixedPatrol()
+			ShipAiAgent(pShipAgent):setFixedPatrol()
 
 			local totalToAdd = spawnTable[11]
 			local patrolPoints = spawnTable[12]
@@ -133,7 +133,7 @@ function SpaceSpawnerScreenPlay:spawnShipAgent(pNil, indexString)
 			while (totalToAdd >= count) do
 				local patrolName = patrolPoints[startPoint]
 
-				LuaShipAiAgent(pShipAgent):addFixedPatrolPoint(patrolName)
+				ShipAiAgent(pShipAgent):addFixedPatrolPoint(patrolName)
 
 				--print(shipName .. " -- adding point #" .. startPoint .. " Point: " .. patrolName)
 
@@ -148,12 +148,12 @@ function SpaceSpawnerScreenPlay:spawnShipAgent(pNil, indexString)
 				end
 			end
 		elseif (spawnType == SHIP_AI_GUARD_PATROL) then
-			LuaShipAiAgent(pShipAgent):setMinimumGuardPatrol(spawnTable[10])
-			LuaShipAiAgent(pShipAgent):setMaximumGuardPatrol(spawnTable[11])
+			ShipAiAgent(pShipAgent):setMinimumGuardPatrol(spawnTable[10])
+			ShipAiAgent(pShipAgent):setMaximumGuardPatrol(spawnTable[11])
 
-			LuaShipAiAgent(pShipAgent):setGuardPatrol()
+			ShipAiAgent(pShipAgent):setGuardPatrol()
 		else
-			LuaShipAiAgent(pShipAgent):setRandomPatrol()
+			ShipAiAgent(pShipAgent):setRandomPatrol()
 		end
 
 		writeData(SceneObject(pShipAgent):getObjectID() .. ":Spawner:", tableNum)

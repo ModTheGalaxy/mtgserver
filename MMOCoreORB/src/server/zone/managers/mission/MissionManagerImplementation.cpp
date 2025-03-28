@@ -506,7 +506,7 @@ void MissionManagerImplementation::removeMission(MissionObject* mission, Creatur
 	}
 }
 
-void MissionManagerImplementation::handleMissionAbort(MissionObject* mission, CreatureObject* player) {
+void MissionManagerImplementation::handleMissionAbort(MissionObject* mission, CreatureObject* player, bool questMessage) {
 	if (player->isIncapacitated()) {
 		player->sendSystemMessage("You cannot abort a mission while incapacitated.");
 		return;
@@ -519,9 +519,29 @@ void MissionManagerImplementation::handleMissionAbort(MissionObject* mission, Cr
 
 	ManagedReference<PlayerObject*> ghost = player->getPlayerObject();
 
-	if (mission->getTypeCRC() == MissionTypes::BOUNTY && ghost != nullptr && ghost->hasBhTef()) {
-		player->sendSystemMessage("You cannot abort a bounty hunter mission this soon after being in combat with the mission target.");
-		return;
+	if (ghost != nullptr) {
+		if (mission->getTypeCRC() == MissionTypes::BOUNTY && ghost->hasBhTef()) {
+			player->sendSystemMessage("You cannot abort a bounty hunter mission this soon after being in combat with the mission target.");
+			return;
+		}
+
+		// Space Missions
+		uint32 questCRC = mission->getQuestCRC();
+
+		if (questCRC > 0) {
+			ghost->clearJournalQuest(questCRC, false);
+
+			if (questMessage) {
+				String questString = "@spacequest/" + mission->getQuestType() + "/" + mission->getQuestName() + ":title";
+
+				StringIdChatParameter spaceAbort("space/quest", "quest_aborted");
+				spaceAbort.setTO(questString);
+
+				player->sendSystemMessage(spaceAbort);
+
+				player->playMusicMessage("sound/music_themequest_fail_criminal.snd");
+			}
+		}
 	}
 
 	mission->abort();

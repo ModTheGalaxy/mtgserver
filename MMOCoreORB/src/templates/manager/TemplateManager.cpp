@@ -97,9 +97,11 @@
 #include "templates/tangible/LootkitObjectTemplate.h"
 #include "templates/tangible/LootSchematicTemplate.h"
 #include "templates/tangible/MissionTerminalTemplate.h"
+#include "templates/tangible/NavicomputerDeedTemplate.h"
 #include "templates/tangible/PetDeedTemplate.h"
 #include "templates/tangible/PowerupTemplate.h"
 #include "templates/tangible/RangedStimPackTemplate.h"
+#include "templates/tangible/SchematicFragmentTemplate.h"
 #include "templates/tangible/SharedBattlefieldMarkerObjectTemplate.h"
 #include "templates/tangible/SharedCountingObjectTemplate.h"
 #include "templates/tangible/SharedFactoryObjectTemplate.h"
@@ -531,6 +533,7 @@ void TemplateManager::registerTemplateObjects() {
 	templateFactory.registerObject<DroidDeedTemplate>(SharedObjectTemplate::DROIDDEED);
 	templateFactory.registerObject<EventPerkDeedTemplate>(SharedObjectTemplate::EVENTPERKDEED);
 	templateFactory.registerObject<ShipDeedTemplate>(SharedObjectTemplate::SHIPDEED);
+	templateFactory.registerObject<NavicomputerDeedTemplate>(SharedObjectTemplate::NAVICOMPUTERDEED);
 	templateFactory.registerObject<MissionTerminalTemplate>(SharedObjectTemplate::MISSIONTERMINAL);
 	templateFactory.registerObject<CloningBuildingObjectTemplate>(SharedObjectTemplate::CLONINGBUILDING);
 	templateFactory.registerObject<HospitalBuildingObjectTemplate>(SharedObjectTemplate::HOSPITALBUILDING);
@@ -573,6 +576,7 @@ void TemplateManager::registerTemplateObjects() {
 	templateFactory.registerObject<XpPurchaseTemplate>(SharedObjectTemplate::XPPURCHASE);
 	templateFactory.registerObject<ShipComponentTemplate>(SharedObjectTemplate::SHIPCOMPONENT);
 	templateFactory.registerObject<ShipChassisTemplate>(SharedObjectTemplate::SHIPCHASSIS);
+	templateFactory.registerObject<SchematicFragmentTemplate>(SharedObjectTemplate::SCHEMATICFRAGMENT);
 }
 
 void TemplateManager::registerFunctions() {
@@ -718,6 +722,7 @@ void TemplateManager::registerGlobals() {
 	luaTemplatesInstance->setGlobalInt("PETDEED", SharedObjectTemplate::PETDEED);
 	luaTemplatesInstance->setGlobalInt("DROIDDEED", SharedObjectTemplate::DROIDDEED);
 	luaTemplatesInstance->setGlobalInt("SHIPDEED", SharedObjectTemplate::SHIPDEED);
+	luaTemplatesInstance->setGlobalInt("NAVICOMPUTERDEED", SharedObjectTemplate::NAVICOMPUTERDEED);
 	luaTemplatesInstance->setGlobalInt("EVENTPERKDEED", SharedObjectTemplate::EVENTPERKDEED);
 	luaTemplatesInstance->setGlobalInt("MISSIONTERMINAL", SharedObjectTemplate::MISSIONTERMINAL);
 	luaTemplatesInstance->setGlobalInt("CLONINGBUILDING", SharedObjectTemplate::CLONINGBUILDING);
@@ -760,6 +765,7 @@ void TemplateManager::registerGlobals() {
 	luaTemplatesInstance->setGlobalInt("DROIDPERSONALITYCHIP", SharedObjectTemplate::DROIDMODULEPERSONALITY);
 	luaTemplatesInstance->setGlobalInt("VEHICLE", SharedObjectTemplate::VEHICLE);
 	luaTemplatesInstance->setGlobalInt("XPPURCHASE", SharedObjectTemplate::XPPURCHASE);
+	luaTemplatesInstance->setGlobalInt("SCHEMATICFRAGMENT", SharedObjectTemplate::SCHEMATICFRAGMENT);
 
 	luaTemplatesInstance->setGlobalInt("NO_HITLOCATION", ArmorObjectTemplate::NOLOCATION);
 	luaTemplatesInstance->setGlobalInt("CHEST_HITLOCATION", ArmorObjectTemplate::CHEST);

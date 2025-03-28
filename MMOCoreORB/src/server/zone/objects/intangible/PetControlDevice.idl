@@ -381,4 +381,10 @@ class PetControlDevice extends ControlDevice {
 			friends.add(playerID);
 		}
 	}
+
+	@dirty
+	public native int getDataStorageCapacity();
+
+	@dirty
+	public native string getRequiredAstromechCert();
 }

@@ -1487,8 +1487,9 @@ function TutorialScreenPlay:handleRoomSeven(pPlayer)
 	for i = 1, 3, 1 do
 		local celebID = readData(playerID .. ":tutorial:roomSevenNervousGuy" .. i)
 		local pCeleb = getSceneObject(celebID)
+
 		if (pCeleb ~= nil) then
-			createEvent(getRandomNumber(5,10) * 1000, "TutorialScreenPlay", "doNervousGuySpeak", pCeleb, "")
+			createEvent(getRandomNumber(5, 10) * 1000, "TutorialScreenPlay", "doNervousGuySpeak", pCeleb, "")
 		end
 	end
 
@@ -1517,11 +1518,11 @@ function TutorialScreenPlay:doNervousGuySpeak(pGuy)
 	end
 
 	-- Throttle messages so they dont always occur every iteration
-	if (self:isInRoom(pPlayer, "r7") and getRandomNumber(1,20) > 10) then
+	if (self:isInRoom(pPlayer, "r7") and getRandomNumber(1, 20) > 10) then
 		spatialChat(pGuy, "@newbie_tutorial/newbie_convo:nervous_guy" .. getRandomNumber(1,5))
 	end
 
-	createEvent(getRandomNumber(20,30) * 1000, "TutorialScreenPlay", "doNervousGuySpeak", pGuy, "")
+	createEvent(getRandomNumber(20, 30) * 1000, "TutorialScreenPlay", "doNervousGuySpeak", pGuy, "")
 end
 
 -- Hallway with debris blocking path, must be destroyed
@@ -2008,13 +2009,7 @@ function TutorialScreenPlay:getTutorialBuilding(pPlayer)
 		return nil
 	end
 
-	local pCell = SceneObject(pPlayer):getParent()
-
-	if (pCell == nil) then
-		return nil
-	end
-
-	return SceneObject(pCell):getParent()
+	return SceneObject(pPlayer):getRootParent()
 end
 
 -- Marks a room complete, if hud elements were enabled in that room, ensures they are enabled
@@ -2038,7 +2033,7 @@ end
 
 -- Checks if room is complete
 function TutorialScreenPlay:isRoomComplete(pPlayer, roomName)
-	if (pPlayer == nil) then
+	if (pPlayer == nil or roonName == nil or roomName == "") then
 		return false
 	end
 
@@ -2047,7 +2042,7 @@ end
 
 -- Checks if player is in a room
 function TutorialScreenPlay:isInRoom(pPlayer, roomName)
-	if (pPlayer == nil) then
+	if (pPlayer == nil or roonName == nil or roomName == "") then
 		return false
 	end
 
@@ -2059,17 +2054,17 @@ function TutorialScreenPlay:isInRoom(pPlayer, roomName)
 
 	local pBuilding = self:getTutorialBuilding(pPlayer)
 
-	if (pBuilding == nil) then
+	if (pBuilding == nil or not SceneObject(pBuilding):isBuildingObject()) then
 		return false
 	end
 
-	local pCellByName = BuildingObject(pBuilding):getNamedCell(roomName)
+	local pCell = BuildingObject(pBuilding):getNamedCell(roomName)
 
-	if (pCellByName == nil) then
+	if (pCell == nil or not SceneObject(pCell):isCellObject()) then
 		return false
 	end
 
-	return (SceneObject(pCellByName):getObjectID() == playerCellID)
+	return (SceneObject(pCell):getObjectID() == playerCellID)
 end
 
 -- Gives a player permission to a group

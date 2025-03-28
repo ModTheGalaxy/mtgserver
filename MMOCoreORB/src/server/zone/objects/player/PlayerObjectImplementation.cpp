@@ -60,7 +60,6 @@
 #include "templates/intangible/SharedPlayerObjectTemplate.h"
 #include "server/zone/objects/player/sessions/TradeSession.h"
 #include "server/zone/objects/player/events/StoreSpawnedChildrenTask.h"
-#include "server/zone/objects/intangible/tasks/StoreShipTask.h"
 #include "server/zone/objects/player/events/RemoveSpouseTask.h"
 #include "server/zone/objects/player/events/PvpTefRemovalTask.h"
 #include "server/zone/objects/player/events/SpawnHelperDroidTask.h"
@@ -890,6 +889,18 @@ WaypointObject* PlayerObjectImplementation::addWaypoint(const String& planet, fl
 	return obj;
 }
 
+AbilityList* PlayerObjectImplementation::getAbilityList() const {
+	AbilityList* workingList = new AbilityList();
+
+	for (int i = 0; i < abilityList.size(); ++i)
+		workingList->add(abilityList.get(i));
+
+	for (int i = 0; i < droidCommandList.size(); ++i)
+		workingList->add(droidCommandList.get(i));
+
+	return workingList;
+}
+
 void PlayerObjectImplementation::addAbility(Ability* ability, bool notifyClient) {
 	if (notifyClient) {
 		PlayerObjectDeltaMessage9* msg = new PlayerObjectDeltaMessage9(asPlayerObject());
@@ -961,6 +972,31 @@ void PlayerObjectImplementation::removeAbilities(Vector<Ability*>& abilities, bo
 		for (int i = 0; i < abilities.size(); ++i)
 			abilityList.remove(abilityList.find(abilities.get(i)));
 	}
+}
+
+void PlayerObjectImplementation::addDroidCommand(Ability* droidCommand) {
+	PlayerObjectDeltaMessage9* msg = new PlayerObjectDeltaMessage9(asPlayerObject());
+	msg->startUpdate(0);
+	droidCommandList.add(droidCommand, msg, 1);
+	msg->close();
+	sendMessage(msg);
+}
+
+void PlayerObjectImplementation::removeDroidCommands() {
+	if (droidCommandList.size() == 0)
+		return;
+
+	PlayerObjectDeltaMessage9* msg = new PlayerObjectDeltaMessage9(asPlayerObject());
+	msg->startUpdate(0);
+
+	droidCommandList.remove(droidCommandList.size() - 1, msg, droidCommandList.size());
+
+	for (int i = droidCommandList.size() - 1; i >= 0; --i)
+		droidCommandList.remove(i, msg, 0);
+
+	msg->close();
+
+	sendMessage(msg);
 }
 
 bool PlayerObjectImplementation::addSchematics(Vector<ManagedReference<DraftSchematic* > >& schematics, bool notifyClient) {
@@ -2893,18 +2929,21 @@ int PlayerObjectImplementation::getOwnedChatRoomCount() {
 void PlayerObjectImplementation::activateJournalQuest(unsigned int questCrc, bool notifyClient) {
 	PlayerQuestData questData = getQuestData(questCrc);
 
-	if (questData.getOwnerId() != 0)
+	if (questData.getOwnerId() != 0) {
 		return;
+	}
 
 	CreatureObject* creature = cast<CreatureObject*>(getParent().get().get());
 
-	if (creature == nullptr)
+	if (creature == nullptr) {
 		return;
+	}
 
 	questData.setOwnerId(getObjectID());
 	questData.setActiveStepBitmask(0);
 	questData.setCompletedStepBitmask(0);
 	questData.setCompletedFlag(0);
+
 	setPlayerQuestData(questCrc, questData);
 
 	activateJournalQuestTask(questCrc, 0, notifyClient);
@@ -2913,13 +2952,15 @@ void PlayerObjectImplementation::activateJournalQuest(unsigned int questCrc, boo
 void PlayerObjectImplementation::completeJournalQuest(unsigned int questCrc, bool notifyClient) {
 	PlayerQuestData questData = getQuestData(questCrc);
 
-	if (questData.getOwnerId() == 0)
+	if (questData.getOwnerId() == 0) {
 		return;
+	}
 
 	CreatureObject* creature = cast<CreatureObject*>(getParent().get().get());
 
-	if (creature == nullptr)
+	if (creature == nullptr) {
 		return;
+	}
 
 	questData.setCompletedFlag(1);
 	setPlayerQuestData(questCrc, questData);
@@ -2931,13 +2972,15 @@ void PlayerObjectImplementation::completeJournalQuest(unsigned int questCrc, boo
 void PlayerObjectImplementation::clearJournalQuest(unsigned int questCrc, bool notifyClient) {
 	PlayerQuestData questData = getQuestData(questCrc);
 
-	if (questData.getOwnerId() == 0)
+	if (questData.getOwnerId() == 0) {
 		return;
+	}
 
 	CreatureObject* creature = cast<CreatureObject*>(getParent().get().get());
 
-	if (creature == nullptr)
+	if (creature == nullptr) {
 		return;
+	}
 
 	clearPlayerQuestData(questCrc);
 
@@ -2946,82 +2989,110 @@ void PlayerObjectImplementation::clearJournalQuest(unsigned int questCrc, bool n
 }
 
 void PlayerObjectImplementation::activateJournalQuestTask(unsigned int questCrc, int taskNum, bool notifyClient) {
-	if (taskNum > 15)
+	if (taskNum > 15) {
 		return;
+	}
 
 	PlayerQuestData questData = getQuestData(questCrc);
 
-	if (questData.getOwnerId() == 0)
+	if (questData.getOwnerId() == 0) {
 		return;
+	}
 
-	if (questData.getActiveStepBitmask() & (1 << taskNum))
+	if (questData.getActiveStepBitmask() & (1 << taskNum)) {
 		return;
+	}
 
 	CreatureObject* creature = cast<CreatureObject*>(getParent().get().get());
 
-	if (creature == nullptr)
+	if (creature == nullptr) {
 		return;
+	}
 
-	questData.setActiveStepBitmask(questData.getActiveStepBitmask() | (1 << taskNum));
-	questData.setCompletedStepBitmask(questData.getCompletedStepBitmask() & ~(1 << taskNum));
+	uint16 activeStepBit = questData.getActiveStepBitmask();
+	uint16 completedStepBit = questData.getCompletedStepBitmask();
+
+	questData.setActiveStepBitmask(activeStepBit | (1 << taskNum));
+	questData.setCompletedStepBitmask(completedStepBit & ~(1 << taskNum));
+
+	// creature->info(true) << "activateJournalQuestTask -- Quest: " << questCrc << " Active Step Bitmask: " << activeStepBit << " Complete Step Bit: " << completedStepBit;
+
 	setPlayerQuestData(questCrc, questData);
 
-	if (notifyClient)
+	if (notifyClient) {
 		creature->sendSystemMessage("@quest/quests:quest_journal_updated");
+	}
 }
 
 void PlayerObjectImplementation::completeJournalQuestTask(unsigned int questCrc, int taskNum, bool notifyClient) {
-	if (taskNum > 15)
+	if (taskNum > 15) {
 		return;
+	}
 
 	PlayerQuestData questData = getQuestData(questCrc);
 
-	if (questData.getOwnerId() == 0)
+	if (questData.getOwnerId() == 0) {
 		return;
+	}
 
-	if ((questData.getActiveStepBitmask() & (1 << taskNum)) == 0)
+	if ((questData.getActiveStepBitmask() & (1 << taskNum)) == 0) {
 		return;
+	}
 
 	CreatureObject* creature = cast<CreatureObject*>(getParent().get().get());
 
-	if (creature == nullptr)
+	if (creature == nullptr) {
 		return;
+	}
 
-	questData.setActiveStepBitmask(questData.getActiveStepBitmask() & ~(1 << taskNum));
-	questData.setCompletedStepBitmask(questData.getCompletedStepBitmask() | (1 << taskNum));
+	uint16 activeStepBit = questData.getActiveStepBitmask();
+	uint16 completedStepBit = questData.getCompletedStepBitmask();
+
+	questData.setActiveStepBitmask(activeStepBit & ~(1 << taskNum));
+	questData.setCompletedStepBitmask(completedStepBit | (1 << taskNum));
+
+	// creature->info(true) << "completeJournalQuestTask -- Quest: " << questCrc << " Active Step Bitmask: " << activeStepBit << " Complete Step Bit: " << completedStepBit;
+
 	setPlayerQuestData(questCrc, questData);
 
-	if (notifyClient)
+	if (notifyClient) {
 		creature->sendSystemMessage("@quest/quests:task_complete");
+	}
 }
 
 void PlayerObjectImplementation::clearJournalQuestTask(unsigned int questCrc, int taskNum, bool notifyClient) {
-	if (taskNum > 15)
+	if (taskNum > 15) {
 		return;
+	}
 
 	PlayerQuestData questData = getQuestData(questCrc);
 
-	if (questData.getOwnerId() == 0)
+	if (questData.getOwnerId() == 0) {
 		return;
+	}
 
 	CreatureObject* creature = cast<CreatureObject*>(getParent().get().get());
 
-	if (creature == nullptr)
+	if (creature == nullptr) {
 		return;
+	}
 
 	questData.setActiveStepBitmask(questData.getActiveStepBitmask() & ~(1 << taskNum));
 	questData.setCompletedStepBitmask(questData.getCompletedStepBitmask() & ~(1 << taskNum));
+
 	setPlayerQuestData(questCrc, questData);
 
-	if (notifyClient)
+	if (notifyClient) {
 		creature->sendSystemMessage("@quest/quests:quest_journal_updated");
+	}
 }
 
 bool PlayerObjectImplementation::isJournalQuestActive(unsigned int questCrc) {
 	PlayerQuestData questData = getQuestData(questCrc);
 
-	if (questData.getCompletedFlag())
+	if (questData.getCompletedFlag()) {
 		return false;
+	}
 
 	return questData.getOwnerId() ? true : false;
 }
@@ -3125,23 +3196,27 @@ bool PlayerObjectImplementation::canActivateQuest(int questID) {
 }
 
 void PlayerObjectImplementation::activateQuest(int questID) {
-	if (!canActivateQuest(questID))
+	if (!canActivateQuest(questID)) {
 		return;
+	}
 
 	CreatureObject* creature = cast<CreatureObject*>(getParent().get().get());
 
-	if (creature == nullptr)
+	if (creature == nullptr) {
 		return;
+	}
 
 	PlayerManager* playerManager = creature->getZoneServer()->getPlayerManager();
 
-	if (playerManager == nullptr)
+	if (playerManager == nullptr) {
 		return;
+	}
 
 	Reference<QuestInfo*> questInfo = playerManager->getQuestInfo(questID);
 
-	if (questInfo == nullptr)
+	if (questInfo == nullptr) {
 		return;
+	}
 
 	setActiveQuestsBit(questID, 1);
 
@@ -3156,7 +3231,7 @@ void PlayerObjectImplementation::setActiveQuestsBit(int bitIndex, byte value, bo
 		return;
 
 	PlayerObjectDeltaMessage8* delta = new PlayerObjectDeltaMessage8(this);
-	delta->startUpdate(5);
+	delta->startUpdate(0x05);
 	activeQuests.insertToMessage(delta);
 	delta->close();
 
@@ -3192,11 +3267,13 @@ void PlayerObjectImplementation::completeQuest(int questID) {
 void PlayerObjectImplementation::setCompletedQuestsBit(int bitIndex, byte value, bool notifyClient) {
 	completedQuests.setBit(bitIndex, value);
 
-	if (!notifyClient)
+	if (!notifyClient) {
 		return;
+	}
 
 	PlayerObjectDeltaMessage8* delta = new PlayerObjectDeltaMessage8(this);
-	delta->startUpdate(4);
+
+	delta->startUpdate(0x04);
 	completedQuests.insertToMessage(delta);
 	delta->close();
 
@@ -3206,7 +3283,8 @@ void PlayerObjectImplementation::setCompletedQuestsBit(int bitIndex, byte value,
 void PlayerObjectImplementation::setPlayerQuestData(uint32 questCrc, PlayerQuestData& data, bool notifyClient) {
 	if (notifyClient) {
 		PlayerObjectDeltaMessage8* dplay8 = new PlayerObjectDeltaMessage8(this);
-		dplay8->startUpdate(6);
+
+		dplay8->startUpdate(0x06);
 		playerQuestsData.set(questCrc, data, dplay8, 1);
 		dplay8->close();
 
@@ -3220,7 +3298,8 @@ void PlayerObjectImplementation::clearPlayerQuestData(uint32 questCrc, bool noti
 	//This works but client has to log out and back in to see the journal update
 	if (notifyClient) {
 		PlayerObjectDeltaMessage8* dplay8 = new PlayerObjectDeltaMessage8(this);
-		dplay8->startUpdate(6);
+
+		dplay8->startUpdate(0x06);
 		playerQuestsData.drop(questCrc, dplay8, 1);
 		dplay8->close();
 
@@ -3406,13 +3485,15 @@ void PlayerObjectImplementation::checkAndShowTOS() {
 void PlayerObjectImplementation::recalculateForcePower() {
 	ManagedReference<SceneObject*> parent = getParent().get();
 
-	if (parent == nullptr)
+	if (parent == nullptr) {
 		return;
+	}
 
 	CreatureObject* player = parent->asCreatureObject();
 
-	if (player == nullptr)
+	if (player == nullptr) {
 		return;
+	}
 
 	int maxForce = player->getSkillMod("jedi_force_power_max");
 

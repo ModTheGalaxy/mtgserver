@@ -93,7 +93,6 @@
 #include "server/zone/objects/tangible/Instrument.h"
 #include "server/zone/managers/director/ScreenPlayObserver.h"
 #include "server/zone/objects/player/events/SpawnHelperDroidTask.h"
-#include "server/zone/packets/object/StartNpcConversation.h"
 
 float CreatureObjectImplementation::DEFAULTRUNSPEED = 5.376f;
 
@@ -119,6 +118,9 @@ void CreatureObjectImplementation::initializeTransientMembers() {
 	setLoggingName("CreatureObject");
 
 	commandQueue = new CommandQueue(asCreatureObject());
+
+	spaceMissionObjects.setNullValue(0);
+	spaceMissionObjects.setAllowDuplicateInsert();
 }
 
 void CreatureObjectImplementation::initializeMembers() {
@@ -152,8 +154,6 @@ void CreatureObjectImplementation::initializeMembers() {
 	performanceStartTime = 0;
 	performanceType = 0;
 	tradeTargetID = 0;
-
-	pilotTier = 0;
 
 	optionsBitmask = 0x80;
 
@@ -3690,6 +3690,116 @@ bool CreatureObjectImplementation::hasBountyMissionFor(CreatureObject* target) {
 	return mission->getTargetObjectId() == target->getObjectID();
 }
 
+void CreatureObjectImplementation::addSpaceMissionObject(uint64 missionOwnerID, uint64 missionObjectID, bool notifyClient, bool notifyGroup) {
+	if (missionObjectID <= 0) {
+		return;
+	}
+
+	// Add Mission object to DeltaSet
+	spaceMissionObjects.addWithKey(missionOwnerID, missionObjectID);
+
+	if (notifyClient) {
+		CreatureObjectDeltaMessage4* delta4 = new CreatureObjectDeltaMessage4(asCreatureObject());
+
+		if (delta4 != nullptr) {
+			delta4->startUpdate(0x0D);
+
+			spaceMissionObjects.insertKeyAndValuesToMessage(delta4);
+
+			delta4->close();
+
+			// info(true) << "addSpaceMissionObject - Delta4 Packet: " << delta4->toStringData();
+
+			sendMessage(delta4);
+		}
+	}
+
+	Locker locker(&missionRangeObjectsMutex);
+
+	missionRangeObjects.add(missionObjectID);
+
+	locker.release();
+
+	if (!isGrouped() || !notifyGroup) {
+		return;
+	}
+
+	auto group = getGroup();
+
+	if (group == nullptr) {
+		return;
+	}
+
+	Locker groupLock(group, asCreatureObject());
+
+	// Update Group Members
+	group->addSpaceMissionObject(missionOwnerID, missionObjectID, notifyClient);
+}
+
+void CreatureObjectImplementation::removeSpaceMissionObject(uint64 missionOwnerID, uint64 missionObjectID, bool notifyClient, bool notifyGroup) {
+	if (missionObjectID <= 0 || !spaceMissionObjects.containsValue(missionObjectID)) {
+		return;
+	}
+
+	// info(true) << "removeSpaceMissionObject - called missionOwnerID: " << missionOwnerID << " missionObjectID: " << missionObjectID;
+
+	// Remove Mission object from DeltaSet
+	spaceMissionObjects.dropByValue(missionOwnerID, missionObjectID);
+
+	if (notifyClient) {
+		CreatureObjectDeltaMessage4* delta4 = new CreatureObjectDeltaMessage4(asCreatureObject());
+
+		if (delta4 != nullptr) {
+			delta4->startUpdate(0x0D);
+
+			spaceMissionObjects.insertKeyAndValuesToMessage(delta4);
+
+			delta4->close();
+
+			// info(true) << "removeSpaceMissionObject - Vector Size: " << spaceMissionObjects.size() << " Delta4 Packet: " << delta4->toStringData();
+
+			sendMessage(delta4);
+		}
+	}
+
+	Locker locker(&missionRangeObjectsMutex);
+
+	missionRangeObjects.drop(missionObjectID);
+
+	locker.release();
+
+	if (!isGrouped() || !notifyGroup) {
+		return;
+	}
+
+	auto group = getGroup();
+
+	if (group == nullptr) {
+		return;
+	}
+
+	Locker groupLock(group, asCreatureObject());
+
+	// Update Group Members
+	group->removeSpaceMissionObject(getObjectID(), missionObjectID, notifyClient);
+}
+
+void CreatureObjectImplementation::removeAllSpaceMissionObjects(bool notifyClient) {
+	if (notifyClient) {
+		CreatureObjectDeltaMessage4* delta4 = new CreatureObjectDeltaMessage4(asCreatureObject());
+
+		if (delta4 != nullptr) {
+			delta4->startUpdate(0x0D);
+
+			spaceMissionObjects.removeAll(delta4);
+
+			delta4->close();
+		}
+	} else {
+		spaceMissionObjects.removeAll(nullptr);
+	}
+}
+
 int CreatureObjectImplementation::notifyObjectDestructionObservers(TangibleObject* attacker, int condition, bool isCombatAction) {
 	PlayerObject* ghost = getPlayerObject();
 
@@ -3750,8 +3860,7 @@ void CreatureObjectImplementation::addWearableObject(TangibleObject* object, boo
 		return;
 
 	if (notifyClient) {
-		CreatureObjectDeltaMessage6* msg = new CreatureObjectDeltaMessage6(
-				asCreatureObject());
+		CreatureObjectDeltaMessage6* msg = new CreatureObjectDeltaMessage6(asCreatureObject());
 		msg->startUpdate(0x0F);
 		wearablesVector.add(object, msg);
 		msg->close();
@@ -3769,8 +3878,7 @@ void CreatureObjectImplementation::removeWearableObject(TangibleObject* object, 
 		return;
 
 	if (notifyClient) {
-		CreatureObjectDeltaMessage6* msg = new CreatureObjectDeltaMessage6(
-				asCreatureObject());
+		CreatureObjectDeltaMessage6* msg = new CreatureObjectDeltaMessage6(asCreatureObject());
 		msg->startUpdate(0x0F);
 		wearablesVector.remove(index, msg);
 		msg->close();
@@ -4457,4 +4565,16 @@ uint64 CreatureObjectImplementation::getQueueCommandDeltaTime(const String& comm
 	}
 
 	return commandTime->miliDifference();
+}
+
+float CreatureObjectImplementation::getOutOfRangeDistance(uint64 specialRangeID) {
+	if (specialRangeID > 0) {
+		Locker locker(&missionRangeObjectsMutex);
+
+		if (missionRangeObjects.contains(specialRangeID)) {
+			return ZoneServer::SPACESTATIONRANGE;
+		}
+	}
+
+	return TangibleObjectImplementation::getOutOfRangeDistance(specialRangeID);
 }

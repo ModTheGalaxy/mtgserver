@@ -48,12 +48,12 @@ ShipObject* ShipControlDeviceImplementation::launchShip(CreatureObject* player, 
 
 	ship->clearPlayersOnBoard();
 
+	ship->resetEfficiency();
+
 	if (!zone->transferObject(ship, -1, true)) {
 		return nullptr;
 	}
 
-	ship->setFactionStatus(player->getFactionStatus());
-	ship->setShipFaction(player->getFaction());
 	ship->scheduleRecovery();
 
 	if (player->isInvulnerable()) {

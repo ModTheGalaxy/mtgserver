@@ -514,7 +514,7 @@ function PadawanTrials:createMainLocation(pPlayer)
 	local pGhost = CreatureObject(pPlayer):getPlayerObject()
 
 	if (pGhost ~= nil) then
-		PlayerObject(pGhost):addWaypoint(planetName, "Speak to this person", "", spawnLoc[1], spawnLoc[3], WAYPOINTBLUE, true, true, WAYPOINTQUESTTASK)
+		PlayerObject(pGhost):addWaypoint(planetName, "Speak to this person", "", spawnLoc[1], 0, spawnLoc[3], WAYPOINT_BLUE, true, true, WAYPOINTQUESTTASK)
 	end
 end
 
@@ -756,7 +756,7 @@ function PadawanTrials:createTargetLocation(pPlayer, isThirdLocation)
 	local pGhost = CreatureObject(pPlayer):getPlayerObject()
 
 	if (pGhost ~= nil) then
-		PlayerObject(pGhost):addWaypoint(zoneName, "Padawan Trial waypoint", "", targetLoc[1], targetLoc[3], WAYPOINTBLUE, true, true, WAYPOINTQUESTTASK)
+		PlayerObject(pGhost):addWaypoint(zoneName, "Padawan Trial waypoint", "", targetLoc[1], 0, targetLoc[3], WAYPOINT_BLUE, true, true, WAYPOINTQUESTTASK)
 	end
 end
 
@@ -877,11 +877,11 @@ function PadawanTrials:notifyQuestTargetDead(pVictim, pAttacker)
 
 	if (readData(npcID .. ":destroyNpcOnExit") ~= 1) then
 		local trialNumber = JediTrials:getCurrentTrial(pOwner)
-		
+
 		if (trialNumber == 0) then
 			return 1
 		end
-		
+
 		local trialData = padawanTrialQuests[trialNumber]
 
 		if (trialData == nil) then
@@ -978,7 +978,7 @@ function PadawanTrials:failTrial(pPlayer)
 	deleteScreenPlayData(pPlayer, "JediTrials", "huntTarget")
 	deleteScreenPlayData(pPlayer, "JediTrials", "huntTargetCount")
 	deleteScreenPlayData(pPlayer, "JediTrials", "huntTargetGoal")
-	
+
 	dropObserver(KILLEDCREATURE, "PadawanTrials", "notifyKilledHuntTarget", pPlayer)
 
 	local failAmount = JediTrials:getTrialFailureCount(pPlayer)
@@ -1039,7 +1039,7 @@ function PadawanTrials:passTrial(pPlayer)
 	deleteScreenPlayData(pPlayer, "JediTrials", "huntTarget")
 	deleteScreenPlayData(pPlayer, "JediTrials", "huntTargetCount")
 	deleteScreenPlayData(pPlayer, "JediTrials", "huntTargetGoal")
-	
+
 	dropObserver(KILLEDCREATURE, "PadawanTrials", "notifyKilledHuntTarget", pPlayer)
 
 	deleteData(playerID .. ":JediTrials:acceptedTask")

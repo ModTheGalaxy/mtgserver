@@ -79,6 +79,12 @@ public:
 				// Cross lock the player for removal
 				Locker playerLock(shipMember, ship);
 
+				//remove droid commands from the ghost
+				auto crewGhost = shipMember->getPlayerObject();
+
+				if (crewGhost != nullptr)
+					crewGhost->removeDroidCommands();
+
 				if (!removePlayer(shipMember, zoneName, coordinates)) {
 					error() << "Failed to remove player from Ship - ShipID: " << ship->getObjectID() << " Player ID: " << shipMember->getObjectID();
 					return;
@@ -89,6 +95,9 @@ public:
 
 			playersOnBoard.remove(i);
 		}
+
+		// Clear Staff Speed
+		ship->setStaffShipSpeed(0.f);
 
 		// Destroy the ship from the zone.
 		ship->destroyObjectFromWorld(false);
@@ -130,8 +139,9 @@ public:
 		info(true) << "removePlayer called";
 #endif
 
-		if (player == nullptr)
+		if (player == nullptr) {
 			return false;
+		}
 
 		auto zoneServer = player->getZoneServer();
 
@@ -145,15 +155,18 @@ public:
 
 		auto parent = player->getParent().get();
 
+		// Clear the Players Space States
 		player->clearSpaceStates();
+
+		// Clear the Players Space Mission Objects
+		player->removeAllSpaceMissionObjects(false);
 
 		player->switchZone(newZoneName, location.getX(), location.getZ(), location.getY(), 0, false);
 
 		if (parent != nullptr && parent->hasObjectInContainer(player->getObjectID())) {
 #ifdef DEBUG_SHIP_STORE
-			info(true) << "Clearing player parent: " << parent->getDisplayedName();
+			info(true) << "Clearing player parent ID: " << parent->getObjectID();
 #endif
-
 			parent->removeObject(player, nullptr, false);
 		}
 
@@ -171,39 +184,27 @@ public:
 			return false;
 		}
 
-		const uint64& droidID = ship->getShipDroidID();
+		const uint64& controlDeviceID = ship->getShipDroidID();
 
-		if (droidID == 0) {
+		if (controlDeviceID == 0) {
 			return false;
 		}
 
-		ManagedReference<SceneObject*> droidRef = zoneServer->getObject(droidID);
+		ManagedReference<SceneObject*> controlDeviceRef = zoneServer->getObject(controlDeviceID);
 
-		if (droidRef == nullptr || !droidRef->isDroidObject()) {
+		if (controlDeviceRef == nullptr || !controlDeviceRef->isPetControlDevice()) {
 			return false;
 		}
 
-		auto droidObject = dynamic_cast<DroidObject*>(droidRef.get());
+		ManagedReference<PetControlDevice*> controlDevice = dynamic_cast<PetControlDevice*>(controlDeviceRef.get());
 
-		if (droidObject == nullptr) {
-			return false;
-		}
-
-		ManagedReference<ControlDevice*> controlDevice = droidObject->getControlDevice().get();
-
-		if (controlDevice == nullptr || !controlDevice->isPetControlDevice()) {
-			return false;
-		}
-
-		auto petControlDevice = dynamic_cast<PetControlDevice*>(controlDevice.get());
-
-		if (petControlDevice == nullptr) {
+		if (controlDevice == nullptr) {
 			return false;
 		}
 
 		Locker cLock(controlDevice, ship);
 
-		auto storeTask = new PetControlDeviceStoreTask(petControlDevice, player, true);
+		auto storeTask = new PetControlDeviceStoreTask(controlDevice, player, true);
 
 		if (storeTask != nullptr) {
 			storeTask->execute();

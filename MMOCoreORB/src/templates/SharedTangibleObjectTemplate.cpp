@@ -446,8 +446,7 @@ void SharedTangibleObjectTemplate::readObject(LuaObject* templateData) {
 	for (uint32 i = 0; i < numberExperimentalProperties->size(); i++) {
 		ResourceWeight* newWeight = new ResourceWeight();
 
-		newWeight->addProperties(experimentalGroups->get(i), experimentalAttributes->get(i), experimentalMin->get(i),
-			experimentalMax->get(i), experimentalPrecision->get(i), experimentalCombineType->get(i));
+		newWeight->addProperties(experimentalGroups->get(i), experimentalAttributes->get(i), experimentalMin->get(i), experimentalMax->get(i), experimentalPrecision->get(i), experimentalCombineType->get(i));
 
 		for (uint32 j = 0; j < numberExperimentalProperties->get(i); j++) {
 			newWeight->addWeight(experimentalProperties->get(weightIterator), experimentalWeights->get(weightIterator));

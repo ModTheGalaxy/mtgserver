@@ -10,7 +10,7 @@ function villageSarguilloPhase1ConvoHandler:getInitialScreen(pPlayer, pNpc, pCon
 	local completedCount = tonumber(QuestManager.getStoredVillageValue(pPlayer, "FsPatrolCompletedCount"))
 	local completedLastPoint = readData(playerID .. ":completedCurrentPoint") == 1
 	local failedPatrol = readData(playerID .. ":failedPatrol") == 1
-	local currentQuestID = QuestManager.getCurrentQuestID(pPlayer)
+	local currentQuestID = QuestManager.getCurrentVillageQuestID(pPlayer)
 	local reachedAllWaypoints = readData(playerID .. ":patrolWaypointsReached") == 8
 
 	if (VillageJediManagerTownship:getCurrentPhase() ~= 1 or not VillageJediManagerCommon.isVillageEligible(pPlayer)) then
@@ -51,13 +51,13 @@ function villageSarguilloPhase1ConvoHandler:runScreenHandlers(pConvTemplate, pPl
 
 	if (screenID == "all_eight_points") then
 		VillageJediManagerCommon.setActiveQuestThisPhase(pPlayer, VILLAGE_PHASE1_SARGUILLO)
-		QuestManager.setCurrentQuestID(pPlayer, QuestManager.quests.FS_PATROL_QUEST_1)
+		QuestManager.setCurrentVillageQuestID(pPlayer, QuestManager.quests.FS_PATROL_QUEST_1)
 		QuestManager.activateQuest(pPlayer, QuestManager.quests.FS_PATROL_QUEST_START)
 		QuestManager.activateQuest(pPlayer, QuestManager.quests.FS_PATROL_QUEST_1)
 		QuestManager.setStoredVillageValue(pPlayer, "FsPatrolCompletedCount", 0)
 		FsPatrol:start(pPlayer)
 	elseif (screenID == "you_know_the_drill") then
-		QuestManager.setCurrentQuestID(pPlayer, QuestManager.quests.FS_PATROL_QUEST_11)
+		QuestManager.setCurrentVillageQuestID(pPlayer, QuestManager.quests.FS_PATROL_QUEST_11)
 		QuestManager.activateQuest(pPlayer, QuestManager.quests.FS_PATROL_QUEST_11)
 		FsPatrol:start(pPlayer)
 	elseif (screenID == "intro_firstsetinprogress") then
@@ -96,7 +96,7 @@ function villageSarguilloPhase1ConvoHandler:completeCurrentPatrol(pPlayer)
 	elseif (completedCount == 20) then
 		QuestManager.completeQuest(pPlayer, QuestManager.quests.FS_PATROL_QUEST_20)
 		QuestManager.completeQuest(pPlayer, QuestManager.quests.FS_PATROL_QUEST_FINISH)
-		QuestManager.setCurrentQuestID(pPlayer, 0)
+		QuestManager.setCurrentVillageQuestID(pPlayer, 0)
 		VillageJediManagerCommon.setCompletedQuestThisPhase(pPlayer)
 
 		local pInventory = SceneObject(pPlayer):getSlottedObject("inventory")
@@ -109,10 +109,10 @@ function villageSarguilloPhase1ConvoHandler:completeCurrentPatrol(pPlayer)
 			end
 		end
 	else
-		local questID = QuestManager.getCurrentQuestID(pPlayer)
+		local questID = QuestManager.getCurrentVillageQuestID(pPlayer)
 		QuestManager.completeQuest(pPlayer, questID)
 		questID = questID + 1
-		QuestManager.setCurrentQuestID(pPlayer, questID)
+		QuestManager.setCurrentVillageQuestID(pPlayer, questID)
 		QuestManager.activateQuest(pPlayer, questID)
 		FsPatrol:start(pPlayer)
 	end

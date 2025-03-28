@@ -2838,12 +2838,11 @@ const String ChatManagerImplementation::getSpatialChatType(unsigned int chatType
 }
 
 unsigned int ChatManagerImplementation::getMoodID(const String& moodType) {
-	if (moodTypes.contains(moodType)) {
-		return moodTypes.get(moodType);
-	} else {
-		warning("Mood type '" + moodType + "' not found.");
+	if (!moodTypes.contains(moodType)) {
 		return 0;
 	}
+
+	return moodTypes.get(moodType);
 }
 
 const String ChatManagerImplementation::getMoodType(unsigned int id) {

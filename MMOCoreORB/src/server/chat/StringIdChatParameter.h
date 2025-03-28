@@ -196,7 +196,6 @@ public:
 		NU.set(obj);
 	}
 
-
 	inline void setUnknownByte(uint16 val) {
 		unknownByte = val;
 	}

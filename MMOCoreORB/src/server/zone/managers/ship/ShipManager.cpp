@@ -38,10 +38,9 @@
 #include "server/zone/objects/tangible/threat/ThreatMap.h"
 #include "server/zone/managers/ship/ShipAgentTemplateManager.h"
 
-
 int ShipManager::ERROR_CODE = NO_ERROR;
 
-ShipManager::ShipManager() : Logger("ShipManger") {
+ShipManager::ShipManager() : Logger("ShipManager") {
 	setGlobalLogging(false);
 	setLogging(false);
 
@@ -66,6 +65,8 @@ void ShipManager::initialize() {
 	loadShipCollisionData();
 	loadShipTurretIffData();
 	loadShipTurretLuaData();
+	loadDroidCommands();
+	loadShipAiAgentPilotData();
 
 	// Load the ship spawn groups
 	loadShipSpawnGroups();
@@ -395,6 +396,48 @@ void ShipManager::loadShipTurretLuaData() {
 	info(true) << "Ship Turret Lua Data Loading Complete - Total: " << turretData.size();
 }
 
+void ShipManager::loadDroidCommands() {
+	info(true) << "Loading Droid Command Data";
+
+	Lua* lua = new Lua();
+	lua->init();
+
+	lua->runFile("scripts/managers/space/droid_commands.lua");
+
+	LuaObject base = lua->getGlobalObject("droidCommands");
+
+	if (!base.isValidTable())
+		return;
+
+	for (int i = 1; i <= base.getTableSize(); ++i) {
+		LuaObject droidCommand = base.getObjectAt(i);
+
+		if (!droidCommand.isValidTable())
+			continue;
+
+		String commandName = droidCommand.getStringField("commandName");
+		String stringID = droidCommand.getStringField("stringID");
+		float delayModifier = droidCommand.getFloatField("delayModifier");
+		int componentType = droidCommand.getIntField("component");
+		float energyEfficiency = droidCommand.getFloatField("energyEfficiency");
+		float generalEfficiency = droidCommand.getFloatField("generalEfficiency");
+		float damage = droidCommand.getFloatField("damage");
+		float frontReinforceRatio = droidCommand.getFloatField("frontReinforceRatio");
+		float capacitorReinforcePercentage = droidCommand.getFloatField("capacitorReinforcePercentage");
+		float frontAdjustRatio = droidCommand.getFloatField("frontAdjustRatio");
+
+		Reference<DroidCommandData*> data = new DroidCommandData(commandName, stringID, delayModifier, componentType, energyEfficiency, generalEfficiency, damage, frontReinforceRatio, capacitorReinforcePercentage, frontAdjustRatio);
+
+		DroidCommands.put(commandName.hashCode(), data);
+
+		droidCommand.pop();
+	}
+
+	base.pop();
+
+	info(true) << "Droid Command Loading Complete - Total: " << DroidCommands.size();
+}
+
 void ShipManager::loadShipCollisionData() {
 	info(true) << "Loading Ship Collision Data";
 
@@ -451,6 +494,45 @@ void ShipManager::loadShipCollisionData() {
 	delete lua;
 
 	info(true) << "Ship Collision Data Loading Complete - Total: " << shipCollisionData.size();
+}
+
+void ShipManager::loadShipAiAgentPilotData() {
+	info(true) << "Loading ShipAiAgent Pilot Data";
+
+	Lua* lua = new Lua();
+	lua->init();
+
+	if (lua->runFile("scripts/managers/space/ship_pilot.lua")) {
+		LuaObject luaData = lua->getGlobalObject("pilotChassisData");
+
+		if (luaData.isValidTable() && luaData.getTableSize() > 0) {
+			for (int i = 1; i <= luaData.getTableSize(); ++i) {
+				auto row = luaData.getObjectAt(i);
+
+				if (!row.isValidTable() || row.getTableSize() < ShipAiAgentPilotData::DATA_SIZE) {
+					row.pop();
+					continue;
+				}
+
+				String dataName = row.getStringAt(1);
+
+				if (dataName.isEmpty() || pilotData.get(dataName) != nullptr) {
+					row.pop();
+					continue;
+				}
+
+				Reference<ShipAiAgentPilotData*> data = new ShipAiAgentPilotData();
+				data->readObject(&row);
+				row.pop();
+
+				pilotData.put(dataName, data);
+			}
+		}
+	}
+
+	delete lua;
+
+	info(true) << "ShipAiAgent Pilot Data Loading Complete - Total: " << pilotData.size();
 }
 
 void ShipManager::loadShipComponentObjects(ShipObject* ship) {
@@ -665,13 +747,6 @@ ShipAiAgent* ShipManager::createAiShip(const String& shipName, uint32 shipCRC) {
 	Locker lock(shipAgent);
 
 	// info(true) << "ShipManager::createAiShip -- ShipName: " << agentTemplate->getTemplateName() << " Game Object Type: " << shipTemp->getGameObjectType() << " Ship Hash: " << shipTemp->getServerObjectCRC() << " Full Template: " << shipTemp->getFullTemplateString();
-
-	// Set Special range
-	if (shipName.hashCode() == STRING_HASHCODE("star_destroyer")) {
-		shipAgent->setRadius(ZoneServer::SPACESTATIONRANGE);
-	} else if (shipName.contains("corvette")) {
-		shipAgent->setRadius(8192.f);
-	}
 
 	// Load data from ShipAgentTemplate
 	shipAgent->loadTemplateData(agentTemplate);
@@ -976,11 +1051,46 @@ int ShipManager::notifyDestruction(ShipObject* destructorShip, ShipAiAgent* dest
 
 				auto attackerShip = attacker->asShipObject();
 
-				if (attackerShip == nullptr) {
+				if (attackerShip == nullptr || !attackerShip->isPlayerShip()) {
 					continue;
 				}
 
-				attackerShip->notifyObservers(ObserverEventType::QUESTKILL, destructedShip);
+				auto pilot = attackerShip->getPilot();
+
+				if (pilot == nullptr) {
+					continue;
+				}
+
+				pilot->notifyObservers(ObserverEventType::QUESTKILL, destructedShip);
+			}
+		}
+
+		ManagedReference<ShipObject*> playerShip = copyThreatMap.getHighestDamageGroupShip();
+
+		if (playerShip != nullptr) {
+			ManagedReference<CreatureObject*> pilot = playerShip->getPilot();
+
+			if (pilot != nullptr) {
+				if (pilot->isGrouped()) {
+					ManagedReference<GroupObject*> group = pilot->getGroup();
+
+					if (group != nullptr) {
+						for (int i = 0; i < group->getGroupSize(); i++) {
+							ManagedReference<CreatureObject*> groupMember = group->getGroupMember(i);
+
+							if (groupMember == nullptr || !groupMember->isPlayerCreature()) {
+								continue;
+							}
+
+							Locker locker(groupMember, destructedShip);
+
+							groupMember->notifyObservers(ObserverEventType::DESTROYEDSHIP, destructedShip);
+						}
+					}
+				} else {
+					Locker locker(pilot, destructedShip);
+					pilot->notifyObservers(ObserverEventType::DESTROYEDSHIP, destructedShip);
+				}
 			}
 		}
 
@@ -1157,7 +1267,13 @@ void ShipManager::promptNameShip(CreatureObject* player, ShipControlDevice* ship
 	if (ghost == nullptr)
 		return;
 
-	auto ship = shipDevice->getControlledObject()->asShipObject();
+	auto controlledObject = shipDevice->getControlledObject();
+
+	if (controlledObject == nullptr) {
+		return;
+	}
+
+	auto ship = controlledObject->asShipObject();
 
 	if (ship == nullptr) {
 		return;

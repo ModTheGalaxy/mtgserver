@@ -137,6 +137,9 @@ class PlayerObject extends IntangibleObject {
 	protected AbilityList abilityList;
 
 	@dereferenced
+	protected transient AbilityList droidCommandList;
+
+	@dereferenced
 	protected FriendList friendList;
 
 	@dereferenced
@@ -297,6 +300,9 @@ class PlayerObject extends IntangibleObject {
 	@dereferenced
 	protected SpaceLaunchPoint launchPoint;
 
+	protected int pilotTier;
+	protected unsigned int pilotSquadron;
+
 	/**
 	 * the key is the quest.hashCode()
 	 */
@@ -414,6 +420,9 @@ class PlayerObject extends IntangibleObject {
 		tosVersionAccepted = 0;
 
 		miliSecsPlayed = 0;
+
+		pilotTier = 0;
+		pilotSquadron = 0;
 
 		Logger.setLoggingName("PlayerObjectBase");
 	}
@@ -676,6 +685,12 @@ class PlayerObject extends IntangibleObject {
 
 	@local
 	public native void removeAbility(Ability ability, boolean notifyClient = true);
+
+	@local
+	public native void addDroidCommand(Ability droidCommand);
+
+	@local
+	public native void removeDroidCommands();
 
 	@local
 	public native boolean addSchematics(@dereferenced Vector<DraftSchematic> schematics, boolean notifyClient = true);
@@ -1457,9 +1472,7 @@ class PlayerObject extends IntangibleObject {
 
 	@local
 	@read
-	public final AbilityList getAbilityList() {
-		return abilityList;
-	}
+	public native AbilityList getAbilityList();
 
 	@local
 	@dirty
@@ -2056,6 +2069,10 @@ class PlayerObject extends IntangibleObject {
 		isPlayerCloning = val;
 	}
 
+	/*
+	*	JTL Mutators
+	*/
+
 	public void setSpaceLaunchZone(string zoneName) {
 		launchPoint.setGroundZoneName(zoneName);
 	}
@@ -2067,6 +2084,34 @@ class PlayerObject extends IntangibleObject {
 	public void setSpaceLaunchLocation(@dereferenced Vector3 location) {
 		launchPoint.setLocation(location);
 	}
+
+	public void incrementPilotTier() {
+		if (pilotTier > 4) {
+			return;
+		}
+
+		pilotTier = pilotTier + 1;
+	}
+
+	public void setPilotTier(int tier) {
+		if (tier > 5 || tier < 0) {
+			return;
+		}
+
+		pilotTier = tier;
+	}
+
+	public void resetPilotTier() {
+		pilotTier = 0;
+	}
+
+	public void setPilotSquadron(unsigned int squadron) {
+		pilotSquadron = squadron;
+	}
+
+	/*
+	*	JTL Accessors
+	*/
 
 	@dereferenced
 	public string getSpaceLaunchZone() {
@@ -2082,6 +2127,16 @@ class PlayerObject extends IntangibleObject {
 	@dereferenced
 	public Vector3 getSpaceLaunchLocation() {
 		return launchPoint.getLocation();
+	}
+
+	@read
+	public int getPilotTier() {
+		return pilotTier;
+	}
+
+	@read
+	public int getPilotSquadron() {
+		return pilotSquadron;
 	}
 
 	@read

@@ -12,7 +12,7 @@ Patrol = Task:new {
 	originX = 0,
 	originY = 0,
 	forceSpawn = false,
-	
+
 	onPlayerKilled = nil,
 	onEnteredActiveArea = nil
 }
@@ -20,7 +20,7 @@ Patrol = Task:new {
 function Patrol:setupPatrolPoints(pPlayer)
 	local playerID = SceneObject(pPlayer):getObjectID()
 	local radius = 1024 -- Default radius
-	local curQuest = QuestManager.getCurrentQuestID(pPlayer)
+	local curQuest = QuestManager.getCurrentVillageQuestID(pPlayer)
 	local pQuest = getQuestInfo(curQuest)
 
 	if (pQuest ~= nil) then
@@ -54,11 +54,11 @@ function Patrol:setupPatrolPoints(pPlayer)
 		writeData(areaID .. self.taskName .. "waypointNum", i)
 		writeData(playerID .. self.taskName .. "waypointNum" .. i, areaID)
 		createObserver(ENTEREDAREA, self.taskName, "handleEnteredAreaEvent", pActiveArea)
-		
+
 		local pGhost = CreatureObject(pPlayer):getPlayerObject()
-		
+
 		if (pGhost ~= nil) then
-			local waypointID = PlayerObject(pGhost):addWaypoint(planetName, self.waypointName, "", spawnPoint[1], spawnPoint[3], WAYPOINTYELLOW, true, true, 0, 0)
+			local waypointID = PlayerObject(pGhost):addWaypoint(planetName, self.waypointName, "", spawnPoint[1], 0, spawnPoint[3], WAYPOINT_YELLOW, true, true, 0, 0)
 			writeData(areaID .. self.taskName .. "waypointID", waypointID)
 		end
 	end
@@ -93,7 +93,7 @@ function Patrol:destroyWaypoint(pPlayer, num)
 	local waypointID = readData(areaID .. self.taskName .. "waypointID")
 
 	local pGhost = CreatureObject(pPlayer):getPlayerObject()
-	
+
 	if (pGhost ~= nil) then
 		PlayerObject(pGhost):removeWaypoint(waypointID, true)
 	end
@@ -119,7 +119,7 @@ end
 function Patrol:failPatrol(pPlayer)
 	self:waypointCleanup(pPlayer)
 	local playerID = SceneObject(pPlayer):getObjectID()
-	
+
 	deleteData(playerID .. ":completedCurrentPoint")
 	deleteData(playerID .. ":patrolWaypointsReached")
 	writeData(playerID .. ":failedPatrol", 1)
@@ -129,7 +129,7 @@ end
 function Patrol:taskStart(pPlayer)
 	self:setupPatrolPoints(pPlayer)
 	createObserver(OBJECTDESTRUCTION, self.taskName, "playerKilled", pPlayer)
-	
+
 	return true
 end
 

@@ -17,6 +17,7 @@
 #include "server/zone/objects/region/CityRegion.h"
 #include "server/zone/objects/player/sessions/TradeSession.h"
 #include "server/zone/managers/player/PlayerManager.h"
+#include "server/zone/objects/player/PlayerObject.h"
 
 void VehicleControlDeviceImplementation::generateObject(CreatureObject* player) {
 	if (player->isDead() || player->isIncapacitated())
@@ -36,10 +37,26 @@ void VehicleControlDeviceImplementation::generateObject(CreatureObject* player) 
 		return;
 	}
 
+	auto ghost = player->getPlayerObject();
+
+	if (ghost == nullptr) {
+		return;
+	}
+
+	auto zoneServer = player->getZoneServer();
+
+	if (zoneServer == nullptr) {
+		return;
+	}
+
 	ManagedReference<TradeSession*> tradeContainer = player->getActiveSession(SessionFacadeType::TRADE).castTo<TradeSession*>();
 
 	if (tradeContainer != nullptr) {
-		server->getZoneServer()->getPlayerManager()->handleAbortTradeMessage(player);
+		auto playerManager = zoneServer->getPlayerManager();
+
+		if (playerManager != nullptr) {
+			playerManager->handleAbortTradeMessage(player);
+		}
 	}
 
 	if (player->getPendingTask("call_mount") != nullptr) {
@@ -78,7 +95,7 @@ void VehicleControlDeviceImplementation::generateObject(CreatureObject* player) 
 		}
 	}
 
-	if (player->getCurrentCamp() == nullptr && player->getCityRegion() == nullptr) {
+	if (player->getCurrentCamp() == nullptr && player->getCityRegion() == nullptr && !ghost->isPrivileged()) {
 		Reference<CallMountTask*> callMount = new CallMountTask(_this.getReferenceUnsafeStaticCast(), player, "call_mount");
 
 		StringIdChatParameter message("pet/pet_menu", "call_vehicle_delay");

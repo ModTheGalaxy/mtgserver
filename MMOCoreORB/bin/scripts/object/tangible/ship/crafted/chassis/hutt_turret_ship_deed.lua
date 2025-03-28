@@ -45,7 +45,7 @@ object_tangible_ship_crafted_chassis_hutt_turret_ship_deed = object_tangible_shi
 	templateType = SHIPDEED,
 	gameObjectType = 8388617,
 
-	shipType = 2, --POBSHIP,
+	shipType = 1, --FIGHTERSHIP,
 	shipControlDevice = "object/intangible/ship/hutt_turret_ship_pcd.iff",
 	generatedObjectTemplate = "object/ship/player/player_hutt_turret_ship.iff",
 }

@@ -31,10 +31,11 @@ spacestation_corellia_land = ConvoScreen:new {
 	leftDialog = "@conversation/station_corellia:s_108cc9eb", --There are four starports available to a ship of your class, %TU.  Please indicate your destination.
 	stopConversation = "false",
 	options = {
-		{"@conversation/station_corellia:s_c3399297", "spacestation_corellia_land_coronet"}, --Coronet Starport.
-		{"@conversation/station_corellia:s_ccc6f3ed", "spacestation_corellia_land_kor_vella"}, --Kor Vella Starport.
-		{"@conversation/station_corellia:s_19bf16ff", "spacestation_corellia_land_doaba_guerfel"}, --Doaba Guerfel Starport.
-		{"@conversation/station_corellia:s_63ccb695", "spacestation_corellia_land_tyrena"}, --Tyrena Starport.
+		--{"@conversation/station_corellia:s_f6948278", "spacestation_corellia_land_coronet"}, -- Coronet Starport (Freelance Pilot Trainer).
+		--{"@conversation/station_corellia:s_c3399297", "spacestation_corellia_land_coronet"}, -- Coronet Starport.
+		--{"@conversation/station_corellia:s_ccc6f3ed", "spacestation_corellia_land_kor_vella"}, --Kor Vella Starport.
+		--{"@conversation/station_corellia:s_19bf16ff", "spacestation_corellia_land_doaba_guerfel"}, --Doaba Guerfel Starport.
+		--{"@conversation/station_corellia:s_63ccb695", "spacestation_corellia_land_tyrena"}, --Tyrena Starport.
 	}
 }
 spacestation_corellia_convotemplate:addScreen(spacestation_corellia_land);

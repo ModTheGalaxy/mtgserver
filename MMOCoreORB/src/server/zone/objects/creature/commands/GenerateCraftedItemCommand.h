@@ -125,12 +125,8 @@ public:
 			craftingValues->setManufactureSchematic(manuSchematic);
 			craftingValues->setPlayer(player);
 
-			int nRows = craftingValues->getTotalVisibleAttributeGroups();
-
-			prototype->updateCraftingValues(craftingValues, true);
-
 			if (quality > 0) {
-				for (int i = 0; i < nRows; i++) {
+				for (int i = 0; i < craftingValues->getTotalVisibleAttributeGroups(); i++) {
 					String visibleGroup = craftingValues->getVisibleAttributeGroup(i);
 
 					for (int j = 0; j < craftingValues->getTotalExperimentalAttributes(); ++j) {
@@ -150,8 +146,9 @@ public:
 				}
 
 				craftingValues->recalculateValues(true);
-				prototype->updateCraftingValues(craftingValues, true);
 			}
+
+			prototype->updateCraftingValues(craftingValues, true);
 
 			mlock.release();
 

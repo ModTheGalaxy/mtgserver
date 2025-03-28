@@ -31,6 +31,8 @@ void CityHallZoneComponent::destroyObjectFromWorld(SceneObject* sceneObject, boo
 
 		clocker.release();
 
+		info(true) << "City Hall Removed for City: " << cityRegion->getRegionDisplayedName();
+
 		CityManager* cityManager = zoneServer->getCityManager();
 
 		cityManager->destroyCity(cityRegion);

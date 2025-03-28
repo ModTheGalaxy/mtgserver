@@ -160,17 +160,21 @@ int ContainerComponent::canAddObject(SceneObject* sceneObject, SceneObject* obje
 bool ContainerComponent::checkContainerPermission(SceneObject* sceneObject, CreatureObject* creature, uint16 permission) const {
 	auto permissions = sceneObject->getContainerPermissions();
 
+	// creature->info(true) << "ContainerComponent::checkContainerPermission -- Perm: " << permission << " Object ID: " << sceneObject->getObjectID();
+
 	if (permissions->getOwnerID() == creature->getObjectID()) {
 		return permissions->hasOwnerPermission(permission);
 	}
 
 	PlayerObject* ghost = creature->getPlayerObject();
 
-	if (ghost == nullptr)
+	if (ghost == nullptr) {
 		return false;
+	}
 
-	if ((permission == ContainerPermissions::OPEN || permission == ContainerPermissions::WALKIN) && ghost->isPrivileged())
+	if ((permission == ContainerPermissions::OPEN || permission == ContainerPermissions::WALKIN) && ghost->isPrivileged()) {
 		return true;
+	}
 
 	ManagedReference<SceneObject*> parent = sceneObject->getParent().get();
 
@@ -409,7 +413,7 @@ bool ContainerComponent::removeObject(SceneObject* sceneObject, SceneObject* obj
 	int arrangementSize = object->getArrangementDescriptorSize();
 	int arrangementGroup = Math::max(0, containedType - 4);
 
-	if (object->getArrangementDescriptorSize() > arrangementGroup) {
+	if (arrangementSize > arrangementGroup) {
 		bool removeFromSlot = false;
 
 		const Vector<String>* descriptors = object->getArrangementDescriptor(arrangementGroup);
@@ -417,9 +421,9 @@ bool ContainerComponent::removeObject(SceneObject* sceneObject, SceneObject* obj
 		for (int i = 0; i < descriptors->size(); ++i){
 			const String& childArrangement = descriptors->get(i);
 
-			ManagedReference<SceneObject*> obj = slottedObjects->get(childArrangement);
+			ManagedReference<SceneObject*> slottedObj = slottedObjects->get(childArrangement);
 
-			if (slottedObjects->get(childArrangement) == object) {
+			if (slottedObj == object) {
 				removeFromSlot = true;
 				break;
 			}

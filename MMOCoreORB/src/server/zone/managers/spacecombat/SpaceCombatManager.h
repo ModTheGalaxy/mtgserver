@@ -35,9 +35,10 @@ public:
 		HITARMOR = 1,
 		HITCOMPONENT = 2,
 		HITCHASSIS = 3,
+		SIZE = 4,
 	};
 
-	String shipHitTypeToString(int ShipHitType) const {
+	static String shipHitTypeToString(int ShipHitType) {
 		switch (ShipHitType) {
 			case HITSHIELD:	return "shield";
 			case HITARMOR:	return "armor";
@@ -90,19 +91,23 @@ private:
 
 	void broadcastCountermeasure(ShipObject* ship, const ShipCountermeasure* counter, int updateType) const;
 
+	void broadcastProjectileCollision(ShipObject* ship, const ShipProjectile* projectile, int hitType, const SpaceCollisionResult& result) const;
+
 	void getHitEffectMessages(ShipObject* target, const SpaceCollisionResult& result, int hitType, float newPercent, float oldPercent, Vector<BasePacket*>& messages) const;
 
 	void applyDamage(ShipObject* ship, const ShipProjectile* projectile, const SpaceCollisionResult& result) const;
 
-	float applyShieldDamage(ShipObject* target, const SpaceCollisionResult& result, float damage, float effect, bool hitFront, ShipDeltaVector* deltaVector, Vector<BasePacket*>& messages) const;
+	float applyShieldDamage(ShipObject* target, const SpaceCollisionResult& result, float damage, float effect, ShipDeltaVector* deltaVector, Vector<BasePacket*>& messages) const;
 
-	float applyArmorDamage(ShipObject* target, const SpaceCollisionResult& result, float damage, float effect, bool hitFront, ShipDeltaVector* deltaVector, Vector<BasePacket*>& messages) const;
+	float applyArmorDamage(ShipObject* target, const SpaceCollisionResult& result, float damage, float effect, ShipDeltaVector* deltaVector, Vector<BasePacket*>& messages) const;
 
 	float applyChassisDamage(ShipObject* target, const SpaceCollisionResult& result, float damage, ShipDeltaVector* deltaVector, Vector<BasePacket*>& messages) const;
 
 	float applyComponentDamage(ShipObject* target, const SpaceCollisionResult& result, float damage, int slot, ShipDeltaVector* deltaVector, Vector<BasePacket*>& messages) const;
 
 	float applyActiveComponentDamage(ShipObject* target, const SpaceCollisionResult& result, float damage, int slot, ShipDeltaVector* deltaVector, Vector<BasePacket*>& messages) const;
+
+	int getActiveComponentToDamage(ShipObject* target) const;
 
 	int updateProjectile(ShipObject* Ship, ShipProjectile* projectile, SpaceCollisionResult& result, Vector<ManagedReference<SceneObject*>>& targetVectorCopy, const uint64& miliTime);
 

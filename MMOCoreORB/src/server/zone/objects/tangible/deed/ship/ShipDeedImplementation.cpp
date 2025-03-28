@@ -123,7 +123,7 @@ int ShipDeedImplementation::handleObjectMenuSelect(CreatureObject* player, byte 
 			return 1;
 		}
 
-		auto travelPoint = planetManager->getNearestPlanetTravelPoint(player->getWorldPosition());
+		auto travelPoint = planetManager->getNearestPlanetTravelPoint(player->getWorldPosition(), 16000.f, true);
 
 		if (travelPoint == nullptr) {
 			return 1;
@@ -177,13 +177,10 @@ int ShipDeedImplementation::handleObjectMenuSelect(CreatureObject* player, byte 
 		// Player is locked, cross lock the ship to the player
 		Locker slocker(ship, player);
 
-		ship->setMaxCondition(getMaxHitPoints(), false);
-		ship->setConditionDamage(getHitPointsDamage(), false);
+		ship->setChassisMaxHealth(getMaxHitPoints(), true);
+		ship->setCurrentChassisHealth(getMaxHitPoints() - getHitPointsDamage(), true);
 
-		ship->setChassisMaxMass(getMass(), false);
-
-		// release ship cross lock
-		slocker.release();
+		ship->setChassisMaxMass(getMass(), true);
 
 		uint64 controlDeviceID = ship->getControlDeviceID();
 

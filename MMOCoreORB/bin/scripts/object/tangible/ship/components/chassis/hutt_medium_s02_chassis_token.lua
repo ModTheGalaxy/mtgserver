@@ -47,7 +47,7 @@ object_tangible_ship_components_chassis_hutt_medium_s02_chassis_token = object_t
 	chassisDeed = "object/tangible/ship/crafted/chassis/hutt_medium_s02_deed.iff",
 	dealerFee = 15000,
 	certificationRequired = "cert_starships_mediumhuttfighter",
-	skillRequired = {"pilot_neutral_starships__01"},
+	skillRequired = {"pilot_neutral_starships_01"},
 	POB = 0,
 
 	numberExperimentalProperties = {1, 1, 4, 4},

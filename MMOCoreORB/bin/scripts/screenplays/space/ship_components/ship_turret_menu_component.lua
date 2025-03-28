@@ -54,6 +54,10 @@ function ShipTurretMenuComponent:handleObjectMenuSelect(pTurret, pPlayer, select
 		return
 	end
 
+	if (CreatureObject(pPlayer):isIncapacitated() or CreatureObject(pPlayer):isDead()) then
+		return
+	end
+
 	--print("Turret Menu Selected ID " .. selectedID .. " Container ID: " .. SceneObject(pTurret):getObjectID() .. " Objects Size: " .. SceneObject(pTurret):getContainerObjectsSize())
 
 	--[[ TODO:

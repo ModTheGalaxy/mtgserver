@@ -58,6 +58,10 @@ function ShipInteriorComponentMenuComponent:handleObjectMenuSelect(pComponent, p
 		return 0
 	end
 
+	if (CreatureObject(pPlayer):isIncapacitated() or CreatureObject(pPlayer):isDead()) then
+		return
+	end
+
 	-- Make sure player is within 10m
 	if (not CreatureObject(pPlayer):isInRangeWithObject3d(pComponent, 10)) then
 		CreatureObject(pPlayer):sendSystemMessage("@space/space_interaction:target_too_far")

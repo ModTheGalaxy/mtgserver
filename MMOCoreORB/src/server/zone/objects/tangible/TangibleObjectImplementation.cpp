@@ -30,6 +30,7 @@
 #include "server/zone/managers/creature/PetManager.h"
 #include "server/zone/objects/intangible/PetControlDevice.h"
 #include "server/zone/objects/tangible/tool/antidecay/AntiDecayKit.h"
+#include "server/zone/objects/tangible/tool/componentanalysis/ComponentAnalysisTool.h"
 #include "server/zone/objects/player/events/StoreSpawnedChildrenTask.h"
 #include "server/zone/managers/gcw/GCWManager.h"
 #include "templates/faction/Factions.h"
@@ -348,8 +349,12 @@ void TangibleObjectImplementation::sendPvpStatusTo(CreatureObject* player) {
 		auto thisShipAgent = asShipAiAgent();
 		auto playerRoot =  player->getRootParent();
 
-		if (thisShipAgent != nullptr && playerRoot != nullptr && thisShipAgent->isEnemyShip(playerRoot->getObjectID())) {
-			newPvpStatusBitmask |= ObjectFlag::ENEMY;
+		if (thisShipAgent != nullptr) {
+			if (thisShipAgent->isPlayerFactionEnemy(player)) {
+				newPvpStatusBitmask |= ObjectFlag::ENEMY;
+			} else if (playerRoot != nullptr && thisShipAgent->isEnemyShip(playerRoot->getObjectID())) {
+				newPvpStatusBitmask |= ObjectFlag::ENEMY;
+			}
 		}
 	}
 
@@ -514,7 +519,6 @@ void TangibleObjectImplementation::removeOutOfRangeObjects() {
 	float ourY = worldPos.getY();
 	float ourZ = worldPos.getZ();
 
-	float ourRange = rangeCheckObject->getOutOfRangeDistance();
 	bool objectIsShip = rangeCheckObject->isShipObject();
 
 	uint64 thisObjectID = getObjectID();
@@ -555,8 +559,8 @@ void TangibleObjectImplementation::removeOutOfRangeObjects() {
 		float deltaX = ourX - objectWorldPos.getX();
 		float deltaY = ourY - objectWorldPos.getY();
 
-		float outOfRangeDistance = covObject->getOutOfRangeDistance();
-		float outOfRangeSqr = Math::sqr(Math::max(ourRange, outOfRangeDistance));
+		float outOfRangeDistance = Math::max(covObject->getOutOfRangeDistance(thisObjectID), rangeCheckObject->getOutOfRangeDistance(covObject->getObjectID()));
+		float outOfRangeSqr = Math::sqr(outOfRangeDistance);
 		float deltaDistance = 0.f;
 
 		// This range calculation is used for everything in GroundZone
@@ -1230,12 +1234,17 @@ Reference<FactoryCrate*> TangibleObjectImplementation::createFactoryCrate(int ma
 }
 
 void TangibleObjectImplementation::addTemplateSkillMods(TangibleObject* targetObject) const {
-	SharedTangibleObjectTemplate* tano = dynamic_cast<SharedTangibleObjectTemplate*>(templateObject.get());
-
-	if (tano == nullptr)
+	if (targetObject == nullptr) {
 		return;
+	}
 
-	const VectorMap<String, int>* mods = tano->getSkillMods();
+	SharedTangibleObjectTemplate* tanoTemplate = dynamic_cast<SharedTangibleObjectTemplate*>(templateObject.get());
+
+	if (tanoTemplate == nullptr) {
+		return;
+	}
+
+	const VectorMap<String, int>* mods = tanoTemplate->getSkillMods();
 
 	for (int i = 0; i < mods->size(); ++i) {
 		VectorMapEntry<String, int> entry = mods->elementAt(i);
@@ -1245,12 +1254,17 @@ void TangibleObjectImplementation::addTemplateSkillMods(TangibleObject* targetOb
 }
 
 void TangibleObjectImplementation::removeTemplateSkillMods(TangibleObject* targetObject) const {
-	const SharedTangibleObjectTemplate* tano = dynamic_cast<const SharedTangibleObjectTemplate*>(templateObject.get());
-
-	if (tano == nullptr)
+	if (targetObject == nullptr) {
 		return;
+	}
 
-	const VectorMap<String, int>* mods = tano->getSkillMods();
+	const SharedTangibleObjectTemplate* tanoTemplate = dynamic_cast<const SharedTangibleObjectTemplate*>(templateObject.get());
+
+	if (tanoTemplate == nullptr) {
+		return;
+	}
+
+	const VectorMap<String, int>* mods = tanoTemplate->getSkillMods();
 
 	for (int i = 0; i < mods->size(); ++i) {
 		const auto& entry = mods->elementAt(i);

@@ -89,12 +89,24 @@ public:
 
 			PlanetManager* planetManager = arrivalZone->getPlanetManager();
 
-			if (planetManager == nullptr || !planetManager->hasJtlTravelDestination(arrivalPointName)) {
+			if (planetManager == nullptr || !planetManager->isExistingPlanetTravelPoint(arrivalPointName)) {
 				creature->sendSystemMessage("@travel:route_not_available"); // This ticket's route is no longer available.
 				return GENERALERROR;
 			}
 
-			Vector3 arrivalPosition = planetManager->getJtlTravelDestination(arrivalPointName);
+			auto planetTravelPoint = planetManager->getPlanetTravelPoint(arrivalPointName);
+
+			if (planetTravelPoint == nullptr || !planetTravelPoint->isInterplanetary()) {
+				return GENERALERROR;
+			}
+
+			// Arrival Position on Planet
+			Coordinate arrivalPosition;
+			arrivalPosition.initializePosition(planetTravelPoint->getArrivalPosition());
+
+			float landingRange = planetTravelPoint->getLandingRange();
+			float arrivalZ = planetTravelPoint->getArrivalPositionZ();
+
 			uint64 pilotID = creature->getObjectID();
 
 			for (int j = 0; j < groupMembers.size(); j++) {
@@ -105,15 +117,24 @@ public:
 
 				auto memberScno = zoneServer->getObject(memberID);
 
-				if (memberScno == nullptr || !memberScno->isPlayerCreature())
+				if (memberScno == nullptr || !memberScno->isPlayerCreature()) {
 					continue;
+				}
+
+				// Get a random landing position
+				Coordinate newPosition(arrivalPosition);
+				newPosition.randomizePosition(landingRange);
 
 				Locker memLock(memberScno, creature);
 
-				memberScno->switchZone(arrivalPlanet, arrivalPosition.getX(), arrivalPosition.getZ(), arrivalPosition.getY(), 0);
+				memberScno->switchZone(arrivalPlanet, newPosition.getPositionX(), arrivalZ, newPosition.getPositionY(), 0);
 			}
 
-			creature->switchZone(arrivalPlanet, arrivalPosition.getX(), arrivalPosition.getZ(), arrivalPosition.getY(), 0);
+			// Get a random landing position
+			Coordinate pilotPosition(arrivalPosition);
+			pilotPosition.randomizePosition(landingRange);
+
+			creature->switchZone(arrivalPlanet, pilotPosition.getPositionX(), arrivalZ, pilotPosition.getPositionY(), 0);
 
 			Locker cLock(shipDevice, creature);
 			shipDevice->setStoredLocationData(creature);

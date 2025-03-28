@@ -683,7 +683,7 @@ void CityManagerImplementation::assessCitizens(CityRegion* city) {
 	Locker locker(city);
 
 	if (zoneServer->isServerLoading()) {
-		city->scheduleCitizenAssessment(10);
+		city->scheduleCitizenAssessment(300); // Citizens assessment after server loads
 		return;
 	}
 
@@ -717,6 +717,8 @@ void CityManagerImplementation::assessCitizens(CityRegion* city) {
 		} else {
 			locker.release();
 
+			info(true) << "City Hall is null in assessCitizens: " << city->getRegionDisplayedName();
+
 			destroyCity(city);
 		}
 
@@ -742,10 +744,11 @@ void CityManagerImplementation::processCityUpdate(CityRegion* city) {
 
 	info(true) << "Processing city update: " << city->getObjectID() << " " << city->getCityRegionName() << " on " << zone->getZoneName();
 
-	ManagedReference<StructureObject*> ch = city->getCityHall();
+	ManagedReference<StructureObject*> cityHall = city->getCityHall();
 
-	if (ch == nullptr) {
-		error() << "processCityUpdate: City " << city->getCityRegionName() << " has nullptr city hall!";
+	if (cityHall == nullptr) {
+		error() << "processCityUpdate: City " << city->getCityRegionName() << " has nullptr city hall.";
+
 		destroyCity(city);
 		return;
 	}
@@ -1355,7 +1358,7 @@ void CityManagerImplementation::expandCity(CityRegion* city) {
 }
 
 void CityManagerImplementation::destroyCity(CityRegion* city) {
-	info("Destroying city: " + city->getRegionDisplayedName(), true);
+	info(true) << "Destroying City: " << city->getRegionDisplayedName() << " Rank: " << city->getCityRank() << " Total Citizens: " << city->getCitizenCount();
 
 	Locker locker(_this.getReferenceUnsafeStaticCast());
 

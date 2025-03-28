@@ -90,12 +90,15 @@ public:
 			pilotTask->schedule(100);
 		}
 
+		ship->resetDroidCommands();
+
 		if (ship->getShipDroidID() != 0) {
 			auto droidTask = new InsertAstromechIntoShipTask(ship);
 
 			if (droidTask != nullptr) {
 				droidTask->schedule(150);
 			}
+
 		}
 
 		if (groupMembers.size() > 0 && (ship->isPobShip() || ship->isMultiPassengerShip())) {

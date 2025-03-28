@@ -75,26 +75,30 @@ public:
 		for (int i = 0; i < subChunks; ++i) {
 			iffStream->openChunk('PART');
 
-			// int var1 = iffStream->getInt();
-
-			/*QString str;
-	                    iffStream->getString(str);*/
-
 			String meshFile;
 			iffStream->getString(meshFile);
 
-			AppearanceTemplate* templ = TemplateManager::instance()->getAppearanceTemplate("appearance/" + meshFile);
+			if (!meshFile.beginsWith("appearance/")) {
+				meshFile = "appearance/" + meshFile;
+			}
+
+			AppearanceTemplate* templ = TemplateManager::instance()->getAppearanceTemplate(meshFile);
 
 			if (templ == nullptr) {
-				System::out << "Template not found appearance/" << meshFile;
+				Logger::console.warning() << "ComponentAppearanceTemplate - AppearanceTemplate not found:" << meshFile;
+
+				iffStream->closeChunk('PART');
+
 				continue;
 			}
+
 			Matrix4 mat;
 			Matrix4 inverse;
+
 			for (int x = 0; x < 3; x++) {
-				for (int y = 0; y < 4; y++)
-				{
+				for (int y = 0; y < 4; y++) {
 					float val = iffStream->getFloat();
+
 					inverse[x][y] = val;
 					mat[y][x] = val;
 				}
