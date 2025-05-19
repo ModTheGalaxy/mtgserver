@@ -264,7 +264,7 @@ kashyyyk_main = {
 	gcwEnabled = 0,
 
 	planetTravelPoints = {
-		{name = "Kachirho Starport", x = -690.3, z = 20.4, y = -168, interplanetaryTravelAllowed = 1, incomingTravelAllowed = 1},
+		{name = "Kachirho Starport", x = -690.3, z = 20.4, y = -168, interplanetaryTravelAllowed = 1, incomingTravelAllowed = 1, landingRange = 3},
 
 	},
 
@@ -344,7 +344,7 @@ mustafar = {
 	gcwEnabled = 0,
 
 	planetTravelPoints = {
-		{name = "Mensix Mining Facility", x = 308, z = 0, y = -1130, interplanetaryTravelAllowed = 1, incomingTravelAllowed = 1}
+		{name = "Mensix Mining Facility", x = 308, z = 0, y = -1130, interplanetaryTravelAllowed = 1, incomingTravelAllowed = 1, landingRange = 3}
 	},
 
 	--[[
