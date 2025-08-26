@@ -20,7 +20,7 @@ SpaceEscortScreenplay = SpaceQuestLogic:new {
 
 	escortRange = 1000,
 	escortSpeed = 20,
-	testEscortSpeed = 75,
+	testEscortSpeed = 40,
 
 	escortShip = "",
 
@@ -436,12 +436,15 @@ function SpaceEscortScreenplay:assignEscortPoints(pShipAgent)
 	deleteStringData(agentID .. ":" .. self.className .. ":startingPoint:")
 
 	-- Add escort points randomly
-	local escortPoints = self.escortPoints
 	local totalPoints = 0
+	local escortWaypoints = {}
+	for i = 1, #self.escortPoints do
+		table.insert(escortWaypoints, self.escortPoints[i])
+	end
 
-	while (#escortPoints > 0) do
-		local randomPoint = getRandomNumber(1, #escortPoints)
-		local pointName = escortPoints[randomPoint].name
+	while (#escortWaypoints > 0) do
+		local randomPoint = getRandomNumber(1, #escortWaypoints)
+		local pointName = escortWaypoints[randomPoint].name
 
 		if (pointName ~= startingPointName) then
 			-- Add the name escort points to the agent
@@ -451,7 +454,7 @@ function SpaceEscortScreenplay:assignEscortPoints(pShipAgent)
 		end
 
 		-- Drop the point from the table
-		table.remove(escortPoints, randomPoint)
+		table.remove(escortWaypoints, randomPoint)
 	end
 
 	writeData(agentID .. ":" .. self.className .. ":escortShipProgress:", totalPoints)
@@ -581,6 +584,8 @@ function SpaceEscortScreenplay:spawnAttackWave(pEscortAgent)
 	local y = SceneObject(pEscortAgent):getPositionY()
 	local spawnZone = self.questZone
 
+	local spawnLocation = ShipObject(pEscortAgent):getSpawnPointInFrontOfShip(600, 1200)
+
 	local spawnTable = {}
 
 	if (self.dutyMission) then
@@ -596,14 +601,20 @@ function SpaceEscortScreenplay:spawnAttackWave(pEscortAgent)
 
 	if (self.DEBUG_SPACE_ESCORT) then
 		print(self.className .. ":spawnAttackWave -- Spawn Table Size: " .. #spawnTable .. " Spawn Zone: " .. spawnZone .. " Player Faction Hash: " .. playerFactionHash)
+		print("Player Position - x = " .. x .. " z = " .. z .. " y = " .. y .. " Spawn Position - x = " .. spawnLocation[1] .. " z = " .. spawnLocation[2] .. " y = " .. spawnLocation[3])
+
+		drawClientPath(pEscortAgent, x, z, y, spawnLocation[1], spawnLocation[2], spawnLocation[3])
 	end
 
 	for i = 1, #spawnTable, 1 do
-		local pShipAgent = spawnShipAgent(spawnTable[i], spawnZone, x + (getRandomNumber(200, 850) - getRandomNumber(200, 850)), z  + (getRandomNumber(200, 850) - getRandomNumber(200, 850)), y  + (getRandomNumber(200, 850) - getRandomNumber(200, 850)))
+		local pShipAgent = spawnShipAgent(spawnTable[i], spawnZone, spawnLocation[1] + getRandomNumber(50, 150), spawnLocation[2] + getRandomNumber(50, 150), spawnLocation[3] + getRandomNumber(50, 150))
 
 		if (pShipAgent == nil) then
 			goto continue
 		end
+
+		-- Set as a wave attack ship
+		ShipAiAgent(pShipAgent):setWaveAttack()
 
 		-- Ship attacking the escort ship should be hyperspaced out and destroyed, just in case make sure they are cleaned up
 		ShipAiAgent(pShipAgent):setDespawnOnNoPlayerInRange(true)
@@ -626,8 +637,7 @@ function SpaceEscortScreenplay:spawnAttackWave(pEscortAgent)
 		writeData(agentID .. ":" .. self.className .. ":escorterID:", playerID)
 
 		-- Add aggo and set the escort ship as ShipAgents Defender
-		ShipAiAgent(pShipAgent):addAggro(pEscortAgent, 1)
-		ShipAiAgent(pShipAgent):setDefender(pEscortAgent)
+		ShipAiAgent(pShipAgent):engageShipTarget(pEscortAgent)
 
 		::continue::
 	end
@@ -700,6 +710,10 @@ function SpaceEscortScreenplay:enteredZone(pPlayer, nill, zoneNameHash)
 		return 0
 	end
 
+	if (not SpaceHelpers:isSpaceQuestActive(pPlayer, self.questType, self.questName)) then
+		return 1
+	end
+
 	local pGhost = CreatureObject(pPlayer):getPlayerObject()
 
 	if (pGhost == nullptr) then
@@ -731,7 +745,7 @@ function SpaceEscortScreenplay:enteredZone(pPlayer, nill, zoneNameHash)
 		createEvent(4000, self.className, "setupEscort", pPlayer, "")
 
 		return 0
-	else
+	elseif (zoneNameHash ~= spaceQuestHash and SpaceHelpers:isSpaceQuestTaskComplete(pPlayer, self.questType, self.questName, 1)) then
 		createEvent(2000, self.className, "failQuest", pPlayer, "true")
 
 		return 1

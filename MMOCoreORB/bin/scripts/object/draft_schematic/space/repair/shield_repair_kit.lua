@@ -52,8 +52,8 @@ object_draft_schematic_space_repair_shield_repair_kit = object_draft_schematic_s
 	xpType = "shipwright",
 	xp = 32,
 
-	assemblySkill = "general_assembly",
-	experimentingSkill = "general_experimentation",
+	assemblySkill = "shields_assembly",
+	experimentingSkill = "shields_experimentation",
 	customizationSkill = "medicine_customization",
 
 	customizationOptions = {},

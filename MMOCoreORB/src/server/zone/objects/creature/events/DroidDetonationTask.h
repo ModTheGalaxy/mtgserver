@@ -24,11 +24,11 @@ namespace creature {
 namespace events {
 
 class DroidDetonationTask : public Task, public Logger {
-
 private:
 	Reference<DroidDetonationModuleDataComponent*> module;
 	ManagedReference<CreatureObject*> player;
 	int detonationStep;
+
 public:
 	DroidDetonationTask(DroidDetonationModuleDataComponent* module, CreatureObject* player) : Task() {
 		this->module = module;
@@ -50,54 +50,66 @@ public:
 		Locker locker(droid);
 		Locker crossLocker(player, droid);
 
+		auto zone = droid->getLocalZone();
+
 		// Check if droid is spawned
-		if (droid->getLocalZone() == nullptr) {  // Not outdoors
+		if (zone == nullptr) {
 			ManagedReference<SceneObject*> parent = droid->getParent().get();
-			if (parent == nullptr || !parent->isCellObject()) { // Not indoors either
+
+			// Not indoors either
+			if (parent == nullptr || !parent->isCellObject()) {
 				droid->removePendingTask("droid_detonation");
 				return;
 			}
+
+			// Get the zone using recursion
+			zone = droid->getZone();
+		}
+
+		// If zone is still null, cancel the task and return
+		if (zone == nullptr) {
+			droid->removePendingTask("droid_detonation");
+			return;
 		}
 
 		if (droid->isDead() || droid->isIncapacitated()) {
 			module->stopCountDown();
-			droid->showFlyText("pet/droid_modules","detonation_disabled", 204, 0, 0);
+			droid->showFlyText("pet/droid_modules", "detonation_disabled", 204, 0, 0);
 			module->deactivate();
 			droid->removePendingTask("droid_detonation");
 			return;
 		}
 
 		// if droid gets incapped while started it will disable but be able to be restarted
-		switch(detonationStep) {
-			case 0:{
+		switch (detonationStep) {
+			case 0: {
 				// 3
-				droid->showFlyText("pet/droid_modules","countdown_3", 204, 0, 0);
+				droid->showFlyText("pet/droid_modules", "countdown_3", 204, 0, 0);
 				detonationStep = 1;
 				reschedule(1000);
 				break;
 			}
 			case 1: {
 				// 2
-				droid->showFlyText("pet/droid_modules","countdown_2", 204, 0, 0);
+				droid->showFlyText("pet/droid_modules", "countdown_2", 204, 0, 0);
 				detonationStep = 2;
 				reschedule(1000);
 				break;
 			}
-			case 2:{
+			case 2: {
 				// 1
-				droid->showFlyText("pet/droid_modules","countdown_1", 204, 0, 0);
+				droid->showFlyText("pet/droid_modules", "countdown_1", 204, 0, 0);
 				detonationStep = 3;
 				reschedule(1000);
 				break;
 			}
 			case 3: {
-				// BOOM
-				int areaDamage = module->calculateDamage(droid);
+				// Detonate Droid
 				bool shouldGcwCrackdownTef = false, shouldGcwTef = false, shouldBhTef = false;
 
 				// find all valid targets in 17 m range and hit them with the damage
-				CloseObjectsVector* vec = (CloseObjectsVector*) droid->getCloseObjects();
-				SortedVector<ManagedReference<TreeEntry*> > closeObjects;
+				CloseObjectsVector* vec = (CloseObjectsVector*)droid->getCloseObjects();
+				SortedVector<ManagedReference<TreeEntry*>> closeObjects;
 
 				if (vec != nullptr) {
 					closeObjects.removeAll(vec->size(), 10);
@@ -106,10 +118,10 @@ public:
 #ifdef COV_DEBUG
 					droid->info("Null closeobjects vector in DroudDetonationTask::run", true);
 #endif
-					droid->getZone()->getInRangeObjects(droid->getWorldPositionX(), droid->getWorldPositionZ(), droid->getWorldPositionY(), 40, &closeObjects, true);
+					zone->getInRangeObjects(droid->getWorldPositionX(), droid->getWorldPositionZ(), droid->getWorldPositionY(), 40, &closeObjects, true);
 				}
 
-				PlayClientEffectLoc* explodeLoc = new PlayClientEffectLoc("clienteffect/combat_explosion_lair_large.cef", droid->getZone()->getZoneName(), droid->getPositionX(), droid->getPositionZ(), droid->getPositionY());
+				PlayClientEffectLoc* explodeLoc = new PlayClientEffectLoc("clienteffect/combat_explosion_lair_large.cef", zone->getZoneName(), droid->getPositionX(), droid->getPositionZ(), droid->getPositionY());
 				droid->broadcastMessage(explodeLoc, false);
 
 				crossLocker.release();
@@ -164,7 +176,7 @@ public:
 						// apply the damage to the target and send themessage
 						if (CollisionManager::checkLineOfSight(object, droid)) {
 							// apply the damage
-							float amount = CombatManager::instance()->doObjectDetonation(droid, creo, areaDamage);
+							float amount = CombatManager::instance()->doObjectDetonation(droid, creo, module->calculateDamage(droid));
 
 							if (amount > 0) {
 								if (creo->isPlayerCreature()) {
@@ -182,7 +194,6 @@ public:
 
 								CombatManager::instance()->checkForTefs(player, creo, &shouldGcwCrackdownTef, &shouldGcwTef, &shouldBhTef);
 							}
-
 						}
 					} catch (Exception& e) {
 						error(e.getMessage());
@@ -219,14 +230,13 @@ public:
 			}
 		}
 	}
-
 };
 
-} // events
-} // creature
-} // objects
-} // zone
-} // server
+} // namespace events
+} // namespace creature
+} // namespace objects
+} // namespace zone
+} // namespace server
 
 using namespace server::zone::objects::creature::events;
 

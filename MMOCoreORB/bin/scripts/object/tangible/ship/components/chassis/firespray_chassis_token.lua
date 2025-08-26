@@ -48,6 +48,16 @@ object_tangible_ship_components_chassis_firespray_chassis_token = object_tangibl
 	certificationRequired = "cert_starships_firespray",
 	skillRequired = {"pilot_rebel_navy_master", "pilot_imperial_navy_master", "pilot_neutral_master"},
 	POB = 0,
+
+	numberExperimentalProperties = {1, 1, 4, 4},
+	experimentalProperties = {"XX", "XX", "HR", "OQ", "SR", "UT", "MA", "OQ", "SR", "UT"},
+	experimentalWeights = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+	experimentalGroupTitles = {"null", "null", "exp_hp", "exp_massMax"},
+	experimentalSubGroupTitles = {"null", "null", "hp", "massmax"},
+	experimentalMin = {0, 0, 2500, 205500},
+	experimentalMax = {0, 0, 3500, 214500},
+	experimentalPrecision = {0, 0, 1, 1},
+	experimentalCombineType = {0, 0, 1, 1},
 }
 
 ObjectTemplates:addTemplate(object_tangible_ship_components_chassis_firespray_chassis_token, "object/tangible/ship/components/chassis/firespray_chassis_token.iff")

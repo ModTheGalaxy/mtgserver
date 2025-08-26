@@ -73,6 +73,10 @@ public:
 	void setSpecies(int i);
 
 	void initialize(DroidObject* droid);
+
+	virtual bool isDetonationModule() {
+		return true;
+	}
 };
 
 } // droid

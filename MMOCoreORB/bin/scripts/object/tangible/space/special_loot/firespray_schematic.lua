@@ -42,7 +42,12 @@
 
 
 object_tangible_space_special_loot_firespray_schematic = object_tangible_space_special_loot_shared_firespray_schematic:new {
-
+	templateType = LOOTSCHEMATIC,
+	objectMenuComponent = "LootSchematicMenuComponent",
+	attributeListComponent = "LootSchematicAttributeListComponent",
+	requiredSkill = "crafting_shipwright_master",
+	targetDraftSchematic = "object/draft_schematic/space/chassis/firespray.iff",
+	targetUseCount = 6,
 }
 
 ObjectTemplates:addTemplate(object_tangible_space_special_loot_firespray_schematic, "object/tangible/space/special_loot/firespray_schematic.iff")

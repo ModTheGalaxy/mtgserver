@@ -97,7 +97,6 @@ CorelliaTyrenaScreenPlay = CityScreenPlay:new {
 		--{patrolPoints, template, x, z, y, direction, cell, mood, combatPatrol},
 
 		--Droids
-		{"cll8_1", "cll_8", -5050, 21, -2288, 145, 0, "", false},
 		{"eg6_1", "eg6_power_droid", -5605.25, 21, -2721.9, 155.92, 0, "", false},
 		{"eg6_2", "eg6_power_droid", -5295.6, 21, -2396.69, 237.183, 0, "", false},
 		{"surgical_1", "surgical_droid_21b", -23.3,  0.27, -2.7, 5.78928, 1935835, "", false},
@@ -333,7 +332,6 @@ CorelliaTyrenaScreenPlay = CityScreenPlay:new {
 		{"trainer_bountyhunter", 0,-5130,21,-2302,180,0, ""},
 		{"trainer_carbine", 0,-5225,21,-2488,180,0, ""},
 		{"trainer_combatmedic", 0,-4996.29,21,-2451.61,129,0, ""},
-		{"trainer_dancer", 0,34.5107,0.105,1.79681,89,3005398, ""},
 		{"trainer_doctor", 0,-5002,21,-2459,180,0, ""},
 		{"trainer_entertainer", 0,-5661,21.6,-2599.57,14,0, ""},
 		{"trainer_entertainer", 0,-5062,21,-2291,124,0, ""},

@@ -136,6 +136,10 @@ public:
 
 	virtual bool isCombatModule() { return false; }
 
+	virtual bool isDetonationModule() {
+		return false;
+	}
+
 	virtual void addToStack(BaseDroidModuleComponent* other) {}
 
 	virtual void copy(BaseDroidModuleComponent* other){}

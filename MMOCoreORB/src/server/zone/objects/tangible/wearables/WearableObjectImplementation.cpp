@@ -17,7 +17,13 @@
 
 void WearableObjectImplementation::initializeTransientMembers() {
 	TangibleObjectImplementation::initializeTransientMembers();
-	setLoggingName("WearableObject");
+
+	// Wearable has too many attachments on it for the allowed socket count
+	while (usedSocketCount > socketCount) {
+		wearableSkillMods.removeElementAt(wearableSkillMods.size() - 1);
+
+		usedSocketCount--;
+	}
 }
 
 void WearableObjectImplementation::fillAttributeList(AttributeListMessage* alm, CreatureObject* object) {
@@ -110,19 +116,19 @@ void WearableObjectImplementation::generateSockets(CraftingValues* craftingValue
 }
 
 void WearableObjectImplementation::applyAttachment(CreatureObject* player, Attachment* attachment) {
-	if (!isASubChildOf(player)) {
+	if (attachment == nullptr || !isASubChildOf(player)) {
 		return;
 	}
 
-	if (getRemainingSockets() < 1 && wearableSkillMods.size() > 5) {
+	if (getRemainingSockets() < 1 || wearableSkillMods.size() > 5) {
 		return;
 	}
-
-	Locker locker(player);
 
 	if (isEquipped()) {
 		removeSkillModsFrom(player);
 	}
+
+	Locker clocker(attachment, player);
 
 	SortedVector<ModSortingHelper> sortedMods;
 	VectorMap<String, int>* skillModifiers = attachment->getSkillMods();
@@ -155,7 +161,7 @@ void WearableObjectImplementation::applyAttachment(CreatureObject* player, Attac
 
 	usedSocketCount++;
 	addMagicBit(true);
-	Locker clocker(attachment, player);
+
 	TransactionLog trx(player, asSceneObject(), attachment, TrxCode::APPLYATTACHMENT);
 
 	if (trx.isVerbose()) {

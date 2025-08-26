@@ -984,6 +984,10 @@ int ShipManager::notifyDestruction(ShipObject* destructorShip, ShipAiAgent* dest
 		return 1;
 	}
 
+	if (destructorShip == nullptr) {
+		destructorShip = destructedShip;
+	}
+
 	// info(true) << "ShipManager::notifyDestruction -- called for: " << destructedShip->getDisplayedName() << " Attacker: " << destructorShip->getDisplayedName();
 
 	destructedShip->cancelBehaviorEvent();

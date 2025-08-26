@@ -46,7 +46,7 @@ object_tangible_ship_components_chassis_ywing_chassis_token = object_tangible_sh
 	chassisDeed = "object/tangible/ship/crafted/chassis/ywing_deed.iff",
 	dealerFee = 15000,
 	certificationRequired = "cert_starships_ywing",
-	skillRequired = {"pilot_rebel_navy_starships__01"},
+	skillRequired = {"pilot_rebel_navy_starships_01"},
 	POB = 0,
 
 	numberExperimentalProperties = {1, 1, 4, 4},

@@ -52,8 +52,8 @@ object_draft_schematic_space_repair_capacitor_repair_kit = object_draft_schemati
 	xpType = "shipwright",
 	xp = 32,
 
-	assemblySkill = "general_assembly",
-	experimentingSkill = "general_experimentation",
+	assemblySkill = "advanced_assembly",
+	experimentingSkill = "advanced_ship_experimentation",
 	customizationSkill = "medicine_customization",
 
 	customizationOptions = {},

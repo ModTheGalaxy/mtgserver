@@ -144,7 +144,7 @@ class CreatureObject extends TangibleObject {
 	private transient Mutex missionRangeObjectsMutex;
 
 	@dereferenced
-	protected transient SortedVector<unsigned int> missionRangeObjects;
+	protected transient SortedVector<unsigned long> missionRangeObjects;
 
 	protected byte frozen;
 
@@ -212,6 +212,8 @@ class CreatureObject extends TangibleObject {
 	protected transient Vector3 lastCombatPosition;
 
 	protected transient string alternateAppearance;
+
+	protected transient unsigned long spawnerID;
 
 	public static final int HUMAN = 0;
 	public static final int RODIAN = 1;
@@ -500,6 +502,8 @@ class CreatureObject extends TangibleObject {
 	 */
 	@preLocked
 	public native void setRunSpeed(float newSpeed, boolean notifyClient = true);
+
+	public native void updateRunSpeed();
 
 	public void setCurrentSpeed(float newSpeed) {
 		currentSpeed = newSpeed;
@@ -1064,6 +1068,11 @@ class CreatureObject extends TangibleObject {
 	@preLocked
 	public native void setAlternateAppearance(final string appearanceTeamplate, boolean notifyClient = true);
 
+	@preLocked
+	public void setSpawnerID(unsigned long spawnID) {
+		spawnerID = spawnID;
+	}
+
 	/**
 	 * Cleares a state from the state bitmask
 	 * @pre { this object is locked }
@@ -1117,7 +1126,7 @@ class CreatureObject extends TangibleObject {
 	public native boolean isAttackableBy(TangibleObject object, boolean bypassDeadCheck);
 
 	@dirty
-	public native boolean isHealableBy(CreatureObject object);
+	public abstract native boolean isHealableBy(CreatureObject object);
 
 	@dirty
 	public native boolean healFactionChecks(CreatureObject object, boolean isPlayer);
@@ -1760,14 +1769,13 @@ class CreatureObject extends TangibleObject {
 	@read
 	public native float getSlopeModPercent();
 
+	@local
+	@dirty
+	public native float getRunSpeed();
+
 	@read
 	public float getWaterModPercent() {
 		return waterModPercent;
-	}
-
-	@read
-	public float getRunSpeed() {
-		return runSpeed;
 	}
 
 	@read
@@ -1895,11 +1903,6 @@ class CreatureObject extends TangibleObject {
 	}
 
 	@read
-	public float getHeight() {
-		return height;
-	}
-
-	@read
 	public boolean isDroidSpecies() {
 		//Determine if creature is a droid.
 		return getSpecies() >= 203 && getSpecies() <= 225 && getSpecies() != 207;
@@ -1917,10 +1920,10 @@ class CreatureObject extends TangibleObject {
 	}
 
 	@read
-	public native boolean hasEffectImmunity(byte effectType);
+	public abstract native boolean hasEffectImmunity(byte effectType);
 
 	@read
-	public native boolean hasDotImmunity(unsigned int dotType);
+	public abstract native boolean hasDotImmunity(unsigned int dotType);
 
 	@read
 	public abstract native int getSpecies();
@@ -2032,6 +2035,11 @@ class CreatureObject extends TangibleObject {
 	@read
 	public float getSwimHeight() {
 		return swimHeight;
+	}
+
+	@read
+	public unsigned long getSpawnerID() {
+		return spawnerID;
 	}
 
 	@mock
@@ -2300,6 +2308,9 @@ class CreatureObject extends TangibleObject {
 	@read
 	public native float getAccelerationModifier();
 
+	@read
+	public native float getHeight(boolean postureMod = false);
+
 	@local
 	public native void sendSpeedAndAccelerationMods(SceneObject player);
 
@@ -2399,4 +2410,6 @@ class CreatureObject extends TangibleObject {
 
 	@dirty
 	public native abstract float getOutOfRangeDistance(unsigned long specialRangeObjectID = 0);
+
+	public native boolean isMissionRangeObject(@dereferenced final unsigned long objectID);
 }

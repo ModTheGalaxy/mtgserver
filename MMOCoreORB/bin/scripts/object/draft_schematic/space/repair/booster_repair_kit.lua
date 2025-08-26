@@ -52,8 +52,8 @@ object_draft_schematic_space_repair_booster_repair_kit = object_draft_schematic_
 	xpType = "shipwright",
 	xp = 32,
 
-	assemblySkill = "general_assembly",
-	experimentingSkill = "general_experimentation",
+	assemblySkill = "booster_assembly",
+	experimentingSkill = "booster_experimentation",
 	customizationSkill = "medicine_customization",
 
 	customizationOptions = {},

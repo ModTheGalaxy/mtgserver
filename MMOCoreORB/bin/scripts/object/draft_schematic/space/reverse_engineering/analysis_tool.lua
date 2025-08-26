@@ -55,8 +55,8 @@ object_draft_schematic_space_reverse_engineering_analysis_tool = object_draft_sc
    xpType = "shipwright", 
    xp = 22, 
 
-   assemblySkill = "general_assembly", 
-   experimentingSkill = "general_experimentation", 
+   assemblySkill = "advanced_assembly", 
+   experimentingSkill = "advanced_ship_experimentation", 
    customizationSkill = "medicine_customization", 
 
    customizationOptions = {},

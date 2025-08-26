@@ -163,6 +163,8 @@ class SceneObject extends TreeEntry implements Logger, Metrics {
 
 	protected transient unsigned long syncStamp;
 
+	private transient float boundingRadius;
+
 	/**
 	 * SceneObject constructor, used to initialize the object.
 	 * @pre { templateData is a valid SharedObjectTemplate LuaObject that contains the necessary values to initialize SceneObject }
@@ -1900,6 +1902,11 @@ class SceneObject extends TreeEntry implements Logger, Metrics {
 	}
 
 	@dirty
+	public abstract boolean isSpawnEggObject() {
+		return false;
+	}
+
+	@dirty
 	public abstract boolean isInstallationDeed() {
 		return false;
 	}
@@ -2401,9 +2408,14 @@ class SceneObject extends TreeEntry implements Logger, Metrics {
 	@read
 	public abstract native Vector<Reference<MeshData> > getTransformedMeshData(final Matrix4 parentTransform);
 
-	@dirty
 	@local
+	@read
 	public abstract native final BaseBoundingVolume getBoundingVolume();
+
+
+	@local
+	@read
+	public abstract native final BaseBoundingVolume getCollisionVolume();
 
 	@dirty
 	public abstract native boolean isInNavMesh();
@@ -2460,4 +2472,8 @@ class SceneObject extends TreeEntry implements Logger, Metrics {
 	@read
 	@local
 	public native final AppearanceTemplate getAppearanceTemplate();
+
+	public native void setBoundingRadius(float value);
+
+	public native float getBoundingRadius();
 }

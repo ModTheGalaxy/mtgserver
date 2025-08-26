@@ -53,8 +53,9 @@ template<> bool CheckFollowHasState::check(AiAgent* agent) const {
 template<> bool CheckProspectInRange::check(AiAgent* agent) const {
 	ManagedReference<SceneObject*> tar = nullptr;
 
-	if (agent->peekBlackboard("targetProspect"))
+	if (agent->peekBlackboard("targetProspect")) {
 		tar = agent->readBlackboard("targetProspect").get<ManagedReference<SceneObject*> >();
+	}
 
 	if (checkVar > 0.f) {
 		return tar != nullptr && agent->isInRange(tar, checkVar);
@@ -62,8 +63,9 @@ template<> bool CheckProspectInRange::check(AiAgent* agent) const {
 		float aggroMod = agent->readBlackboard("aggroMod").get<float>();
 		float radius = agent->getAggroRadius();
 
-		if (radius == 0)
+		if (radius == 0) {
 			radius = AiAgent::DEFAULTAGGRORADIUS;
+		}
 
 		radius = Math::min(96.f, radius * aggroMod);
 
@@ -248,17 +250,25 @@ template<> bool CheckRetreat::check(AiAgent* agent) const {
 }
 
 template<> bool CheckFlee::check(AiAgent* agent) const {
-	if (agent == nullptr || agent->getParent().get() != nullptr || agent->getParentID() > 0)
+	if (agent == nullptr || agent->getParentID() > 0) {
 		return false;
+	}
+
+	int fleeChance = 75;
+
+	if (agent->getPvpStatusBitmask() & ObjectFlag::AGGRESSIVE) {
+		fleeChance = 25;
+	}
+
+	if (System::random(1000) > fleeChance) {
+		return false;
+	}
 
 	Time* fleeDelay = agent->getFleeDelay();
-	int fleeChance = 30;
 
-	if (agent->getPvpStatusBitmask() & ObjectFlag::AGGRESSIVE)
-		fleeChance = 15;
-
-	if (fleeDelay == nullptr || !fleeDelay->isPast() || System::random(100) > fleeChance)
+	if (fleeDelay == nullptr || !fleeDelay->isPast()) {
 		return false;
+	}
 
 	if ((agent->getHAM(CreatureAttribute::HEALTH) < agent->getMaxHAM(CreatureAttribute::HEALTH) * checkVar)
 		|| (agent->getHAM(CreatureAttribute::ACTION) < agent->getMaxHAM(CreatureAttribute::ACTION) * checkVar)

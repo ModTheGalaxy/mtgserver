@@ -113,8 +113,6 @@ class ShipObject extends TangibleObject {
 
 	protected int chassisLevel;
 
-	protected float boundingRadius;
-
 	protected float currentSpeed;
 
 	protected float speedRotationFactorMax;
@@ -455,7 +453,6 @@ class ShipObject extends TangibleObject {
 		chassisLevel = 0;
 		totalCellNumber = 0;
 
-		boundingRadius = 1.f;
 		currentSpeed = 0.f;
 		staffModifiedSpeed = 0.f;
 		speedRotationFactorMax = 1.f;
@@ -1038,10 +1035,6 @@ class ShipObject extends TangibleObject {
 	@local
 	public native void setRotationMatrix(@dereferenced final Quaternion value);
 
-	public void setBoundingRadius(float value) {
-		boundingRadius = value;
-	}
-
 	public void setCurrentSpeed(float value) {
 		currentSpeed = value;
 	}
@@ -1077,6 +1070,8 @@ class ShipObject extends TangibleObject {
 
 	public native void resetDroidCommands();
 
+	@preLocked
+	@arg1preLocked
 	public native void populateDroidCommands(CreatureObject player);
 
 	public boolean hasDroidCommand(unsigned int commandNameHash) {
@@ -1714,10 +1709,6 @@ class ShipObject extends TangibleObject {
 	@local
 	public final Matrix4 getConjugateMatrix() {
 		return conjugateMatrix;
-	}
-
-	public float getBoundingRadius() {
-		return boundingRadius;
 	}
 
 	public float getCurrentSpeed() {

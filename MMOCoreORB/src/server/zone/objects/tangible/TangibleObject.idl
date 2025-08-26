@@ -982,6 +982,10 @@ class TangibleObject extends SceneObject {
 		return null;
 	}
 
+	@preLocked
+	public abstract void refreshPaint() {
+	}
+
 	public abstract native void destroyObjectFromDatabase(boolean destroyContainedObjects = false);
 
 	@read

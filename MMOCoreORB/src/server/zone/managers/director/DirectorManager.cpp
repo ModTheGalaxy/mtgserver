@@ -92,6 +92,7 @@
 #include "server/zone/objects/creature/variables/LuaSkill.h"
 #include "server/zone/objects/intangible/TheaterObject.h"
 #include "server/zone/objects/tangible/misc/ContractCrate.h"
+#include "server/zone/objects/tangible/spawning/SpawnEggObject.h"
 #include "server/zone/managers/crafting/schematicmap/SchematicMap.h"
 #include "server/zone/managers/director/ScreenPlayObserver.h"
 #include "server/zone/managers/resource/ResourceManager.h"
@@ -108,6 +109,7 @@
 #include "server/zone/objects/ship/components/ShipComponent.h"
 #include "server/zone/objects/area/space/SpaceActiveArea.h"
 #include "server/zone/objects/area/areashapes/SphereAreaShape.h"
+#include "server/zone/packets/ui/CreateClientPathMessage.h"
 
 int DirectorManager::DEBUG_MODE = 0;
 int DirectorManager::ERROR_CODE = NO_ERROR;
@@ -542,6 +544,7 @@ void DirectorManager::initializeLuaEngine(Lua* luaEngine) {
 	luaEngine->registerFunction("broadcastToGalaxy", broadcastToGalaxy);
 	luaEngine->registerFunction("getWorldFloor", getWorldFloor);
 	luaEngine->registerFunction("useCovertOvert", useCovertOvert);
+	luaEngine->registerFunction("drawClientPath", drawClientPath);
 
 	// JTL
 	luaEngine->registerFunction("generateShipDeed", generateShipDeed);
@@ -810,6 +813,7 @@ void DirectorManager::initializeLuaEngine(Lua* luaEngine) {
 	luaEngine->setGlobalInt("SHIP_AI_FIXED_PATROL", ShipFlag::FIXED_PATROL);
 	luaEngine->setGlobalInt("SHIP_AI_SQUADRON_PATROL", ShipFlag::SQUADRON_PATROL);
 	luaEngine->setGlobalInt("SHIP_AI_SQUADRON_FOLLOW", ShipFlag::SQUADRON_FOLLOW);
+	luaEngine->setGlobalInt("SHIP_AI_WAVE_ATTACK", ShipFlag::WAVE_ATTACK);
 
 	// ShipComponents
 	luaEngine->setGlobalInt("SHIP_REACTOR", Components::REACTOR);
@@ -896,6 +900,7 @@ void DirectorManager::initializeLuaEngine(Lua* luaEngine) {
 	Luna<LuaSkillManager>::Register(luaEngine->getLuaState());
 	Luna<LuaContractCrate>::Register(luaEngine->getLuaState());
 	Luna<LuaScreenPlayObserver>::Register(luaEngine->getLuaState());
+	Luna<LuaSpawnEggObject>::Register(luaEngine->getLuaState());
 }
 
 int DirectorManager::loadScreenPlays(Lua* luaEngine) {
@@ -2650,6 +2655,10 @@ int DirectorManager::spawnMobile(lua_State* L) {
 		if (creature->isAiAgent()) {
 			AiAgent* ai = cast<AiAgent*>(creature);
 			ai->setRespawnTimer(respawnTimer);
+
+			if (respawnTimer > 0 && parentID > 0) {
+				zone->incrementSpawnedAgents();
+			}
 
 			if (randomRespawn)
 				ai->setRandomRespawn(true);
@@ -5103,3 +5112,29 @@ int DirectorManager::grantStarterShip(lua_State* L) {
 	return 0;
 }
 
+int DirectorManager::drawClientPath(lua_State* L) {
+	if (checkArgumentCount(L, 7) == 1) {
+		String err = "incorrect number of arguments passed to DirectorManager::grantStarterShip";
+		printTraceError(L, err);
+		ERROR_CODE = INCORRECT_ARGUMENTS;
+		return 0;
+	}
+
+	SceneObject* obj = (SceneObject*) lua_touserdata(L, -7);
+
+	float x1 = lua_tonumber(L, -6);
+	float z1 = lua_tonumber(L, -5);
+	float y1 = lua_tonumber(L, -4);
+	float x2 = lua_tonumber(L, -3);
+	float z2 = lua_tonumber(L, -2);
+	float y2 = lua_tonumber(L, -1);
+
+	CreateClientPathMessage* pathMessage = new CreateClientPathMessage();
+
+	pathMessage->addCoordinate(x1, z1, y1);
+	pathMessage->addCoordinate(x2, z2, y2);
+
+	obj->broadcastMessage(pathMessage, true);
+
+	return 0;
+}

@@ -470,13 +470,20 @@ bool PetManagerImplementation::handleCommandTraining(CreatureObject* speaker, Ai
 
 void PetManagerImplementation::enqueuePetCommand(CreatureObject* player, AiAgent* pet, uint32 command, const String& args, bool selfTarget) {
 	uint64 targetID;
-	if (selfTarget)
+
+	if (selfTarget) {
 		targetID = player->getObjectID();
-	else
+	} else {
 		targetID = player->getTargetID();
+	}
 
 	// CreatureObject* pet, uint32 command, const String& args, uint64 target, int priority = -1
 	EnqueuePetCommand* enqueueCommand = new EnqueuePetCommand(pet, command, args, targetID, QueueCommand::NOCOMBATQUEUE);
+
+	if (enqueueCommand == nullptr) {
+		return;
+	}
+
 	enqueueCommand->schedule(50);
 }
 

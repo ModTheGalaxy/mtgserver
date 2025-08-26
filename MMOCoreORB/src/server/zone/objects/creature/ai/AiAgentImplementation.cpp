@@ -4394,6 +4394,67 @@ bool AiAgentImplementation::isAttackableBy(CreatureObject* creature) {
 	return true;
 }
 
+bool AiAgentImplementation::isHealableBy(CreatureObject* healerCreo) {
+	if (healerCreo == nullptr) {
+		return false;
+	}
+
+	if (isVehicleType()) {
+		return false;
+	}
+
+	return CreatureObjectImplementation::isHealableBy(healerCreo);
+}
+
+bool AiAgentImplementation::hasEffectImmunity(uint8 effectType) const {
+	switch (effectType) {
+		case CommandEffect::BLIND:
+		case CommandEffect::DIZZY:
+		case CommandEffect::INTIMIDATE:
+			if (getCreatureBitmask() & ObjectFlag::NOINTIMIDATE) {
+				return true;
+			}
+
+			break;
+		case CommandEffect::STUN:
+		case CommandEffect::NEXTATTACKDELAY:
+			if (isDroidSpecies() || isWalkerSpecies()) {
+				return true;
+			}
+
+			break;
+		case CommandEffect::KNOCKDOWN:
+		case CommandEffect::POSTUREUP:
+		case CommandEffect::POSTUREDOWN:
+			if (isWalkerSpecies()) {
+				return true;
+			}
+
+			break;
+		default:
+			return false;
+	}
+
+	return false;
+}
+
+bool AiAgentImplementation::hasDotImmunity(uint32 dotType) const {
+	switch (dotType) {
+		case CreatureState::POISONED:
+		case CreatureState::BLEEDING:
+		case CreatureState::DISEASED:
+			if (isVehicleType()) {
+				return true;
+			}
+			break;
+		default:
+			break;
+	}
+
+	return CreatureObjectImplementation::hasDotImmunity(dotType);
+}
+
+
 bool AiAgentImplementation::hasLoot(){
 	SceneObject* inventory = asAiAgent()->getSlottedObject("inventory");
 

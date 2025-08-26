@@ -124,7 +124,10 @@ RoriNarmleScreenPlay = CityScreenPlay:new {
 		{"trainer_weaponsmith", 1, 0, 1, -13, 0, 4635414, ""},
 		{"trainer_dancer", 0, 18.0876, 2.12874, 53.6634, 1, 4635403, ""},
 		{"theater_manager", 0, 21.5522, 2.12797, 63.5137, 0, 4635403, ""},
-		{"trainer_musician", 0, 21.8, 2.1, 76.4, 180, 4635403, ""}
+		{"trainer_musician", 0, 21.8, 2.1, 76.4, 180, 4635403, ""},
+		{"trainer_entertainer", 0, 29.5159, 2.12878, 73.6413, 88, 4635403, ""},
+		{"trainer_imagedesigner", 0, -21.5126, 2.12878, 74.0536, 181, 4635404, ""},
+		{"trainer_marksman", 0, 0, 1.13306, -13, 0, 4615374, ""}
 	}
 }
 

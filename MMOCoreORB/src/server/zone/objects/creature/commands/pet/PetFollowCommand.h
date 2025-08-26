@@ -17,24 +17,29 @@ public:
 	int doQueueCommand(CreatureObject* creature, const uint64& target, const UnicodeString& arguments) const {
 		ManagedReference<PetControlDevice*> controlDevice = creature->getControlDevice().get().castTo<PetControlDevice*>();
 
-		if (controlDevice == nullptr)
+		if (controlDevice == nullptr) {
 			return GENERALERROR;
+		}
 
 		ManagedReference<AiAgent*> pet = cast<AiAgent*>(creature);
 
-		if (pet == nullptr)
+		if (pet == nullptr) {
 			return GENERALERROR;
+		}
 
-		if (pet->hasRidingCreature())
+		if (pet->hasRidingCreature()) {
 			return GENERALERROR;
+		}
 
-		if (pet->getPosture() != CreaturePosture::UPRIGHT && pet->getPosture() != CreaturePosture::KNOCKEDDOWN)
+		if (pet->getPosture() != CreaturePosture::UPRIGHT && pet->getPosture() != CreaturePosture::KNOCKEDDOWN) {
 			pet->setPosture(CreaturePosture::UPRIGHT);
+		}
 
 		ZoneServer* zoneServer = server->getZoneServer();
 
-		if (zoneServer == nullptr)
+		if (zoneServer == nullptr) {
 			return GENERALERROR;
+		}
 
 		ManagedReference<SceneObject*> targetObject = zoneServer->getObject(target, true);
 
@@ -45,8 +50,9 @@ public:
 
 		StringTokenizer tokenizer(arguments.toString());
 
-		if (!tokenizer.hasMoreTokens())
+		if (!tokenizer.hasMoreTokens()) {
 			return GENERALERROR;
+		}
 
 		uint64 playerID = tokenizer.getLongToken();
 
@@ -62,27 +68,36 @@ public:
 			return GENERALERROR;
 		}
 
+		// Bomb Droids should be able to follow attackable targets
+		bool bombDroid = false;
+
 		// Check if droid has power
 		if (controlDevice->getPetType() == PetManager::DROIDPET) {
 			ManagedReference<DroidObject*> droidPet = cast<DroidObject*>(pet.get());
 
-			if (droidPet == nullptr)
+			if (droidPet == nullptr) {
 				return GENERALERROR;
+			}
 
 			if (!droidPet->hasPower()) {
 				pet->showFlyText("npc_reaction/flytext", "low_power", 204, 0, 0); // "*Low Power*"
 				return GENERALERROR;
 			}
+
+			if (droidPet->isBombDroid()) {
+				bombDroid = true;
+			}
 		}
 
-		if (targetCreature != player && (targetCreature->isAttackableBy(pet) || targetCreature->isDead() || !CollisionManager::checkLineOfSight(player, targetCreature) || !playerEntryCheck(player, targetCreature))) {
+		if (targetCreature != player && ((!bombDroid && targetCreature->isAttackableBy(pet)) || targetCreature->isDead() || !CollisionManager::checkLineOfSight(player, targetCreature) || !playerEntryCheck(player, targetCreature))) {
 			pet->showFlyText("npc_reaction/flytext", "confused", 204, 0, 0); // "?!!?!?!"
 			targetCreature = player;
 		}
 
 		// attempt peace if the pet is in combat
-		if (pet->isInCombat())
+		if (pet->isInCombat()) {
 			CombatManager::instance()->attemptPeace(pet);
+		}
 
 		Locker clocker(controlDevice, creature);
 		controlDevice->setLastCommandTarget(targetCreature);

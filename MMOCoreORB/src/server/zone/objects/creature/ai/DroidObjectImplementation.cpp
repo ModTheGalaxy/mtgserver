@@ -380,6 +380,18 @@ bool DroidObjectImplementation::isCombatDroid() {
 	return false;
 }
 
+bool DroidObjectImplementation::isBombDroid() {
+	for (int i = 0; i < modules.size(); i++) {
+		auto& module = modules.get(i);
+
+		if (module->isDetonationModule()) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 bool DroidObjectImplementation::isTrapDroid() {
 	for (int i = 0; i < modules.size(); i++) {
 		auto& module = modules.get(i);

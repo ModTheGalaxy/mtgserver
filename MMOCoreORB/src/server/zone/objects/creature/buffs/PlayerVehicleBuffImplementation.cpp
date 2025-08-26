@@ -62,28 +62,18 @@ void PlayerVehicleBuffImplementation::deactivate(bool removeModifiers) {
 }
 
 void PlayerVehicleBuffImplementation::updateRiderSpeeds() {
-
 	ManagedReference<CreatureObject*> vehicle = creature.get();
-	ManagedReference<CreatureObject*> rider = vehicle->getSlottedObject("rider").castTo<CreatureObject*>();
 
-	if (rider == nullptr) // Our rider is gone
+	if (vehicle == nullptr) {
 		return;
+	}
 
-	Core::getTaskManager()->executeTask([=] () {
-		Locker riderLock(rider);
-		Locker crossLock(vehicle, rider);
-
-		if (!rider->isRidingMount()) // dismount will reset the player's speed for us, do nothing
+	Core::getTaskManager()->executeTask([vehicle] () {
+		if (vehicle == nullptr) {
 			return;
-
-		// Speed hack buffer
-		SpeedMultiplierModChanges* changeBuffer = rider->getSpeedMultiplierModChanges();
-		const int bufferSize = changeBuffer->size();
-
-		// Drop old change off the buffer
-		if (bufferSize > 5) {
-			changeBuffer->remove(0);
 		}
+
+		Locker lock(vehicle);
 
 		// get vehicle speed
 		float newSpeed = vehicle->getRunSpeed();
@@ -100,13 +90,34 @@ void PlayerVehicleBuffImplementation::updateRiderSpeeds() {
 		// add speed multiplier mod
 		newSpeed *= vehicle->getSpeedMultiplierMod();
 
-		// Add a fake "skillmod" change
-		changeBuffer->add(SpeedModChange(newSpeed / rider->getRunSpeed()));
+		// Update Vehicles Speed
+		vehicle->setRunSpeed(newSpeed);
 
-		// Commit changebuffer ?
-		rider->updateToDatabase();
+		ManagedReference<CreatureObject*> rider = vehicle->getSlottedObject("rider").castTo<CreatureObject*>();
 
-		// Update riders speed to match mount speed
-		rider->setRunSpeed(newSpeed);
+		// Update riders change buffer
+		if (rider != nullptr) {
+			if (rider->isRidingMount()) {
+				Locker rideClock(rider, vehicle);
+
+				// Speed hack buffer
+				SpeedMultiplierModChanges* changeBuffer = rider->getSpeedMultiplierModChanges();
+				const int bufferSize = changeBuffer->size();
+
+				// Drop old change off the buffer
+				if (bufferSize > 5) {
+					changeBuffer->remove(0);
+				}
+
+				// Add a fake "skillmod" change
+				changeBuffer->add(SpeedModChange(newSpeed / rider->getRunSpeed()));
+
+				// Commit changebuffer
+				rider->updateToDatabase();
+			}
+
+			// Send riders speed update
+			rider->updateRunSpeed();
+		}
 	}, "UpdateRiderSpeedsLambda");
 }

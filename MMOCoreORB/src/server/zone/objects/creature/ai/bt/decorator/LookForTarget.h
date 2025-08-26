@@ -101,16 +101,6 @@ public:
 			return true;
 		}
 
-		SceneObject* agentParent = agent->getParent().get();
-		SceneObject* targetParent = target->getParent().get();
-
-		uint64 agentParentID = agentParent != nullptr ? agentParent->getObjectID() : 0;
-		uint64 targetParentID = targetParent != nullptr ? targetParent->getObjectID() : 0;
-
-		if (agentParentID != targetParentID && !CollisionManager::checkLineOfSight(agent, target)) {
-			return true;
-		}
-
 		return false;
 	}
 };

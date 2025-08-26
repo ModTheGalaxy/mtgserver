@@ -48,10 +48,7 @@ public:
 	}
 
 	Quaternion get() const {
-		Quaternion direction(w, x, y, z);
-		direction.normalize();
-
-		return direction;
+		return Quaternion(w * directionScaleInv, x * directionScaleInv, y * directionScaleInv, z * directionScaleInv);
 	}
 };
 

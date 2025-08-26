@@ -63,6 +63,7 @@ public:
 			cbox->setUsingObject(ship);
 
 			ManagedReference<PlayerObject*> ghost = creature->getPlayerObject();
+			ghost->closeSuiWindowType(SuiWindowType::CUSTOMIZE_KIT);
 			ghost->addSuiBox(cbox);
 			creature->sendMessage(cbox->generateMessage());
 		}

@@ -42,6 +42,8 @@
 // #define DEBUG_COV
 
 void ShipObjectImplementation::initializeTransientMembers() {
+	TangibleObjectImplementation::initializeTransientMembers();
+
 	hyperspacing = false;
 	droidFeedback = true;
 
@@ -55,7 +57,16 @@ void ShipObjectImplementation::initializeTransientMembers() {
 
 	initializeUniqueID(false);
 
-	TangibleObjectImplementation::initializeTransientMembers();
+	auto volume = getCollisionVolume();
+
+	if (volume != nullptr) {
+		const auto& sphere = volume->getBoundingSphere();
+		float sphereRadius = sphere.getCenter().length() + sphere.getRadius();
+
+		if (getBoundingRadius() <= sphereRadius) {
+			setBoundingRadius(sphereRadius);
+		}
+	}
 }
 
 void ShipObjectImplementation::notifyLoadFromDatabase() {
@@ -180,17 +191,6 @@ void ShipObjectImplementation::loadTemplateData(SharedObjectTemplate* templateDa
 		}
 
 		wingsOpenSpeed = chassisData->getWingOpenSpeed();
-	}
-
-	auto appearance = getAppearanceTemplate();
-
-	if (appearance != nullptr) {
-		auto volume = appearance->getBoundingVolume();
-
-		if (volume != nullptr) {
-			const auto& sphere = volume->getBoundingSphere();
-			boundingRadius = sphere.getCenter().length() + sphere.getRadius();
-		}
 	}
 }
 
@@ -1680,23 +1680,29 @@ void ShipObjectImplementation::resetDroidCommands() {
 }
 
 void ShipObjectImplementation::populateDroidCommands(CreatureObject* player) {
-	if (player == nullptr)
+	if (player == nullptr) {
 		return;
+	}
 
 	SkillManager* skillManager = server->getSkillManager();
 
-	if (skillManager == nullptr)
+	if (skillManager == nullptr) {
 		return;
-
-	Locker locker(player);
+	}
 
 	auto ghost = player->getPlayerObject();
 
-	if (ghost == nullptr)
+	if (ghost == nullptr) {
 		return;
+	}
 
-	for (int i = 0; i < availableDroidCommands.size(); ++i)
-		skillManager->addDroidCommand(ghost, "droid+" + availableDroidCommands.get(i));
+	Vector<String> droidCommandNames;
+
+	for (int i = 0; i < availableDroidCommands.size(); ++i) {
+		droidCommandNames.add("droid+" + availableDroidCommands.get(i));
+	}
+
+	skillManager->addDroidCommands(ghost, droidCommandNames, true);
 }
 
 bool ShipObjectImplementation::sendDroidMessageStartTo(SceneObject* playerSceneO, SceneObject* droid) {
@@ -2143,8 +2149,8 @@ float ShipObjectImplementation::getOutOfRangeDistance(uint64 specialRangeID) {
 	if (specialRangeID > 0) {
 		auto pilot = getPilot();
 
-		if (pilot != nullptr) {
-			return pilot->getOutOfRangeDistance(specialRangeID);
+		if (pilot != nullptr && pilot->isMissionRangeObject(specialRangeID)) {
+			return ZoneServer::SPACESTATIONRANGE;
 		}
 	}
 

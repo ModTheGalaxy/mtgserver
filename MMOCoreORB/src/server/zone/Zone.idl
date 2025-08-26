@@ -21,6 +21,8 @@ import server.zone.managers.creature.CreatureManager;
 import server.zone.managers.gcw.GCWManager;
 import system.util.SortedVector;
 import system.util.SynchronizedSortedVector;
+import system.thread.Mutex;
+
 include server.zone.managers.object.ObjectMap;
 include server.zone.managers.planet.MapLocationTable;
 include engine.util.u3d.Vector3;
@@ -47,6 +49,9 @@ class Zone extends SceneObject {
 
 	@dereferenced
 	protected AtomicInteger spawnedAiAgents;
+
+	@dereferenced
+	protected transient Mutex spawnCountMutex;
 
 	@dereferenced
 	protected transient AtomicBoolean managersStarted;
@@ -244,6 +249,10 @@ class Zone extends SceneObject {
 	public native abstract float getZoneObjectRange();
 
 	// Mutators
+
+	public native void incrementSpawnedAgents();
+
+	public native void decrementSpawnedAgents();
 
 	private void setZoneName(final string n) {
 		zoneName = n;

@@ -166,6 +166,8 @@ Luna<LuaCreatureObject>::RegType LuaCreatureObject::Register[] = {
 		{ "attemptPeace", &LuaCreatureObject::attemptPeace },
 		{ "forcePeace", &LuaCreatureObject::forcePeace },
 		{ "isPilotingShip", &LuaCreatureObject::isPilotingShip },
+		{ "setSpawnerID", &LuaCreatureObject::setSpawnerID },
+		{ "getSpawnerID", &LuaCreatureObject::getSpawnerID },
 		{ "storePets", &LuaCreatureObject::storePets },
 
 		// JTL
@@ -173,7 +175,7 @@ Luna<LuaCreatureObject>::RegType LuaCreatureObject::Register[] = {
 		{ "isImperialPilot", &LuaCreatureObject::isImperialPilot },
 		{ "isNeutralPilot", &LuaCreatureObject::isNeutralPilot },
 		{ "hasCertifiedShip", &LuaCreatureObject::hasCertifiedShip },
-		{ "abortQuestMission", &LuaCreatureObject::abortQuestMission },
+		{ "failQuestMission", &LuaCreatureObject::failQuestMission },
 		{ "removeQuestMission", &LuaCreatureObject::removeQuestMission },
 		{ "addSpaceMissionObject", &LuaCreatureObject::addSpaceMissionObject },
 		{ "removeSpaceMissionObject", &LuaCreatureObject::removeSpaceMissionObject },
@@ -1339,6 +1341,23 @@ int LuaCreatureObject::isPilotingShip(lua_State* L) {
 	return 1;
 }
 
+int LuaCreatureObject::setSpawnerID(lua_State* L) {
+	uint64 spawnerID = lua_tointeger(L, -1);
+
+	Locker lock(realObject);
+	realObject->setSpawnerID(spawnerID);
+
+	return 0;
+}
+
+int LuaCreatureObject::getSpawnerID(lua_State* L) {
+	uint64 spawnerID = realObject->getSpawnerID();
+
+	lua_pushnumber(L, spawnerID);
+
+	return 1;
+}
+
 int LuaCreatureObject::storePets(lua_State* L) {
 	Locker lock(realObject);
 
@@ -1451,11 +1470,11 @@ int LuaCreatureObject::hasCertifiedShip(lua_State* L) {
 	return 1;
 }
 
-int LuaCreatureObject::abortQuestMission(lua_State* L) {
+int LuaCreatureObject::failQuestMission(lua_State* L) {
 	int numberOfArguments = lua_gettop(L) - 1;
 
 	if (numberOfArguments != 1) {
-		realObject->error() << "Improper number of arguments in LuaCreatureObject::abortQuestMission.";
+		realObject->error() << "Improper number of arguments in LuaCreatureObject::failQuestMission.";
 		return 0;
 	}
 
@@ -1492,11 +1511,11 @@ int LuaCreatureObject::abortQuestMission(lua_State* L) {
 
 		auto mission = object.castTo<MissionObject*>();
 
-		if (mission == nullptr || (mission->getQuestCRC() != questCRC)) {
+		if (mission == nullptr || (mission->getQuestCRC() != questCRC) || mission->isAborted()) {
 			continue;
 		}
 
-		missionManager->handleMissionAbort(mission, realObject);
+		missionManager->handleMissionFail(mission, realObject);
 
 		return 0;
 	}

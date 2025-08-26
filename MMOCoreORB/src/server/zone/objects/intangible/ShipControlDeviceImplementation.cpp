@@ -202,52 +202,17 @@ void ShipControlDeviceImplementation::fillAttributeList(AttributeListMessage* al
 }
 
 bool ShipControlDeviceImplementation::canBeTradedTo(CreatureObject* player, CreatureObject* receiver, int numberInTrade) {
-	ManagedReference<SceneObject*> datapad = receiver->getSlottedObject("datapad");
-
-	if (datapad == nullptr)
-		return false;
-
-	ZoneServer* zoneServer = player->getZoneServer();
-
-	if (zoneServer == nullptr)
-		return false;
-
-	PlayerManager* playerManager = zoneServer->getPlayerManager();
-
-	if (playerManager == nullptr)
-		return false;
-
-	int totalShips = numberInTrade;
-	int pobShips = 0;
-	int maxStoredShips = playerManager->getBaseStoredShips();
-
-	for (int i = 0; i < datapad->getContainerObjectsSize(); i++) {
-		Reference<SceneObject*> obj =  datapad->getContainerObject(i).castTo<SceneObject*>();
-
-		if (obj == nullptr)
-			continue;
-
-		if (obj->isShipControlDevice()) {
-			totalShips++;
-
-			ShipControlDevice* shipDevice = obj.castTo<ShipControlDevice*>();
-
-			if (shipDevice != nullptr && (shipDevice->getShipType() == ShipManager::POBSHIP))
-				pobShips++;
-		}
-	}
-
-	if (totalShips >= maxStoredShips) {
-		receiver->sendSystemMessage("@space/space_interaction:toomanyships"); // You have too many ships in your datapad already!
+	if (player == nullptr) {
 		return false;
 	}
 
-	if (pobShips >= 1 && getShipType() == ShipManager::POBSHIP) {
-		receiver->sendSystemMessage("@space/space_interaction:too_many_pobs"); // You cannot launch another ship with an interior. Empty out one of your other ships and you may take off with this ship.
-		return false;
-	}
+	StringIdChatParameter cannotTrade;
+	cannotTrade.setStringId("@ui_trade:add_item_failed_prose");
+	cannotTrade.setTT(getObjectID());
 
-	return true;
+	player->sendSystemMessage(cannotTrade); // You cannot trade %TT.
+
+	return false;
 }
 
 int ShipControlDeviceImplementation::canBeDestroyed(CreatureObject* player) {

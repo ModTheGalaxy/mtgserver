@@ -52,7 +52,7 @@ public:
 			return GENERALERROR;
 		}
 
-		ManagedReference<SceneObject*> object = server->getZoneServer()->getObject(objectID, false);
+		ManagedReference<SceneObject*> object = zoneServer->getObject(objectID, false);
 
 		if (object == nullptr) {
 			creature->sendSystemMessage("ERROR GETTIGN OBJECT - nullptr " + String::valueOf(objectID));
@@ -105,6 +105,8 @@ public:
 		"IsUpdated: " << bIsUpdated << endl << endl <<
 		"TreeNode is null: " << (object->getNode() == nullptr ? "true" : "false") << endl;
 
+		auto zone = object->getZone();
+		msg << "Zone: " << (zone != nullptr ? zone->getZoneName() : "nullptr") << endl;
 
 		if (object->isCreatureObject()) {
 			auto creoObject = object->asCreatureObject();
@@ -235,6 +237,27 @@ public:
 						msg << endl; // Spacing
 					}
 				}
+
+				// Movement Modifiers
+				msg << "Walk Speed: " << creoObject->getWalkSpeed() << endl;
+				msg << "Run Speed: " << creoObject->getRunSpeed() << endl;
+				msg << "Current Speed: " << creoObject->getCurrentSpeed() << endl;
+				msg << "Speed Multi Base: " << creoObject->getSpeedMultiplierBase() << endl;
+				msg << "Speed Multi Mod: " << creoObject->getSpeedMultiplierMod() << endl;
+				msg << "Creature Height: " << creoObject->getHeight() << endl;
+
+				msg << "Walk Acceleration: " << creoObject->getWalkAcceleration() << endl;
+				msg << "Run Acceleration: " << creoObject->getRunAcceleration() << endl;
+				msg << "Acceleration Multi Base: " << creoObject->getAccelerationMultiplierBase() << endl;
+				msg << "Acceleration Multi Mod: " << creoObject->getAccelerationMultiplierMod() << endl;
+
+				// Slope Modifiers
+				msg << "Slope Angle: " << creoObject->getSlopeModAngle() << endl;
+				msg << "Slope Mod Percent: " << creoObject->getSlopeModPercent() << endl;
+				msg << "Water Mod Percent: " << creoObject->getWaterModPercent() << endl;
+				msg << "Turn Scale: " << creoObject->getTurnScale() << endl;
+
+				msg << endl;
 
 				// List the active areas
 				SortedVector<ManagedReference<ActiveArea*>>* areas = creoObject->getActiveAreas();

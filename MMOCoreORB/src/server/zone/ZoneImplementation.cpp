@@ -251,3 +251,15 @@ float ZoneImplementation::getBoundingRadius() {
 float ZoneImplementation::getZoneObjectRange() {
 	return ZoneServer::CLOSEOBJECTRANGE;
 }
+
+void ZoneImplementation::incrementSpawnedAgents() {
+	Locker lock(&spawnCountMutex);
+
+	spawnedAiAgents.increment();
+}
+
+void ZoneImplementation::decrementSpawnedAgents() {
+	Locker lock(&spawnCountMutex);
+
+	spawnedAiAgents.decrement();
+}

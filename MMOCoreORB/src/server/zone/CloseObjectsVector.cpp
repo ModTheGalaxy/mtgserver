@@ -10,6 +10,8 @@ CloseObjectsVector::CloseObjectsVector() : messageReceivers() {
 	objects.setNoDuplicateInsertPlan();
 
 	messageReceivers.setNoDuplicateInsertPlan();
+
+	count = 0;
 }
 
 void CloseObjectsVector::safeCopyTo(Vector<ManagedReference<TreeEntry*> >& vec) const {
@@ -71,7 +73,7 @@ void CloseObjectsVector::dropReceiver(TreeEntry* entry) {
 	uint32 receiverTypes = entry->registerToCloseObjectsReceivers();
 
 	if (receiverTypes && messageReceivers.size()) {
-		for (int i = 0; i < CloseObjectsVector::MAXTYPES / 2; ++i) {
+		for (int i = 0; i < CloseObjectsVector::Types::SIZE; ++i) {
 			uint32 type = 1 << i;
 
 			if (receiverTypes & type) {
@@ -183,7 +185,7 @@ const Reference<TreeEntry*>& CloseObjectsVector::get(int idx) const {
 
 void CloseObjectsVector::putReceiver(TreeEntry* entry, uint32 receiverTypes) {
 	if (receiverTypes) {
-		for (int i = 0; i < CloseObjectsVector::MAXTYPES / 2; ++i) {
+		for (int i = 0; i < CloseObjectsVector::Types::SIZE; ++i) {
 			uint32 type = 1 << i;
 
 			if (receiverTypes & type) {

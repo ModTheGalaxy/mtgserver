@@ -184,10 +184,6 @@ public:
 	}
 
 	const ShipComponentData* getShipComponent(const String& name) const {
-		if (name.contains(".iff")) {
-			return shipComponentTemplateNames.get(name);
-		}
-
 		return shipComponents.get(name.hashCode());
 	}
 

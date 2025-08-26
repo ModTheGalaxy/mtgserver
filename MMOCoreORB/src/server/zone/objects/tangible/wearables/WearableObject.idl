@@ -51,6 +51,8 @@ class WearableObject extends TangibleObject {
 	@local
 	public native void updateCraftingValues(CraftingValues values, boolean initialUpdate);
 
+	@preLocked
+	@arg1preLocked
 	public native void applyAttachment(CreatureObject player, Attachment attachment);
 
 	@read

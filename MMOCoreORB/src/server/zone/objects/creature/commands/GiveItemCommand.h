@@ -107,6 +107,8 @@ public:
 				return GENERALERROR;
 			}
 
+			Locker clock(wearable, creature);
+
 			wearable->applyAttachment(creature, attachment);
 
 			return SUCCESS;

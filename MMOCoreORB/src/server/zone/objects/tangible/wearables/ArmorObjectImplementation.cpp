@@ -11,9 +11,9 @@
 #include "templates/tangible/SharedWeaponObjectTemplate.h"
 
 void ArmorObjectImplementation::initializeTransientMembers() {
-	TangibleObjectImplementation::initializeTransientMembers();
-
 	setLoggingName("ArmorObject");
+
+	WearableObjectImplementation::initializeTransientMembers();
 }
 
 void ArmorObjectImplementation::loadTemplateData(SharedObjectTemplate* templateData) {

@@ -33,7 +33,7 @@ protected:
 	void dropReceiver(server::zone::TreeEntry* entry);
 	void putReceiver(server::zone::TreeEntry* entry, uint32 receiverTypes);
 public:
-	enum {
+	enum Types : uint32 {
 		PLAYERTYPE = 1 << 0,
 		CREOTYPE = 1 << 1,
 		COLLIDABLETYPE = 1 << 2,
@@ -41,7 +41,8 @@ public:
 		STRUCTURETYPE = 1 << 4,
 		SHIPTYPE = 1 << 5,
 		PLAYERSHIPTYPE = 1 << 6,
-		MAXTYPES = PLAYERSHIPTYPE
+		//MAXTYPES = 1 << 31,
+		SIZE = 7
 	};
 
 	CloseObjectsVector();

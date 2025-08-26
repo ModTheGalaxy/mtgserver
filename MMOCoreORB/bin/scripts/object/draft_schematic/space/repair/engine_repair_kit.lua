@@ -52,8 +52,8 @@ object_draft_schematic_space_repair_engine_repair_kit = object_draft_schematic_s
 	xpType = "shipwright",
 	xp = 32,
 
-	assemblySkill = "general_assembly",
-	experimentingSkill = "general_experimentation",
+	assemblySkill = "engine_assembly",
+	experimentingSkill = "engine_experimentation",
 	customizationSkill = "medicine_customization",
 
 	customizationOptions = {},
