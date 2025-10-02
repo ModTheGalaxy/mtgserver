@@ -14,6 +14,7 @@ public:
 		insertInt(STRING_HASHCODE("SelectCharacter"));
 
 		insertLong(characterID);
+		insertInt(STRING_HASHCODE("SWGEmu")); // required for SWGEmu servers
 	}
 
 	static uint64 parse(Packet* pack) {

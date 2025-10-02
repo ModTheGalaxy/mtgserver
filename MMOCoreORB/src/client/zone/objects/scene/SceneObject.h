@@ -5,8 +5,6 @@
 
 #include "engine/util/u3d/Coordinate.h"
 
-#include "variables/StringId.h"
-
 class ZoneClient;
 class Zone;
 class SpaceZone;
@@ -23,8 +21,8 @@ protected:
 	VectorMap<uint64, Reference<SceneObject*> > containerObjects;
 	Vector<String> arrangementDescriptors;
 	Vector<String> slotDescriptors;
-	StringId objectName;
-	StringId detailedDescription;
+	String objectName;
+	String detailedDescription;
 
 	Quaternion direction;
 	int containerType;
@@ -246,10 +244,7 @@ public:
 	virtual void parseBaseline6(Message* message) {
 	}
 
-	bool transferObject(SceneObject* object, int containmentType);
-	bool removeObject(SceneObject* object);
-
-	StringId& getObjectName() {
+	String& getObjectName() {
 		return objectName;
 	}
 

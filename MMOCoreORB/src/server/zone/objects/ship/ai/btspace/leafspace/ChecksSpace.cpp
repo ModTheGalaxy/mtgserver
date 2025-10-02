@@ -33,8 +33,9 @@ template<> bool CheckProspectInRange::check(ShipAiAgent* agent) const {
 
 	float aggroMod = 0.5f;
 
-	if (agent->peekBlackboard("aggroMod"))
+	if (agent->peekBlackboard("aggroMod")) {
 		aggroMod = agent->readBlackboard("aggroMod").get<float>();
+	}
 
 	float radiusMin = agent->getMaxDistance();
 	float radiusMax = ShipAiAgent::DEFAULTAGGRORADIUS + radiusMin;
@@ -63,7 +64,7 @@ template<> bool CheckRetreat::check(ShipAiAgent* agent) const {
 
 	uint32 shipBitmask = agent->getShipBitmask();
 
-	if ((shipBitmask & ShipFlag::FIXED_PATROL) || (shipBitmask & ShipFlag::ESCORT)) {
+	if ((shipBitmask & ShipFlag::FIXED_PATROL) || (shipBitmask & ShipFlag::ESCORT) || (agent->getMissionOwnerID() > 0)) {
 		return false;
 	}
 

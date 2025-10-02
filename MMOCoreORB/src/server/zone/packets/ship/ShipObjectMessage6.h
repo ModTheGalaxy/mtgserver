@@ -80,13 +80,11 @@ public:
 	}
 
 	String getShipTypeName(ShipObject* ship) {
-		auto owner = ship->getOwner().get();
-
-		if (owner == nullptr || !owner->isASubChildOf(ship)) {
+		if (ship->isShipAiAgent()) {
 			return ship->getShipType();
+		} else {
+			return "";
 		}
-
-		return "";
 	}
 };
 

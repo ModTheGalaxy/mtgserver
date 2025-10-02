@@ -29,7 +29,7 @@ dathomir_prison_break_shuttle_tier4 = ShipAgent:new {
 	tauntDieChance = 0.1,
 
 	pvpBitmask = ATTACKABLE,
-	shipBitmask = NONE,
+	shipBitmask = TURRETSHIP,
 	optionsBitmask = AIENABLED,
 
 	customShipAiMap = "",

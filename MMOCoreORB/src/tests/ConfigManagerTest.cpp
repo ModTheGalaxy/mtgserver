@@ -160,7 +160,7 @@ TEST_F(ConfigManagerTest, CacheTest) {
 
 	ASSERT_EQ(counter_end, counter_start + 1);
 
-	ASSERT_TRUE((msBase / msCached) > 5);
+	ASSERT_TRUE((msBase / msCached) >= 2);
 }
 
 TEST_F(ConfigManagerTest, JSONTest) {

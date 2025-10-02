@@ -18,6 +18,10 @@
 
 #include "ClientPermissionsMessage.h"
 
+#ifdef WITH_SWGREALMS_API
+#include "server/login/SWGRealmsAPI.h"
+#endif // WITH_SWGREALMS_API
+
 class ClientIdMessageCallback : public MessageCallback {
 	uint32 gameBits{};
 	uint32 dataLen;
@@ -47,10 +51,27 @@ public:
 	}
 
 	void run() {
+#ifdef WITH_SWGREALMS_API
+		SWGRealmsAPI::instance()->validateSession(sessionID, accountID, client->getSession()->getIPAddress(),
+				[zoneClient = Reference<ZoneClientSession*>(client),
+				zoneServer = server,
+				approved_sessionID = sessionID,
+				approved_accountID = accountID](const SessionApprovalResult& result) {
+
+			if (!result.isActionAllowed()) {
+				zoneClient->sendMessage(new ErrorMessage(result.getTitle(), result.getMessage(), 0x0));
+				zoneClient->info(true) << "Invalid session in ClientIDMessageCallback: " << result.getLogMessage();
+				return;
+			}
+
+			SWGRealmsAPI::updateClientIPAddress(zoneClient, result);
+
+			approveSession(zoneClient, zoneServer, approved_sessionID, approved_accountID);
+		});
+#else // WITH_SWGREALMS_API
 		StringBuffer query;
 		query << "SELECT session_id FROM sessions WHERE account_id = " << accountID;
 		query << " AND  ip = '"<< client->getSession()->getIPAddress() <<"' AND expires > NOW();";
-
 		UniqueReference<ResultSet*> result(ServerDatabase::instance()->executeQuery(query));
 
 		if (result == nullptr || !result->next()) {
@@ -91,6 +112,11 @@ public:
 			return;
 		}
 
+		approveSession(client, server, sessionID, accountID);
+#endif // WITH_SWGREALMS_API
+	}
+
+	static void approveSession(ZoneClientSession* client, ZoneProcessServer* server, String sessionID, uint32 accountID) {
 		auto zoneServer = server->getZoneServer();
 
 		if (zoneServer == nullptr) {

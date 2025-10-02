@@ -25,7 +25,7 @@ blacksun_dark_eclipse_tier2 = ShipAgent:new {
 	tauntDieChance = 0.1,
 
 	pvpBitmask = ATTACKABLE,
-	shipBitmask = NONE,
+	shipBitmask = TURRETSHIP,
 	optionsBitmask = AIENABLED,
 
 	customShipAiMap = "",

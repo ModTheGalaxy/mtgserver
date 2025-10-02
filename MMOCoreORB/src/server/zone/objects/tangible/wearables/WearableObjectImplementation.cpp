@@ -19,7 +19,7 @@ void WearableObjectImplementation::initializeTransientMembers() {
 	TangibleObjectImplementation::initializeTransientMembers();
 
 	// Wearable has too many attachments on it for the allowed socket count
-	while (usedSocketCount > socketCount) {
+	while (usedSocketCount > socketCount && wearableSkillMods.size() > 0) {
 		wearableSkillMods.removeElementAt(wearableSkillMods.size() - 1);
 
 		usedSocketCount--;

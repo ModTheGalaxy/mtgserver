@@ -6,9 +6,9 @@ SceneObject::SceneObject(LuaObject* templateData) : Logger("SceneObject") {
 	objectID = 0;
 
 	slottedObjects.setNullValue(nullptr);
-	objectName.setStringId(String(templateData->getStringField("objectName")));
+	objectName = templateData->getStringField("objectName");
 
-	detailedDescription.setStringId(String(templateData->getStringField("detailedDescription")));
+	detailedDescription = templateData->getStringField("detailedDescription");
 
 	containerType = templateData->getIntField("containerType");
 	containerVolumeLimit = templateData->getIntField("containerVolumeLimit");
@@ -43,7 +43,6 @@ SceneObject::SceneObject(LuaObject* templateData) : Logger("SceneObject") {
 	setLogging(false);
 
 	String fullPath;
-	objectName.getFullPath(fullPath);
 
 	client = nullptr;
 	zone = nullptr;
@@ -82,71 +81,5 @@ SceneObject::~SceneObject() {
 
 		zone->getObjectManager()->destroyObject(object->getObjectID());
 	}*/
-}
-
-bool SceneObject::transferObject(SceneObject* object, int containmentType) {
-	info("adding object " + object->getLoggingName());
-
-	if (containerType == 1) {
-		int arrangementSize = object->getArrangementDescriptorSize();
-
-		for (int i = 0; i < arrangementSize; ++i) {
-			String childArrangement = object->getArrangementDescriptor(i);
-
-			if (slottedObjects.contains(childArrangement))
-				return false;
-		}
-
-		for (int i = 0; i < arrangementSize; ++i) {
-			slottedObjects.put(object->getArrangementDescriptor(i), object);
-		}
-	} else if (containerType == 2 || containerType == 3) {
-		if (containerObjects.size() >= containerVolumeLimit)
-			return false;
-
-		if (containerObjects.contains(object->getObjectID()))
-			return false;
-
-		containerObjects.put(object->getObjectID(), object);
-	} else {
-		error("unknown container type");
-		return false;
-	}
-
-	object->setParent(this);
-	object->setContainmentType(containmentType);
-
-	return true;
-}
-
-bool SceneObject::removeObject(SceneObject* object) {
-	if (containerType == 1) {
-		int arrangementSize = object->getArrangementDescriptorSize();
-
-		for (int i = 0; i < arrangementSize; ++i) {
-			String childArrangement = object->getArrangementDescriptor(i);
-
-			if (slottedObjects.get(childArrangement) != object)
-				return false;
-		}
-
-		for (int i = 0; i < arrangementSize; ++i)
-			slottedObjects.drop(object->getArrangementDescriptor(i));
-	} else if (containerType == 2 || containerType == 3) {
-		if (!containerObjects.contains(object->getObjectID()))
-			return false;
-
-		containerObjects.drop(object->getObjectID());
-	} else {
-		error("unkown container type");
-		return false;
-	}
-
-	object->setParent(nullptr);
-
-	/*if (notifyClient)
-		broadcastMessage(object->link(0, 0xFFFFFFFF));*/
-
-	return true;
 }
 

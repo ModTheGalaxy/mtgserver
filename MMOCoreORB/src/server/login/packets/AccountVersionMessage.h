@@ -17,6 +17,7 @@ public:
 		insertAscii(username);
 		insertAscii(password);
 		insertAscii(version);
+		insertInt(STRING_HASHCODE("SWGEmu")); // required for SWGEmu login server
 	}
 
 	static void parse(Packet* pack, String& username, String& password, String& version) {

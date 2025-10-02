@@ -29,66 +29,61 @@ public:
 		try {
 			UnicodeTokenizer tokenizer(arguments);
 
+			if (!tokenizer.hasMoreTokens()) {
+				return GENERALERROR;
+			}
+
+			speed = tokenizer.getFloatToken();
+
+			if (creature->isPilotingShip()) {
+				auto rootParent = creature->getRootParent();
+
+				if (rootParent == nullptr || !rootParent->isPlayerShip()) {
+					creature->sendSystemMessage("You must be piloting a ship to use \"/setSpeed ship\".");
+					creature->info(true) << "1";
+					return GENERALERROR;
+				}
+
+				auto ship = rootParent->asShipObject();
+
+				if (ship == nullptr || ship->getOwnerID() != creature->getObjectID()) {
+					creature->sendSystemMessage("You can only use \"/setSpeed ship\" on your own ship.");
+					return GENERALERROR;
+				}
+
+				speed /= 10.f;
+
+				if (speed < 1.f) {
+					speed = ship->calculateActualMaxSpeed();
+				}
+
+				Locker clock(ship, creature);
+
+				auto deltaVector = ship->getDeltaVector();
+
+				if (deltaVector == nullptr) {
+					return GENERALERROR;
+				}
+
+				ship->setStaffShipSpeed(speed);
+				ship->setActualMaxSpeed(speed, true, nullptr, deltaVector);
+
+				deltaVector->sendMessages(ship);
+
+				StringBuffer msg("You have set your ships speed to: ");
+				msg << (speed * 10.f);
+
+				creature->sendSystemMessage(msg.toString());
+
+				return SUCCESS;
+			}
+
+			if (speed < 0) {
+				throw Exception();
+			}
+
 			if (tokenizer.hasMoreTokens()) {
-				String shipString;
-				tokenizer.getStringToken(shipString);
-
-				if (shipString.contains("ship")) {
-					if (!creature->isPilotingShip()) {
-						creature->sendSystemMessage("You must be piloting a ship to use \"/setSpeed ship\".");
-						return GENERALERROR;
-					}
-
-					auto rootParent = creature->getRootParent();
-
-					if (rootParent == nullptr || !rootParent->isPlayerShip()) {
-						creature->sendSystemMessage("You must be piloting a ship to use \"/setSpeed ship\".");
-						return GENERALERROR;
-					}
-
-					auto ship = rootParent->asShipObject();
-
-					if (ship == nullptr || ship->getOwnerID() != creature->getObjectID()) {
-						creature->sendSystemMessage("You can only use \"/setSpeed ship\" on your own ship.");
-						return GENERALERROR;
-					}
-
-					speed = tokenizer.getFloatToken();
-
-					if (speed < 1) {
-						speed = ship->calculateActualMaxSpeed();
-					}
-
-					Locker clock(ship, creature);
-
-					auto deltaVector = ship->getDeltaVector();
-
-					if (deltaVector == nullptr) {
-						return GENERALERROR;
-					}
-
-					ship->setStaffShipSpeed(speed);
-					ship->setActualMaxSpeed(speed, true, nullptr, deltaVector);
-
-					deltaVector->sendMessages(ship);
-
-					StringBuffer msg("You have set your ships speed to: ");
-					msg << speed;
-
-					creature->sendSystemMessage(msg.toString());
-
-					return SUCCESS;
-				} else {
-					speed = Float::valueOf(shipString);
-				}
-
-				if (speed < 0.f) {
-					throw Exception();
-				}
-
-				if (tokenizer.hasMoreTokens()) {
-					duration = tokenizer.getIntToken();
-				}
+				duration = tokenizer.getIntToken();
 			}
 		} catch (Exception& e) {
 			creature->sendSystemMessage("SYNTAX: /setSpeed <speed> [<duration>]");

@@ -28,7 +28,7 @@ reb_priceofliberty_tier3 = ShipAgent:new {
 	tauntDieChance = 0.1,
 
 	pvpBitmask = ATTACKABLE,
-	shipBitmask = NONE,
+	shipBitmask = TURRETSHIP,
 	optionsBitmask = AIENABLED,
 
 	customShipAiMap = "",

@@ -1,20 +1,17 @@
-
 #include "Zone.h"
 #include "ZoneClientThread.h"
-
+#include "ClientCore.h"
+#include "client/zone/objects/scene/SceneObject.h"
 #include "server/zone/packets/zone/ClientIdMessage.h"
 #include "client/zone/managers/objectcontroller/ObjectController.h"
 #include "client/zone/managers/object/ObjectManager.h"
 
-int Zone::createdChar = 0;
-
-Zone::Zone(int instance, uint64 characterObjectID, uint32 account, uint32 session) : Thread(), Mutex("Zone") {
-	//loginSession = login;
-
+Zone::Zone(uint64 characterObjectID, uint32 account, const String& sessionID, const String& galaxyAddress, uint32 galaxyPort) : Thread(), Mutex("Zone"), Logger("Zone") {
 	characterID = characterObjectID;
 	accountID = account;
-	sessionID = session;
-	player = nullptr;
+	this->sessionID = sessionID;
+	this->galaxyAddress = galaxyAddress;
+	this->galaxyPort = galaxyPort;
 
 	objectManager = new ObjectManager();
 	objectManager->setZone(this);
@@ -24,41 +21,51 @@ Zone::Zone(int instance, uint64 characterObjectID, uint32 account, uint32 sessio
 	client = nullptr;
 	clientThread = nullptr;
 
-	Zone::instance = instance;
 	started = false;
+	sceneReady = false;
+
+	setLogLevel(static_cast<Logger::LogLevel>(ClientCore::getLogLevel()));
+
+	info(true) << "Zone created for character " << characterObjectID << " with sessionID: " << sessionID;
 }
 
 Zone::~Zone() {
 	delete objectManager;
 	objectManager = nullptr;
-
-	clientThread->stop();
 }
 
 void Zone::run() {
 	try {
-		client = new ZoneClient(44463);
+		info(true) << "Zone::run() connecting to " << galaxyAddress << ":" << galaxyPort;
+
+		client = new ZoneClient(galaxyAddress, galaxyPort);
 		client->setAccountID(accountID);
 		client->setZone(this);
-		client->getClient()->setLoggingName("ZoneClient" + String::valueOf(instance));
+		client->getClient()->setLoggingName("ZoneClient");
+		client->getClient()->setLogLevel(static_cast<Logger::LogLevel>(ClientCore::getLogLevel()));
 		client->initialize();
+
+		info(true) << "ZoneClient created and initialized";
 
 		clientThread = new ZoneClientThread(client);
 		clientThread->start();
 
+		info(true) << "ZoneClientThread started";
+
 		if (client->connect()) {
-			client->getClient()->info("connected", true);
+			info(true) << "Connected to zone server";
 		} else {
-			client->getClient()->error("could not connect");
+			error() << "ERROR: Could not connect to zone server";
 			return;
 		}
 
 		startTime.updateToCurrentTime();
 
+		// Send ClientIdMessage with sessionID
+		info(true) << "Sending ClientIdMessage...";
 		BaseMessage* acc = new ClientIdMessage(accountID, sessionID);
 		client->sendMessage(acc);
-
-		client->getClient()->info("sent client id message");
+		info(true) << "ClientIdMessage sent";
 
 		started = true;
 
@@ -67,97 +74,23 @@ void Zone::run() {
 #endif
 
 	} catch (sys::lang::Exception& e) {
-		System::out << e.getMessage() << "\n";
+		error() << "Zone::run() exception: " << e.getMessage();
 		exit(0);
 	}
 }
 
-void Zone::insertPlayer() {
-	insertPlayer(player);
-}
-
-void Zone::insertPlayer(PlayerCreature* pl) {
-	//lock();
-
-	/*if (player == nullptr) {
-		player = pl;
-
-		player->insertToZone(this);
-	}*/
-
-//	System::out << hex << "inserting Player [" << pl->getObjectID() << "] to (" << dec << pl->getPositionX() << ", "
-//		 << pl->getPositionZ() << ", " << pl->getPositionY() << ")\n";
-
-
-	//unlock();
-}
-
 SceneObject* Zone::getObject(uint64 objid) {
-	//lock();
+	if (objectManager == nullptr)
+		return nullptr;
 
-	//SceneObject* obj = objectMap.get(objid);
-
-	//unlock();
-
-
-	SceneObject* obj = objectManager->getObject(objid);
-
-	return obj;
+	return objectManager->getObject(objid);
 }
 
-PlayerCreature* Zone::getSelfPlayer() {
-	return (PlayerCreature*)objectManager->getObject(characterID);
+JSONSerializationType Zone::collectStats() {
+	JSONSerializationType stats;
+	stats["elapsedMs"] = startTime.miliDifference();
+	stats["packetCount"] = client != nullptr ? client->getPacketCount() : 0;
+	stats["sceneReady"] = sceneReady;
+	stats["characterId"] = characterID;
+	return stats;
 }
-
-void Zone::disconnect() {
-	if (client != nullptr) {
-		client->disconnect();
-	}
-}
-
-void Zone::sceneStarted() {
-	client->getClient()->info("zone started in " + String::valueOf(startTime.miliDifference()) + "ms", true);
-}
-
-void Zone::follow(const String& name) {
-	SceneObject* object = objectManager->getObject(name);
-
-	if (object == nullptr) {
-		client->getClient()->error(name + " not found");
-
-		return;
-	}
-
-	PlayerCreature* player = getSelfPlayer();
-
-	Locker _locker(player);
-	player->setFollow(object);
-
-	client->getClient()->info("started following " + name, true);
-}
-
-void Zone::stopFollow() {
-	PlayerCreature* player = getSelfPlayer();
-
-	Locker _locker(player);
-
-	player->setFollow(nullptr);
-	client->getClient()->info("stopped following", true);
-}
-
-void Zone::lurk() {
-	PlayerCreature* player = getSelfPlayer();
-
-	Locker _locker(player);
-}
-
-bool Zone::doCommand(const String& command, const String& arguments) {
-	if (command.length() == 0)
-		return false;
-
-	return objectController->doCommand(command.hashCode(), arguments);
-}
-
-/*void Zone::waitFor() {
-	client->join();
-}*/

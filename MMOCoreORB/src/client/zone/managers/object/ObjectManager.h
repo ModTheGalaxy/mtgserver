@@ -32,7 +32,6 @@ public:
 	virtual ~ObjectManager();
 
 	SceneObject* createObject(uint32 objectCRC, uint64 objectID);
-	void destroyObject(uint64 objectID);
 
 	SceneObject* getObject(uint64 objectID);
 
@@ -47,8 +46,6 @@ public:
 		spaceZone = zn;
 		zone = nullptr;
 	}
-
-	uint32 getObjectMapSize();
 
 	// LUA templates
 	void registerFunctions();

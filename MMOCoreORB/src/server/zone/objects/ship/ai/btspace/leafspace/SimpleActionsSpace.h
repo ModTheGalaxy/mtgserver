@@ -208,6 +208,50 @@ private:
 	uint32 val;
 };
 
+class WriteBlackboardFloat : public BehaviorSpace {
+public:
+	WriteBlackboardFloat(const String& className, const uint32 id, const LuaObject& args) : BehaviorSpace(className, id, args) {
+		parseArgs(args);
+	}
+
+	WriteBlackboardFloat(const WriteBlackboardFloat& a) : BehaviorSpace(a), key(a.key), val(a.val) {
+	}
+
+	WriteBlackboardFloat& operator=(const WriteBlackboardFloat& a) {
+		if (this == &a) {
+			return *this;
+		}
+
+		BehaviorSpace::operator=(a);
+		key = a.key;
+		val = a.val;
+
+		return *this;
+	}
+
+	void parseArgs(const LuaObject& args) {
+		key = getArg<String>()(args, "key");
+		val = getArg<float>()(args, "val");
+	}
+
+	BehaviorSpace::Status execute(ShipAiAgent* agent, unsigned int startIdx = 0) const {
+		agent->writeBlackboard(key, val);
+
+		return SUCCESS;
+	}
+
+	String print() const {
+		StringBuffer msg;
+		msg << className << "-" << key << ":" << val;
+
+		return msg.toString();
+	}
+
+private:
+	String key;
+	float val;
+};
+
 class EraseBlackboard : public BehaviorSpace {
 public:
 	EraseBlackboard(const String& className, const uint32 id, const LuaObject& args) : BehaviorSpace(className, id, args), param("") {
@@ -327,6 +371,43 @@ public:
 
 		return agent->setDisabledEngineSpeed() ? RUNNING : SUCCESS;
 	}
+};
+
+class UpdateHomePosition : public BehaviorSpace {
+	public:
+		UpdateHomePosition(const String& className, const uint32 id, const LuaObject& args) : BehaviorSpace(className, id, args) {
+			parseArgs(args);
+		}
+
+		UpdateHomePosition(const UpdateHomePosition& a) : BehaviorSpace(a) {
+		}
+
+		void parseArgs(const LuaObject& args) {
+			useTargetPosition = getArg<bool>()(args, "useTargetPosition");
+		}
+
+		BehaviorSpace::Status execute(ShipAiAgent* agent, unsigned int startIdx = 0) const {
+			uint32 shipFlag = agent->getShipBitmask();
+
+			auto newHome = agent->getPosition();
+
+			if (useTargetPosition) {
+				ManagedReference<ShipObject*> targetShip = agent->getTargetShipObject().get();
+
+				if (targetShip != nullptr) {
+					Locker clock(targetShip, agent);
+
+					newHome = targetShip->getPosition();
+				}
+			}
+
+			agent->setHomeLocation(newHome.getX(), newHome.getZ(), newHome.getY(), Quaternion::IDENTITY);
+
+			return SUCCESS;
+		}
+
+	private:
+		bool useTargetPosition;
 };
 
 } // namespace leafspace

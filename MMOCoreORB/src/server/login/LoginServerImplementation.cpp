@@ -111,7 +111,7 @@ LoginClient* LoginServerImplementation::createConnection(Socket* sock, SocketAdd
 
 	LoginClient* client = new LoginClient(session);
 
-	info("client connected from \'" + session->getAddress() + "\'");
+	info("client connected from \'" + session->getFullIPAddress() + "\'");
 
 	return client;
 }

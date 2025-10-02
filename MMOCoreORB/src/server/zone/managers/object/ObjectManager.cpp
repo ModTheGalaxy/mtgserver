@@ -820,7 +820,7 @@ void ObjectManager::deSerializeObject(ManagedObject* object, ObjectInputStream* 
 			uint16 tableID = (uint16)(sceno->getObjectID() >> 48);
 			ObjectDatabaseManager::instance()->getDatabaseName(tableID, dbName);
 
-			error() << "could not deserialize scene object of type: " << sceno->getGameObjectType() << " from DB: " << dbName;
+			error() << "could not deserialize scene object of type: " << sceno->getGameObjectType() << " from DB: " << dbName << " Object: " << sceno->getObjectNameStringIdName();
 		} else {
 			error("could not deserialize managed object from DB");
 		}

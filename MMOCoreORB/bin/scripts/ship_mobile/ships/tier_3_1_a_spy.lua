@@ -29,7 +29,7 @@ tier_3_1_a_spy = ShipAgent:new {
 	tauntDieChance = 0.1,
 
 	pvpBitmask = ATTACKABLE,
-	shipBitmask = NONE,
+	shipBitmask = TURRETSHIP,
 	optionsBitmask = AIENABLED,
 
 	customShipAiMap = "",

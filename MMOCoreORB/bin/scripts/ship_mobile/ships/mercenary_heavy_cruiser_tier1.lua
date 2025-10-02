@@ -28,7 +28,7 @@ mercenary_heavy_cruiser_tier1 = ShipAgent:new {
 	tauntDieChance = 0.1,
 
 	pvpBitmask = ATTACKABLE,
-	shipBitmask = NONE,
+	shipBitmask = TURRETSHIP,
 	optionsBitmask = AIENABLED,
 
 	customShipAiMap = "",

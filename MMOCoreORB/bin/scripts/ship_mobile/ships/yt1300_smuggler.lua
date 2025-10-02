@@ -28,7 +28,7 @@ yt1300_smuggler = ShipAgent:new {
 	tauntAggressiveness = 0.05,
 
 	pvpBitmask = ATTACKABLE,
-	shipBitmask = NONE,
+	shipBitmask = TURRETSHIP,
 	optionsBitmask = AIENABLED,
 
 	customShipAiMap = "",

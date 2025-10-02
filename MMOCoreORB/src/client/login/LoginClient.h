@@ -14,6 +14,8 @@ class LoginSession;
 class LoginPacketHandler;
 
 class LoginClient : public ServiceHandler {
+	AtomicInteger packetCount;
+
 	Reference<BaseClient*> client;
 
 	MessageQueue messageQueue;
@@ -23,7 +25,7 @@ class LoginClient : public ServiceHandler {
 	LoginPacketHandler* loginPacketHandler;
 
 public:
-	LoginClient(int port, const String& loggingName);
+	LoginClient(const String& host, int port);
 
 	~LoginClient();
 
@@ -34,7 +36,11 @@ public:
 	}
 
 	void disconnect() {
+		client->info(true) << __FUNCTION__ << "(): processed " << packetCount.get() << " packet(s) for login.";
+
 		client->disconnect();
+
+		loginSession = nullptr;
 	}
 
 	ServiceClient* createConnection(Socket* sock, SocketAddress& addr) {
@@ -82,7 +88,10 @@ public:
 	BaseClient* getClient() {
 		return client;
 	}
-};
 
+	int getPacketCount() {
+		return packetCount.get();
+	}
+};
 
 #endif /* LOGINCLIENT_H_ */

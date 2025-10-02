@@ -581,7 +581,7 @@ ZoneClientSession* ZoneServerImplementation::createConnection(Socket* sock, Sock
 	//client->deploy("ZoneClientSession " + addr.getFullIPAddress());
 	//client->deploy();
 
-	const auto& address = session->getAddress();
+	const auto& address = session->getFullIPAddress();
 
 	debug() << "client connected from \'" << address << "\'";
 

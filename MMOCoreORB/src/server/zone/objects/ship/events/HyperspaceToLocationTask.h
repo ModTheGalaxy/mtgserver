@@ -9,8 +9,8 @@
 #include "server/zone/objects/ship/ShipObject.h"
 
 class HyperspaceToLocationTask : public Task {
-	ManagedWeakReference<CreatureObject*> play;
-	ManagedWeakReference<ShipObject*> ship;
+	WeakReference<CreatureObject*> play;
+	WeakReference<ShipObject*> ship;
 	String zoneName;
 	Vector3 location;
 	int iteration;
@@ -25,14 +25,14 @@ public:
 	}
 
 	void run() {
-		CreatureObject* player = play.get();
-		ShipObject* shipObject = ship.get();
+		auto player = play.get();
+		auto shipObject = ship.get();
 
 		if (player == nullptr || shipObject == nullptr) {
 			return;
 		}
 
-		if (!shipObject->isHyperspacing()) {
+		if (!shipObject->isHyperspacing() || !shipObject->isShipLaunched()) {
 			return;
 		}
 

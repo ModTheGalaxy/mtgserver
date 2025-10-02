@@ -337,6 +337,37 @@ function SpaceHelpers:getPlayerSpaceFactionString(pPlayer)
 	return factionString
 end
 
+-- @param pPlayer pointer to return faction string according to ship's current alignment
+function SpaceHelpers:getPlayerShipFactionString(pPlayer)
+	if (pPlayer == nil) then
+		return 0
+	end
+
+	local factionString = ""
+	local pShip = SceneObject(pPlayer):getRootParent()
+
+	if (pShip ~= nil and SceneObject(pShip):isShipObject()) then
+		factionString = ShipObject(pShip):getShipFactionString()
+	end
+
+	return factionString
+end
+
+-- @param pPlayer pointer to return faction hash according to ship's current alignment
+function SpaceHelpers:getPlayerShipFactionHash(pPlayer)
+	if (pPlayer == nil) then
+		return 0
+	end
+
+	local pShip = SceneObject(pPlayer):getRootParent()
+
+	if (pShip == nil or not SceneObject(pShip):isShipObject()) then
+		return 0
+	end
+
+	return ShipObject(pShip):getShipFactionHash()
+end
+
 -- @param pPlayer pointer to return faction hash by squadron type
 function SpaceHelpers:getPlayerSpaceFactionHash(pPlayer)
 	if (pPlayer == nil) then
@@ -1318,15 +1349,123 @@ end
 -- @param minRange - min distance to find the location
 -- @param maxRange - max distance to find the location
 function SpaceHelpers:getRandomPositionInSphere(x, z, y, minRange, maxRange)
-	local radius = getRandomNumber(minRange, maxRange)
-	local theta = math.random() * (2 * math.pi)  -- Random angle in XY plane
-	local phi = math.acos(2 * math.random() - 1) -- Random angle in vertical plane
+	local bound = 7500
+	local minBound, maxBound = -bound, bound
 
-	local dx = radius * math.sin(phi) * math.cos(theta)
-	local dy = radius * math.sin(phi) * math.sin(theta)
-	local dz = radius * math.cos(phi)
+	-- compute shortest distance from center to the cube (0 if center is inside)
+	local function distanceToCubeMin(cx, cy, cz)
+		local d2 = 0
 
-	return {x = x + dx, z = z + dz, y = y + dy}
+		if cx < minBound then
+			d2 = d2 + (minBound - cx) * (minBound - cx)
+		elseif cx > maxBound then
+			d2 = d2 + (cx - maxBound) * (cx - maxBound)
+		end
+
+		if cy < minBound then
+			d2 = d2 + (minBound - cy) * (minBound - cy)
+		elseif cy > maxBound then
+			d2 = d2 + (cy - maxBound) * (cy - maxBound)
+		end
+
+		if cz < minBound then
+			d2 = d2 + (minBound - cz) * (minBound - cz)
+		elseif cz > maxBound then
+			d2 = d2 + (cz - maxBound) * (cz - maxBound)
+		end
+
+		return math.sqrt(d2)
+	end
+
+	-- Cannot find a point in the cube, bail early.
+	local dist_min = distanceToCubeMin(x, y, z)
+
+	if maxRange < dist_min then
+		Logger:log("SpaceHelpers:getRandomPositionInSphere -- Unable to find location within distance. X: " .. x .. " Z: " .. z .. " Y: " .. y .. " minRange: " .. minRange .. " maxRange: " .. maxRange, LT_ERROR)
+
+		return nil
+	end
+
+	-- safe radius sampler: prefer existing getRandomNumber if defined, otherwise sample uniform-in-volume
+	local function sampleRadius(minR, maxR)
+		if type(getRandomNumber) == "function" then
+			return getRandomNumber(minR, maxR)
+		else
+			-- uniform in spherical volume between minR and maxR
+			local minv = minR * minR * minR
+			local maxv = maxR * maxR * maxR
+			local u = math.random()
+			local r3 = u * (maxv - minv) + minv
+
+			return r3^(1/3)
+		end
+	end
+
+	local function insideCube(px, pz, py)
+		return px > minBound and px < maxBound and py > minBound and py < maxBound and pz > minBound and pz < maxBound
+	end
+
+	local maxAttempts = 100
+
+	for i = 1, maxAttempts do
+		local radius = sampleRadius(minRange, maxRange)
+		local theta = math.random() * (2 * math.pi)
+		local phi = math.acos(2 * math.random() - 1)
+
+		local dx = radius * math.sin(phi) * math.cos(theta)
+		local dy = radius * math.sin(phi) * math.sin(theta)
+		local dz = radius * math.cos(phi)
+
+		local px = x + dx
+		local py = y + dy
+		local pz = z + dz
+
+		if insideCube(px, pz, py) then
+			return { x = px, z = pz, y = py }
+		end
+	end
+
+	-- Closest point inside cube (clamped center). If that point lies within bounds, return it.
+	local function clamp(v, lo, hi)
+		if v < lo then
+			return lo
+		end
+
+		if v > hi then
+			return hi
+		end
+
+		return v
+	end
+
+	local cx = clamp(x, minBound, maxBound)
+	local cy = clamp(y, minBound, maxBound)
+	local cz = clamp(z, minBound, maxBound)
+	local dcx, dcy, dcz = cx - x, cy - y, cz - z
+	local dclosest = math.sqrt(dcx*dcx + dcy*dcy + dcz*dcz)
+
+	if dclosest >= minRange and dclosest <= maxRange then
+		return { x = cx, z = cz, y = cy }
+	end
+
+	Logger:log("SpaceHelpers:getRandomPositionInSphere -- Final: Unable to find location. X: " .. x .. " Z: " .. z .. " Y: " .. y .. " minRange: " .. minRange .. " maxRange: " .. maxRange, LT_ERROR)
+
+	return nil
+end
+
+-- @param pShip - pointer to player ship
+-- @param faction to declare overt
+function SpaceHelpers:declareOvert(pShip, faction)
+	if (pShip == nil or faction == nil) then
+		return
+	end
+
+	if (not ShipObject(pShip):isShipLaunched()) then
+		return
+	end
+
+	TangibleObject(pShip):setFaction(faction)
+	TangibleObject(pShip):setFactionStatus(OVERT)
 end
 
 return SpaceHelpers

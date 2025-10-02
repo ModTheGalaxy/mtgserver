@@ -23,7 +23,7 @@ ndc_transport_light_tier3 = ShipAgent:new {
 	appearance = "civilian",
 
 	pvpBitmask = ATTACKABLE,
-	shipBitmask = NONE,
+	shipBitmask = TURRETSHIP,
 	optionsBitmask = AIENABLED,
 
 	customShipAiMap = "",

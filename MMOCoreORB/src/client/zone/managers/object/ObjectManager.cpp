@@ -7,11 +7,6 @@
 
 #include "ObjectManager.h"
 #include "client/zone/objects/scene/SceneObject.h"
-#include "client/zone/objects/scene/variables/StringId.h"
-
-#include "client/zone/objects/player/PlayerCreature.h"
-#include "client/zone/objects/player/PlayerObject.h"
-#include "client/zone/objects/creature/CreatureObject.h"
 #include "client/zone/objects/ObjectMap.h"
 
 #include "client/zone/Zone.h"
@@ -52,22 +47,6 @@ ObjectManager::~ObjectManager() {
 void ObjectManager::registerObjectTypes() {
 	info("registering object types");
 	//objectFactory.registerObject<SceneObject>(0);
-	objectFactory.registerObject<CreatureObject>(SceneObject::CREATURE);
-	objectFactory.registerObject<CreatureObject>(SceneObject::NPCCREATURE);
-	objectFactory.registerObject<CreatureObject>(SceneObject::DROIDCREATURE);
-	objectFactory.registerObject<CreatureObject>(SceneObject::PROBOTCREATURE);
-	objectFactory.registerObject<CreatureObject>(SceneObject::HELPERDROIDCREATURE);
-
-	objectFactory.registerObject<PlayerCreature>(SceneObject::PLAYERCREATURE);
-	objectFactory.registerObject<PlayerObject>(SceneObject::PLAYEROBJECT);
-
-	objectFactory.registerObject<TangibleObject>(SceneObject::GENERICITEM);
-	objectFactory.registerObject<TangibleObject>(SceneObject::WEARABLECONTAINER);
-
-	objectFactory.registerObject<TangibleObject>(SceneObject::ARMOR);
-	objectFactory.registerObject<TangibleObject>(SceneObject::BODYARMOR); //chest plates
-
-	objectFactory.registerObject<TangibleObject>(SceneObject::CONTAINER); //chest platess
 
 	/*objectFactory.registerObject<IntangibleObject>(SceneObject::INTANGIBLE);
 
@@ -75,7 +54,6 @@ void ObjectManager::registerObjectTypes() {
 	objectFactory.registerObject<Container>(SceneObject::CONTAINER);
 
 	objectFactory.registerObject<CellObject>(SceneObject::CELLOBJECT);
-	objectFactory.registerObject<PlayerObject>(SceneObject::PLAYEROBJECT);
 
 	objectFactory.registerObject<WaypointObject>(SceneObject::WAYPOINT);
 
@@ -160,48 +138,13 @@ SceneObject* ObjectManager::getObject(const UnicodeString& customName) {
 	while (iterator.hasNext()) {
 		SceneObject* object = iterator.next();
 
-		StringId name = object->getObjectName();
-		UnicodeString cust = name.getCustomString();
+		String name = object->getObjectName();
 
-		if (cust.toString() == customName.toString())
+		if (name == customName.toString())
 			return object;
 	}
 
 	return nullptr;
-}
-
-void ObjectManager::destroyObject(uint64 objectID) {
-	Locker _locker(this);
-
-	Reference<SceneObject*> object = objectMap->remove(objectID);
-
-	if (object != nullptr) {
-		object->info("finalizing object");
-
-		while (object->getSlottedObjectsSize() > 0) {
-			Reference<SceneObject*> obj = object->getSlottedObject(0);
-
-			object->removeObject(obj);
-
-			destroyObject(obj->getObjectID());
-		}
-
-		while (object->getContainerObjectsSize() > 0) {
-			Reference<SceneObject*> obj = object->getContainerObject(0);
-
-			object->removeObject(obj);
-
-			destroyObject(obj->getObjectID());
-		}
-
-		//object->finalize();
-	}
-}
-
-uint32 ObjectManager::getObjectMapSize() {
-	Locker _locker(this);
-
-	return objectMap->size();
 }
 
 void ObjectManager::registerFunctions() {

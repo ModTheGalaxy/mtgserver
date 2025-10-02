@@ -5,24 +5,20 @@
 #ifndef ZONECLIENT_H_
 #define ZONECLIENT_H_
 
-#include "client/zone/objects/player/PlayerCreature.h"
+#include "engine/engine.h"
+#include "client/zone/ZonePacketHandler.h"
 
 class Zone;
 class ZonePacketHandler;
 
 class ZoneClient : public ServiceHandler {
+	AtomicInteger packetCount;
+
 	Reference<BaseClient*> client;
 
 	Zone* zone;
-	SpaceZone* spaceZone;
 
-	Reference<PlayerCreature*> player;
-
-	uint32 key;
 	uint32 accountID;
-
-	//bool doRun;
-	//bool disconnecting;
 
 	BasePacketHandler* basePacketHandler;
 	ZonePacketHandler* zonePacketHandler;
@@ -30,7 +26,7 @@ class ZoneClient : public ServiceHandler {
 	MessageQueue messageQueue;
 
 public:
-	ZoneClient(int port);
+	ZoneClient(const String& address, int port);
 
 	~ZoneClient();
 
@@ -41,10 +37,18 @@ public:
 	}
 
 	void disconnect() {
+		client->info(true) << "disconnecting after " << packetCount.get() << " packets.";
+
 		client->disconnect();
 
+		Socket* socket = client->getSocket();
 
-		client->info("disconnected" , true);
+		if (socket != nullptr) {
+			socket->shutdown(SHUT_RDWR);
+			socket->close();
+		}
+
+		client->info(true) << "disconnected";
 	}
 
 	ServiceClient* createConnection(Socket* sock, SocketAddress& addr) {
@@ -83,54 +87,33 @@ public:
 		return messageQueue.pop();
 	}
 
-	//void disconnect(bool doLock = true);
-
 	void setZone(Zone* zone) {
 		ZoneClient::zone = zone;
-		ZoneClient::spaceZone = nullptr;
-	}
-
-	void setZone(SpaceZone* zone) {
-		ZoneClient::spaceZone = zone;
-		ZoneClient::zone = nullptr;
 	}
 
 	void setAccountID(uint32 id) {
 		accountID = id;
 	}
 
-	void setPlayer(PlayerCreature* p) {
-		player = p;
-	}
-
-	void setKey(uint32 key) {
-		ZoneClient::key = key;
-	}
-
 	BaseClient* getClient() {
 		return client;
-	}
-
-	PlayerCreature* getPlayer() {
-		return player;
 	}
 
 	Zone* getZone() {
 		return zone;
 	}
 
-	SpaceZone* getSpaceZone() {
-		return spaceZone;
-	}
-
-	uint32 getKey(){
-		return key;
-	}
-
 	uint32 getAccountID() {
 		return accountID;
 	}
 
+	ZonePacketHandler* getZonePacketHandler() {
+		return zonePacketHandler;
+	}
+
+	int getPacketCount() {
+		return packetCount.get();
+	}
 };
 
 #endif /* ZONECLIENT_H_ */

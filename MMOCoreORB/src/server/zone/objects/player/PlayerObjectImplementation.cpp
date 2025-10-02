@@ -83,9 +83,9 @@
 #include "server/zone/managers/gcw/GCWManager.h"
 #include "server/zone/objects/ship/ShipObject.h"
 
-#ifdef WITH_SESSION_API
-#include "server/login/SessionAPIClient.h"
-#endif // WITH_SESSION_API
+#ifdef WITH_SWGREALMS_API
+#include "server/login/SWGRealmsAPI.h"
+#endif // WITH_SWGREALMS_API
 
 void PlayerObjectImplementation::initializeTransientMembers() {
 	playerLogLevel = ConfigManager::instance()->getPlayerLogLevel();
@@ -1642,13 +1642,13 @@ void PlayerObjectImplementation::notifyOnline() {
 
 	resetSessionStats(true);
 
-#ifdef WITH_SESSION_API
+#ifdef WITH_SWGREALMS_API
 	auto client = playerCreature->getClient();
 
 	// NOTE: Call after resetSessionStats so first session_stats has been saved and can be inspected
-	SessionAPIClient::instance()->notifyPlayerOnline(client != nullptr ? client->getIPAddress() : sessionStatsIPAddress,
+	SWGRealmsAPI::instance()->notifyPlayerOnline(client != nullptr ? client->getIPAddress() : sessionStatsIPAddress,
 			getAccountID(), playerCreature->getObjectID());
-#endif // WITH_SESSION_API
+#endif // WITH_SWGREALMS_API
 
 	ChatManager* chatManager = server->getChatManager();
 	ZoneServer* zoneServer = server->getZoneServer();
@@ -1843,13 +1843,13 @@ void PlayerObjectImplementation::notifyOffline() {
 
 	logSessionStats(true);
 
-#ifdef WITH_SESSION_API
+#ifdef WITH_SWGREALMS_API
 	auto client = playerCreature->getClient();
 
 	// NOTE: Call after logSessionStats so session_stats has been saved and can be inspected
-	SessionAPIClient::instance()->notifyPlayerOffline(client != nullptr ? client->getIPAddress() : sessionStatsIPAddress, getAccountID(),
+	SWGRealmsAPI::instance()->notifyPlayerOffline(client != nullptr ? client->getIPAddress() : sessionStatsIPAddress, getAccountID(),
 			playerCreature->getObjectID());
-#endif // WITH_SESSION_API
+#endif // WITH_SWGREALMS_API
 }
 
 void PlayerObjectImplementation::incrementSessionMovement(float moveDelta) {

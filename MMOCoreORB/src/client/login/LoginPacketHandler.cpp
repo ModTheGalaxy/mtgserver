@@ -9,17 +9,40 @@
 
 #include "LoginPacketHandler.h"
 
+#include <bitset>
+
 void LoginPacketHandler::handleMessage(Message* pack) {
+	Locker lock(this);
+
 	sys::uint16 opcount = pack->parseShort();
 	sys::uint32 opcode = pack->parseInt();
 
-	// info(true) << "LoginPacketHandler::handleMessage -- opcount: " << opcount << " opcode: " << opcode << " Packet: " << *pack;
+	info(true) << "-------------------- (0x" << hex << opcode << ") --------------------";
 
 	switch (opcount) {
 	case 02:
 		switch (opcode) {
 		case STRING_HASHCODE("EnumerateCharacterId"): // 0x65EA4574 char create success
 			handleEnumerateCharacterId(pack);
+			pending_packets &= ~0x01;
+			break;
+
+		case STRING_HASHCODE("LoginEnumCluster"): // 0xC11C63B9 galaxy list
+			handleLoginEnumCluster(pack);
+			pending_packets &= ~0x02;
+			break;
+		}
+		break;
+	case 03:
+		switch (opcode) {
+		case STRING_HASHCODE("ErrorMessage"):
+			handleErrorMessage(pack);
+			pending_packets = 0;
+			break;
+
+		case STRING_HASHCODE("LoginClusterStatus"): // 0x3436AEB6 galaxy status with address/port
+			handleLoginClusterStatus(pack);
+			pending_packets &= ~0x04;
 			break;
 		}
 		break;
@@ -27,53 +50,118 @@ void LoginPacketHandler::handleMessage(Message* pack) {
 		switch (opcode) {
 		case STRING_HASHCODE("LoginClientToken"): // 0xAAB296C6 client token
 			handleLoginClientToken(pack);
-			break;
-		}
-		break;
-
-	case 03:
-		switch (opcode) {
-		case STRING_HASHCODE("ErrorMessage"):
-			handleErrorMessage(pack);
+			pending_packets &= ~0x08;
 			break;
 		}
 		break;
 
 	default:
-		error() << "unhandled operand count" << pack->toString();
+		error() << "Unhandled packet - opcount: " << opcount << " opcode: 0x" << hex << opcode << dec;
+		pending_packets = 0;
 		break;
+	}
+
+	// If we've seen all the packets or errored out signal complete
+	if (pending_packets == 0) {
+		loginComplete();
 	}
 }
 
 void LoginPacketHandler::handleErrorMessage(Message* pack) {
-	BaseClient* client = (BaseClient*) pack->getClient();
-	client->info("received ErrorMessage");
-
 	String errorType, errorMessage;
 
 	pack->parseAscii(errorType);
 	pack->parseAscii(errorMessage);
 
-	client->error(errorType + " : " + errorMessage);
-	//client->disconnect();
-	//exit(1);
+	info(true) << "ERROR: " << errorType << " - " << errorMessage ;
+
+	loginSession->signalCompletion();
 }
 
 void LoginPacketHandler::handleLoginClientToken(Message* pack) {
-	BaseClient* client = (BaseClient*) pack->getClient();
-	client->info("received LoginClientToken");
+	info(true) << __FUNCTION__;
 
-	uint32 size = pack->parseInt();
-	uint32 session = pack->parseInt();
+	uint32 sessionLength = pack->parseInt();
+	uint32 len = sessionLength - 4;
+
+	String sessionID;
+	for (uint32 i = 0; i < len; ++i) {
+		char byte = pack->parseByte();
+		sessionID += byte;
+	}
+
 	uint32 accountID = pack->parseInt();
+	uint32 stationID = pack->parseInt();
+
+	String username;
+	pack->parseAscii(username);
 
 	loginSession->setAccountID(accountID);
-	loginSession->setSessionID(session);
+	loginSession->setSessionID(sessionID);
+
+	info(true) << "    Username: " << username ;
+	info(true) << "    Account ID: " << accountID ;
+	info(true) << "    Session ID: " << sessionID ;
+	info(true) << "    Station ID: " << stationID ;
+}
+
+void LoginPacketHandler::handleLoginEnumCluster(Message* pack) {
+	info(true) << __FUNCTION__;
+
+	uint32 galaxyCount = pack->parseInt();
+
+	for (int i = 0; i < galaxyCount; ++i) {
+		uint32 galaxyID = pack->parseInt();
+
+		String galaxyName;
+		pack->parseAscii(galaxyName);
+
+		uint32 serverStatus = pack->parseInt();
+
+		// Create Galaxy with ID and name
+		auto& galaxy = loginSession->getGalaxy(galaxyID);
+		galaxy.setName(galaxyName);
+
+		info(true) << "    Galaxy[" << i << "]: " << galaxy;
+	}
+
+	uint32 footer = pack->parseInt();
+}
+
+void LoginPacketHandler::handleLoginClusterStatus(Message* pack) {
+	info(true) << __FUNCTION__;
+
+	uint32 galaxyCount = pack->parseInt();
+
+	for (int i = 0; i < galaxyCount; ++i) {
+		uint32 galaxyID = pack->parseInt();
+
+		String address;
+		pack->parseAscii(address);
+
+		uint16 port = pack->parseShort();
+		uint16 pingPort = pack->parseShort();
+
+		uint32 population = pack->parseInt();
+		uint32 maxCapacity = pack->parseInt();
+		uint32 distance = pack->parseInt();
+		uint32 status = pack->parseInt();
+		uint32 recommended = pack->parseInt();
+		uint8 unknown = pack->parseByte();
+
+		auto& galaxy = loginSession->getGalaxy(galaxyID);
+
+		galaxy.setAddress(address);
+		galaxy.setPort(port);
+		galaxy.setPingPort(pingPort);
+		galaxy.setPopulation(population);
+
+		info(true) << "    Galaxy[" << i << "]: " << galaxy;
+	}
 }
 
 void LoginPacketHandler::handleEnumerateCharacterId(Message* pack) {
-	BaseClient* client = (BaseClient*) pack->getClient();
-	client->info("received EnumerateCharacterId");
+	info(true) << __FUNCTION__;
 
 	uint32 characters = pack->parseInt();
 
@@ -81,9 +169,8 @@ void LoginPacketHandler::handleEnumerateCharacterId(Message* pack) {
 		return;
 
 	if (characters == 0) {
-		client->info("no characters found");
-
-		loginSession->setSelectedCharacter(-1);
+		info(true) << "** No characters found **" ;
+		loginComplete();
 		return;
 	}
 
@@ -96,27 +183,13 @@ void LoginPacketHandler::handleEnumerateCharacterId(Message* pack) {
 		uint32 galaxy = pack->parseInt();
 		uint32 serverStatus = pack->parseInt();
 
-		StringBuffer player;
-		player << "Character [" << i << "]: [" << name.toString() << "]";
+		CharacterListEntry entry;
+		entry.setObjectID(oid);
+		entry.setGalaxyID(galaxy);
+		entry.setFirstName(name.toString());
 
-		client->info(player.toString());
-		loginSession->addCharacter(oid);
+		loginSession->addCharacter(entry);
+
+		info(true) << "    Character[" << i << "]: " << entry;
 	}
-
-	client->info("please enter character to login... -1 to create a new one", true);
-
-	char characterID[32];
-	auto res = fgets(characterID, sizeof(characterID), stdin);
-
-	if (!res)
-		return;
-
-	String selected = characterID;
-	selected = selected.replaceFirst("\n", "");
-
-	int selectedInt = Integer::valueOf(selected);
-
-	client->info("selected character " + String::valueOf(selectedInt));
-
-	loginSession->setSelectedCharacter(selectedInt);
 }

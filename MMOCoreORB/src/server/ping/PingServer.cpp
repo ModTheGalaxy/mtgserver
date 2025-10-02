@@ -31,7 +31,7 @@ void PingServer::shutdown() {
 PingClient* PingServer::createConnection(Socket* sock, SocketAddress& addr) {
 	PingClient* client = new PingClient(this, sock, addr);
 
-	info("client connected from \'" + client->getAddress() + "\'");
+	info("client connected from \'" + client->getFullIPAddress() + "\'");
 
 	return client;
 }

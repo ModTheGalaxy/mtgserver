@@ -198,7 +198,7 @@ add_custom_target(rebuild-idl
 	COMMENT "Rebuilding idl sources"
         VERBATIM)
 
-if (ENABLE_REST_SERVER OR ENABLE_SESSION_API)
+if (ENABLE_REST_SERVER OR ENABLE_SWGREALMS)
 	find_package(cpprestsdk QUIET NAMES cpprestsdk cpprest)
 
 	if (cpprestsdk_FOUND)

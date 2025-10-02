@@ -124,7 +124,7 @@ public:
 		String type = isMissileLauncher ? "missile" : "countermeasure";
 
 		stringId.setStringId("space/space_interaction", "reloaded_x_" + type + "_ammo");
-		stringId.setDI(ammo->getAttributeValue("fltmaxammo"));
+		stringId.setDI(ammo->getUseCount());
 		stringId.setTO(sceneAmmo->getObjectID());
 
 		creature->sendSystemMessage(stringId);

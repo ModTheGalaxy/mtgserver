@@ -530,6 +530,12 @@ ShipObject* ThreatMap::getHighestDamageGroupShip() {
 TangibleObject* ThreatMap::getHighestThreatAttacker() {
 	Locker locker(&lockMutex);
 
+	ManagedReference<TangibleObject*> selfStrong = cast<TangibleObject*>(self.get().get());
+
+	if (selfStrong == nullptr) {
+		return nullptr;
+	}
+
 	ManagedReference<TangibleObject*> currentThreat = this->currentThreat.get();
 
 	if (currentThreat != nullptr && !currentThreat->isDestroyed() && !cooldownTimerMap.isPast("doEvaluation")) {
@@ -539,6 +545,12 @@ TangibleObject* ThreatMap::getHighestThreatAttacker() {
 			if (currentCreo != nullptr && !currentCreo->isDead() && !currentCreo->isIncapacitated()) {
 				return currentCreo;
 			}
+		} else if (currentThreat->isShipObject()) {
+			ManagedReference<ShipObject*> currentShip = currentThreat->asShipObject();
+
+			if (currentShip != nullptr && !currentShip->isShipDestroyed()) {
+				return currentThreat;
+			}
 		} else {
 			return currentThreat;
 		}
@@ -546,13 +558,11 @@ TangibleObject* ThreatMap::getHighestThreatAttacker() {
 
 	threatMatrix.clear();
 
-	ManagedReference<TangibleObject*> selfStrong = cast<TangibleObject*>(self.get().get());
-
 	for (int i = 0; i < size(); ++i) {
 		ThreatMapEntry* entry = &elementAt(i).getValue();
 		TangibleObject* tano = elementAt(i).getKey();
 
-		if (tano == nullptr || selfStrong == nullptr) {
+		if (tano == nullptr) {
 			continue;
 		}
 
@@ -574,8 +584,9 @@ TangibleObject* ThreatMap::getHighestThreatAttacker() {
 		} else if (selfStrong->isShipObject()) {
 			ShipObject* selfShip = selfStrong->asShipObject();
 
-			if (selfShip == nullptr || !tano->isInRange(selfShip, 4096.f) || !tano->isAttackableBy(selfShip))
+			if (selfShip == nullptr || !tano->isInRange(selfShip, 1024.f + tano->getBoundingRadius()) || !tano->isAttackableBy(selfShip)) {
 				continue;
+			}
 
 			threatMatrix.add(tano, entry);
 		}

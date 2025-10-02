@@ -179,6 +179,20 @@ public:
 		return banAdmin;
 	}
 
+	String toString() const {
+		StringBuffer buf;
+		buf << "CharacterListEntry("
+			<< "name: " << getFullName()
+			<< ", oid: " << objectID
+			<< ", galaxy: " << galaxyID
+			<< ", account: " << accountID
+			<< ")";
+		return buf.toString();
+	}
+
+	String toStringData() const {
+		return toString();
+	}
 };
 
 

@@ -104,6 +104,8 @@ class ZoneClientSession extends ManagedObject {
 	@read
 	public native string getIPAddress();
 
+	public native void setIPAddress(final string newIP);
+
 	// setters and getters
 	public native void setPlayer(CreatureObject playerCreature);
 

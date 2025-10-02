@@ -124,6 +124,11 @@ void SpaceCombatManager::applyDamage(ShipObject* ship, const ShipProjectile* pro
 		return;
 	}
 
+
+	if (ship->isPlayerShip() && targetShip->isPlayerShip()) {
+		damage *= 0.75f;
+	}
+
 	if (damage > 1.f) {
 		auto targetThreatMap = targetShip->getThreatMap();
 

@@ -128,4 +128,16 @@ void ServerDatabase::updateDatabaseSchema() {
 		",PRIMARY KEY (`account_id`,`galaxy_id`)"
 		") ENGINE=MyISAM DEFAULT CHARSET=latin1;"
 	);
+
+	alterDatabase(1006,
+		"ALTER TABLE `session_stats` MODIFY COLUMN `ip` VARCHAR(64);"
+	);
+
+	alterDatabase(1007,
+		"ALTER TABLE `sessions` MODIFY COLUMN `ip` VARCHAR(64);"
+	);
+
+	alterDatabase(1008,
+		"ALTER TABLE `account_log` MODIFY COLUMN `ip_address` VARCHAR(64);"
+	);
 }

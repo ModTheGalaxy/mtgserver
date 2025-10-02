@@ -4,15 +4,17 @@
 
 /**
  * @author      : lordkator (lordkator@swgemu.com)
- * @file        : SessionAPIClient.cpp
+ * @file        : SWGRealmsAPI.cpp
  * @created     : Fri Nov 29 10:04:14 UTC 2019
  */
 
-#ifdef WITH_SESSION_API
+#ifdef WITH_SWGREALMS_API
 
-#define SESSION_API_CLIENT_VERSION 1002
+#define SWGREALMS_API_VERSION 1004
 
-#include "SessionAPIClient.h"
+#include "SWGRealmsAPI.h"
+
+#include "server/zone/ZoneClientSession.h"
 
 #include <cpprest/filestream.h>
 #include <cpprest/http_client.h>
@@ -23,11 +25,11 @@ using namespace web;
 using namespace web::http;
 using namespace web::http::client;
 
-SessionAPIClient::SessionAPIClient() {
+SWGRealmsAPI::SWGRealmsAPI() {
 	trxCount = 0;
 
 	// Separate log file to avoid spamming the console
-	setLoggingName("SessionAPIClient");
+	setLoggingName("SWGRealmsAPI");
 	setFileLogger("log/session_api.log", true, ConfigManager::instance()->getRotateLogAtStart());
 	setLogSynchronized(true);
 	setRotateLogSizeMB(ConfigManager::instance()->getInt("Core3.Login.API.RotateLogSizeMB", ConfigManager::instance()->getRotateLogSizeMB()));
@@ -66,24 +68,21 @@ SessionAPIClient::SessionAPIClient() {
 	failOpen = config->getBool("Core3.Login.API.FailOpen", false);
 
 	info(true) << "Starting " << toString();
-
-	// TODO: Make this a config option?
-	// crossplat::threadpool::initialize_with_threads(8);
 }
 
-SessionAPIClient::~SessionAPIClient() {
+SWGRealmsAPI::~SWGRealmsAPI() {
 	crossplat::threadpool::shared_instance().service().stop();
 	info(true) << "Shutdown";
 }
 
-String SessionAPIClient::toStringData() const {
+String SWGRealmsAPI::toStringData() const {
 	return toString();
 }
 
-String SessionAPIClient::toString() const {
+String SWGRealmsAPI::toString() const {
 	StringBuffer buf;
 
-	buf << "SessionAPIClient " << this << " ["
+	buf << "SWGRealmsAPI " << this << " ["
 		<< "apiEnabled: " << apiEnabled << ", "
 		<< "trxCount: " << trxCount << ", "
 		<< "errCount: " << errCount << ", "
@@ -96,7 +95,7 @@ String SessionAPIClient::toString() const {
 	return buf.toString();
 }
 
-void SessionAPIClient::apiCall(const String& src, const String& basePath, const SessionAPICallback& resultCallback) {
+void SWGRealmsAPI::apiCall(const String& src, const String& basePath, const SessionAPICallback& resultCallback, const String& method, const String& body) {
 	// If not enabled just return ALLOW all the time
 	if (!apiEnabled) {
 		SessionApprovalResult result;
@@ -109,7 +108,7 @@ void SessionAPIClient::apiCall(const String& src, const String& basePath, const 
 
 		Core::getTaskManager()->executeTask([resultCallback, result] {
 			resultCallback(result);
-		}, "SessionAPIClientResult-nop-" + src, "slowQueue");
+		}, "SWGRealmsAPIResult-nop-" + src, "slowQueue");
 		return;
 	}
 
@@ -135,13 +134,17 @@ void SessionAPIClient::apiCall(const String& src, const String& basePath, const 
 
 	http_client client(baseURL.toCharArray(), client_config);
 
-	http_request req(methods::GET);
+	http_request req(method == "POST" ? methods::POST : methods::GET);
 
 	String authHeader = "Bearer " + apiToken;
 
 	req.headers().add(U("Authorization"), authHeader.toCharArray());
 
 	req.set_request_uri(path.toCharArray());
+
+	if (!body.isEmpty()) {
+		req.set_body(body.toCharArray(), "application/json");
+	}
 
 	client.request(req)
 		.then([this, src, path](pplx::task<http_response> task) {
@@ -180,7 +183,7 @@ void SessionAPIClient::apiCall(const String& src, const String& basePath, const 
 			}
 
 			return resp.extract_json();
-		}).then([this, src, path, resultCallback, startTime](pplx::task<json::value> task) {
+		}).then([this, src, method, path, resultCallback, startTime](pplx::task<json::value> task) {
 			SessionApprovalResult result;
 			auto logPrefix = result.getClientTrxId() + " " + src + ": ";
 			auto result_json = json::value();
@@ -227,6 +230,30 @@ void SessionAPIClient::apiCall(const String& src, const String& basePath, const 
 					result.setDetails(String(result_json[U("details")].as_string().c_str()));
 				}
 
+				if (result_json.has_field("eip")) {
+					result.setEncryptedIP(String(result_json[U("eip")].as_string().c_str()));
+				}
+
+				if (result_json.has_field("session_id")) {
+					result.setSessionID(String(result_json[U("session_id")].as_string().c_str()));
+				}
+
+				if (result_json.has_field("account_id")) {
+					auto field = result_json[U("account_id")];
+
+					if (field.is_number()) {
+						result.setAccountID((uint32)field.as_number().to_uint32());
+					}
+				}
+
+				if (result_json.has_field("station_id")) {
+					auto field = result_json[U("station_id")];
+
+					if (field.is_number()) {
+						result.setStationID((uint32)field.as_number().to_uint32());
+					}
+				}
+
 				if (result_json.has_field("debug")) {
 					auto debug = result_json[U("debug")];
 
@@ -251,15 +278,15 @@ void SessionAPIClient::apiCall(const String& src, const String& basePath, const 
 				result.setDebugValue("trx_id", "dry-run-trx-id");
 			}
 
-			debug() << logPrefix << "END apiCall [path=" << path << "] result = " << result;
+			debug() << logPrefix << "END apiCall " << method << " [path=" << path << "] result = " << result;
 
 			Core::getTaskManager()->executeTask([resultCallback, result] {
 				resultCallback(result);
-			}, "SessionAPIClientResult-" + src, "slowQueue");
+			}, "SWGRealmsAPIResult-" + src, "slowQueue");
 		});
 }
 
-void SessionAPIClient::apiNotify(const String& src, const String& basePath) {
+void SWGRealmsAPI::apiNotify(const String& src, const String& basePath) {
 	apiCall(src, basePath, [=](const SessionApprovalResult& result) {
 		if (!result.isActionAllowed()) {
 			error() << src << " unexpected failure: " << result;
@@ -267,26 +294,52 @@ void SessionAPIClient::apiNotify(const String& src, const String& basePath) {
 	});
 }
 
-void SessionAPIClient::notifyGalaxyStart(uint32 galaxyID) {
+void SWGRealmsAPI::notifyGalaxyStart(uint32 galaxyID) {
 	StringBuffer path;
 
 	// Save for later
 	this->galaxyID = galaxyID;
 
-	path << "/v1/core3/galaxy/" << galaxyID << "/start?client_version=" << SESSION_API_CLIENT_VERSION;
+	path << "/v1/core3/galaxy/" << galaxyID << "/start?client_version=" << SWGREALMS_API_VERSION;
 
 	apiNotify(__FUNCTION__, path.toString());
 }
 
-void SessionAPIClient::notifyGalaxyShutdown() {
+void SWGRealmsAPI::notifyGalaxyShutdown() {
 	StringBuffer path;
 
-	path << "/v1/core3/galaxy/" << galaxyID << "/shutdown?client_version=" << SESSION_API_CLIENT_VERSION;
+	path << "/v1/core3/galaxy/" << galaxyID << "/shutdown?client_version=" << SWGREALMS_API_VERSION;
 
 	apiNotify(__FUNCTION__, path.toString());
 }
 
-void SessionAPIClient::approveNewSession(const String& ip, uint32 accountID, const SessionAPICallback& resultCallback) {
+void SWGRealmsAPI::createSession(const String& username, const String& password, const String& clientVersion, const String& clientEndpoint, const SessionAPICallback& resultCallback) {
+	if (!apiEnabled) {
+		SessionApprovalResult result;
+		result.setAction(SessionApprovalResult::ApprovalAction::REJECT);
+		result.setTitle("Temporary Server Error");
+		result.setMessage("If the error continues please contact support and mention error code = S");
+		result.setDetails("SWGRealms API required for authentication but not configured");
+		result.setDebugValue("trx_id", "api-disabled-auth");
+
+		Core::getTaskManager()->executeTask([resultCallback, result] {
+			resultCallback(result);
+		}, "SWGRealmsAPIResult-nop-createSession", "slowQueue");
+
+		return;
+	}
+
+	auto requestBody = json::value::object();
+	requestBody[U("username")] = json::value::string(U(username.toCharArray()));
+	requestBody[U("password")] = json::value::string(U(password.toCharArray()));
+	requestBody[U("client_version")] = json::value::string(U(clientVersion.toCharArray()));
+	requestBody[U("client_ip")] = json::value::string(U(clientEndpoint.toCharArray()));
+	requestBody[U("galaxy_id")] = json::value::number(galaxyID);
+
+	apiCall(__FUNCTION__, "/v1/core3/account/login", resultCallback, "POST", String(requestBody.serialize().c_str()));
+}
+
+void SWGRealmsAPI::approveNewSession(const String& ip, uint32 accountID, const SessionAPICallback& resultCallback) {
 	StringBuffer path;
 
 	path << "/v1/core3/account/" << accountID << "/galaxy/" << galaxyID << "/session/ip/" << ip << "/approval";
@@ -294,7 +347,20 @@ void SessionAPIClient::approveNewSession(const String& ip, uint32 accountID, con
 	apiCall(__FUNCTION__, path.toString(), resultCallback);
 }
 
-void SessionAPIClient::notifySessionStart(const String& ip, uint32 accountID) {
+void SWGRealmsAPI::validateSession(const String& sessionID, uint32 accountID, const String& ip, const SessionAPICallback& resultCallback) {
+	StringBuffer path;
+
+	path << "/v1/core3/account/" << accountID
+		<< "/galaxy/" << galaxyID
+		<< "/session/ip/" << ip
+		<< "/sessionHash/" << sessionID
+		<< "/isvalidsession"
+		;
+
+	apiCall(__FUNCTION__, path.toString(), resultCallback);
+}
+
+void SWGRealmsAPI::notifySessionStart(const String& ip, uint32 accountID) {
 	StringBuffer path;
 
 	path << "/v1/core3/account/" << accountID << "/galaxy/" << galaxyID << "/session/ip/" << ip << "/start";
@@ -302,7 +368,7 @@ void SessionAPIClient::notifySessionStart(const String& ip, uint32 accountID) {
 	apiNotify(__FUNCTION__, path.toString());
 }
 
-void SessionAPIClient::notifyDisconnectClient(const String& ip, uint32 accountID, uint64_t characterID, String eventType) {
+void SWGRealmsAPI::notifyDisconnectClient(const String& ip, uint32 accountID, uint64_t characterID, String eventType) {
 	StringBuffer path;
 
 	path << "/v1/core3/account/" << accountID << "/galaxy/" << galaxyID << "/session/ip/" << ip << "/player/" << characterID << "/disconnect"
@@ -311,7 +377,7 @@ void SessionAPIClient::notifyDisconnectClient(const String& ip, uint32 accountID
 	apiNotify(__FUNCTION__, path.toString());
 }
 
-void SessionAPIClient::approvePlayerConnect(const String& ip, uint32 accountID, uint64_t characterID,
+void SWGRealmsAPI::approvePlayerConnect(const String& ip, uint32 accountID, uint64_t characterID,
 		const ArrayList<uint32>& loggedInAccounts, const SessionAPICallback& resultCallback) {
 	StringBuffer path;
 
@@ -328,15 +394,20 @@ void SessionAPIClient::approvePlayerConnect(const String& ip, uint32 accountID, 
 	apiCall(__FUNCTION__, path.toString(), resultCallback);
 }
 
-void SessionAPIClient::notifyPlayerOnline(const String& ip, uint32 accountID, uint64_t characterID) {
+void SWGRealmsAPI::notifyPlayerOnline(const String& ip, uint32 accountID, uint64_t characterID,
+		const SessionAPICallback& resultCallback) {
 	StringBuffer path;
 
 	path << "/v1/core3/account/" << accountID << "/galaxy/" << galaxyID << "/session/ip/" << ip << "/player/" << characterID << "/online";
 
-	apiNotify(__FUNCTION__, path.toString());
+	if (resultCallback != nullptr) {
+		apiCall(__FUNCTION__, path.toString(), resultCallback);
+	} else {
+		apiNotify(__FUNCTION__, path.toString());
+	}
 }
 
-void SessionAPIClient::notifyPlayerOffline(const String& ip, uint32 accountID, uint64_t characterID) {
+void SWGRealmsAPI::notifyPlayerOffline(const String& ip, uint32 accountID, uint64_t characterID) {
 	StringBuffer path;
 
 	path << "/v1/core3/account/" << accountID << "/galaxy/" << galaxyID << "/session/ip/" << ip << "/player/" << characterID << "/offline";
@@ -344,7 +415,7 @@ void SessionAPIClient::notifyPlayerOffline(const String& ip, uint32 accountID, u
 	apiNotify(__FUNCTION__, path.toString());
 }
 
-bool SessionAPIClient::consoleCommand(const String& arguments) {
+bool SWGRealmsAPI::consoleCommand(const String& arguments) {
 	StringTokenizer tokenizer(arguments);
 
 	String subcmd;
@@ -355,26 +426,26 @@ bool SessionAPIClient::consoleCommand(const String& arguments) {
 	}
 
 	if (subcmd == "help") {
-		System::out << "Available sessionapi commands:" << endl
+		System::out << "Available swgrealms commands:" << endl
 			<< "\thelp - This command" << endl
-			<< "\tenable - Enable Session API Client" << endl
-			<< "\tdisable - Disable Session API Client" << endl
-			<< "\tstatus - Session API status" << endl
-			<< "\tdryrun {off} - Control session dry run setting" << endl
-			<< "\tdebug {level} - Set debug level for session API" << endl
+			<< "\tenable - Enable SWGRealms API" << endl
+			<< "\tdisable - Disable SWGRealms API" << endl
+			<< "\tstatus - SWGRealms API status" << endl
+			<< "\tdryrun {off} - Control dry run setting" << endl
+			<< "\tdebug {level} - Set debug level" << endl
 			;
 		return true;
 	} else if (subcmd == "enable") {
 		if (baseURL.length() == 0 || apiToken.length() == 0) {
-			info(true) << "SessionAPIClient can not be enabled without Core3.Login.API.BaseURL and Core3.Login.API.APIToken.";
+			info(true) << "SWGRealmsAPI can not be enabled without Core3.Login.API.BaseURL and Core3.Login.API.APIToken.";
 		} else {
 			apiEnabled = true;
-			info(true) << "SessionAPIClient enabled.";
+			info(true) << "SWGRealmsAPI enabled.";
 		}
 		return true;
 	} else if (subcmd == "disable") {
 		apiEnabled = false;
-		info(true) << "SessionAPIClient disabled.";
+		info(true) << "SWGRealmsAPI disabled.";
 		return true;
 	} else if (subcmd == "status") {
 		System::out << "Status for " << toString() << endl;
@@ -394,9 +465,9 @@ bool SessionAPIClient::consoleCommand(const String& arguments) {
 		dryRun = newDryRun;
 
 		if (dryRun) {
-			info(true) << "SessionAPIClient set to dry run, api calls continue but results are ignored.";
+			info(true) << "SWGRealmsAPI set to dry run, api calls continue but results are ignored.";
 		} else {
-			info(true) << "SessionAPIClient set to run, api results will be honored by the server.";
+			info(true) << "SWGRealmsAPI set to run, api results will be honored by the server.";
 		}
 
 		return true;
@@ -414,7 +485,7 @@ bool SessionAPIClient::consoleCommand(const String& arguments) {
 		return true;
 	}
 
-	info(true) << "Unknown sessionapi subcommand: " << subcmd;
+	info(true) << "Unknown swgrealms subcommand: " << subcmd;
 
 	return false;
 }
@@ -445,7 +516,7 @@ String SessionApprovalResult::toString() const {
 }
 
 String SessionApprovalResult::getLogMessage() const {
-	int debugLevel = SessionAPIClient::instance()->getDebugLevel();
+	int debugLevel = SWGRealmsAPI::instance()->getDebugLevel();
 
 	StringBuffer buf;
 
@@ -481,4 +552,13 @@ SessionApprovalResult::SessionApprovalResult() {
 	resultDebug.setNullValue("<not set>");
 }
 
-#endif // WITH_SESSION_API
+void SWGRealmsAPI::updateClientIPAddress(ZoneClientSession* client, const SessionApprovalResult& result) {
+	if (client != nullptr && !result.getEncryptedIP().isEmpty()) {
+		auto oldIP = client->getIPAddress();
+
+		Locker lock(client);
+		client->setIPAddress(result.getEncryptedIP());
+	}
+}
+
+#endif // WITH_SWGREALMS_API

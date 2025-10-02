@@ -22,9 +22,9 @@
 #include "server/zone/managers/collision/CollisionManager.h"
 #include "templates/params/creature/PlayerArrangement.h"
 
-#ifdef WITH_SESSION_API
-#include "server/login/SessionAPIClient.h"
-#endif // WITH_SESSION_API
+#ifdef WITH_SWGREALMS_API
+#include "server/login/SWGRealmsAPI.h"
+#endif // WITH_SWGREALMS_API
 
 // #define DEBUG_SELECT_CHAR_CALLBACK
 
@@ -61,11 +61,11 @@ public:
 			return;
 		}
 
-#ifdef WITH_SESSION_API
+#ifdef WITH_SWGREALMS_API
 		auto clientIP = client->getIPAddress();
 		auto loggedInAccounts = zoneServer->getPlayerManager()->getOnlineZoneClientMap()->getAccountsLoggedIn(clientIP);
 
-		SessionAPIClient::instance()->approvePlayerConnect(clientIP, ghost->getAccountID(), characterID, loggedInAccounts,
+		SWGRealmsAPI::instance()->approvePlayerConnect(clientIP, ghost->getAccountID(), characterID, loggedInAccounts,
 				[object = Reference<SceneObject*>(obj), characterID,
 				playerCreature = Reference<CreatureObject*>(player),
 				clientObject = Reference<ZoneClientSession*>(client),
@@ -77,6 +77,8 @@ public:
 				clientObject->sendMessage(new ErrorMessage(result.getTitle(), result.getMessage(true), 0));
 				return;
 			}
+
+			SWGRealmsAPI::updateClientIPAddress(clientObject, result);
 
 			Locker locker(object);
 
@@ -98,7 +100,7 @@ public:
 		if (ghost == nullptr) {
 			return;
 		}
-#endif // WITH_SESSION_API
+#endif // WITH_SWGREALMS_API
 
 		// Tie client to player object
 		player->setClient(client);

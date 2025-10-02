@@ -49,3 +49,4 @@ build.out
 build.out.prev
 bin/screenlog*
 compile_commands.json
+.env*

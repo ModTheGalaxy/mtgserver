@@ -22,7 +22,7 @@ endor_trade_guild_collector_tier5 = ShipAgent:new {
 	texture = 1,
 
 	pvpBitmask = ATTACKABLE,
-	shipBitmask = NONE,
+	shipBitmask = TURRETSHIP,
 	optionsBitmask = AIENABLED,
 
 	customShipAiMap = "",

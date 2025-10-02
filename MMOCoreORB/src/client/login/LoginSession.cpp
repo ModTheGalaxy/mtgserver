@@ -12,78 +12,88 @@
 
 #include "LoginSession.h"
 
-LoginSession::LoginSession(int instance) : Logger("LoginSession" + String::valueOf(instance)) {
-	selectedCharacter = -1;
-	LoginSession::instance = instance;
+#include "ClientCore.h"
+
+LoginSession::LoginSession(const String& username, const String& password) : Logger("LoginSession") {
+	LoginSession::username = username;
+	LoginSession::password = password;
 
 	loginThread = nullptr;
 
 	accountID = 0;
-	sessionID = 0;
-	setLogging(true);
+	sessionID = "";
+	loginStartTime.updateToCurrentTime();
+	setLogLevel(static_cast<Logger::LogLevel>(ClientCore::getLogLevel()));
 }
 
 LoginSession::~LoginSession() {
-	if (loginThread != nullptr)
-		loginThread->stop();
+	if (login != nullptr) {
+		login->disconnect();
+	}
 }
 
-int accountSuffix = 0;
-
 void LoginSession::run() {
-	login = new LoginClient(44453, "LoginClient" + String::valueOf(instance));
+	// Load config properties
+	Core::initializeProperties("Client3");
+
+	String loginHost = ClientCore::getLoginHost();
+	int loginPort = ClientCore::getLoginPort();
+
+	info(true) << "Creating login client...";
+	login = new LoginClient(loginHost, loginPort);
 	login->setLoginSession(this);
 	login->initialize();
 
+	info(true) << "Starting login thread...";
 	loginThread = new LoginClientThread(login);
 	loginThread->start();
 
+	info(true) << "Attempting to connect to " << loginHost << ":" << loginPort << "...";
 	if (!login->connect()) {
-		error("could not connect to login server");
+		info(true) << "ERROR: Could not connect to login server at " << loginHost << ":" << loginPort;
+		info(true) << "Make sure the login server is running on port " << loginPort;
 		return;
 	}
 
-	info("connected to login server");
+	info(true) << "Connected to login server";
 
-#ifdef WITH_STM
-	//TransactionalMemoryManager::commitPureTransaction();
-#endif
+	info(true) << "Creating AccountVersionMessage...";
+	String clientVersion = ClientCore::getClientVersion();
+	BaseMessage* acc = new AccountVersionMessage(username, password, clientVersion);
 
-	char userinput[32];
-	char passwordinput[32];
-
-	info("insert user");
-	auto res = fgets(userinput, sizeof(userinput), stdin);
-
-	if (!res)
-		return;
-
-	info("insert password", true);
-	res = fgets(passwordinput, sizeof(passwordinput), stdin);
-
-	if (!res)
-		return;
-
-	String user, password;
-	user = userinput;
-	user = user.replaceFirst("\n", "");
-
-	password = passwordinput;
-	password = password.replaceFirst("\n", "");
-
-	BaseMessage* acc = new AccountVersionMessage(user, password, "20050408-18:00");
+	info(true) << "Sending login request...";
 	login->sendMessage(acc);
 
-	info("sent account version message");
+	info(true) << "Waiting for response...";
 
+	// Wait for packets to be processed by the packet handler
 	lock();
-
 	Time timeout;
-	timeout.addMiliTime(2000);
-
-	sessionFinalized.wait(this); //timedWait(this, &timeout);
-
+	timeout.addMiliTime(ClientCore::getLoginTimeout() * 1000);
+	bool timedOut = !sessionFinalized.timedWait(this, &timeout);
 	unlock();
 
-	//login->disconnect();
+	login->disconnect();
+
+	loginThread->stop();
+
+	// DatagramServiceClient doesn't do this for us so we'll do it directly
+	Socket* socket = login->getClient()->getSocket();
+	if (socket != nullptr) {
+		socket->shutdown(SHUT_RDWR);
+		socket->close();
+	}
+
+	loginThread = nullptr;
+
+	info(true) << "Login process completed.";
+}
+
+JSONSerializationType LoginSession::collectStats() {
+	JSONSerializationType stats;
+	stats["elapsedMs"] = loginStartTime.miliDifference();
+	stats["packetCount"] = login != nullptr ? login->getPacketCount() : 0;
+	stats["success"] = (accountID != 0);
+	stats["username"] = username.toCharArray();
+	return stats;
 }

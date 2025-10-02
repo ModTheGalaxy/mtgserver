@@ -371,7 +371,13 @@ public:
 	BehaviorSpace::Status execute(ShipAiAgent* agent, unsigned int startIdx = 0) const {
 		agent->eraseBlackboard("targetShipProspect");
 
-		ManagedReference<TangibleObject*> topThreat = agent->getThreatMap()->getHighestThreatAttacker();
+		auto threatMap = agent->getThreatMap();
+
+		if (threatMap == nullptr) {
+			return FAILURE;
+		}
+
+		ManagedReference<TangibleObject*> topThreat = threatMap->getHighestThreatAttacker();
 
 		// Make sure top threat is not null and is a ship
 		if (topThreat == nullptr || !topThreat->isShipObject()) {
@@ -385,7 +391,7 @@ public:
 
 		Locker lock(targetShip, agent);
 
-		// agent->info(true) << " NEW THREAT SET ---  Top Threat setting targetShipProspect: " << targetShip->getDisplayedName();
+		// agent->info(true) << " NEW THREAT SET ---  Top Threat setting targetShipProspect: " << targetShip->getShipName();
 
 		agent->writeBlackboard("targetShipProspect", targetShip);
 

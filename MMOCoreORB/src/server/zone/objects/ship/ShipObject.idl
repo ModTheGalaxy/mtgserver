@@ -41,6 +41,8 @@ include server.zone.objects.player.variables.SpaceLaunchPoint;
 include system.util.Vector;
 include engine.util.u3d.Vector3;
 include server.chat.StringIdChatParameter;
+include server.zone.objects.ship.transform.ShipObjectTransform;
+include server.zone.objects.ship.transform.SpaceTransform;
 
 
 class ShipObject extends TangibleObject {
@@ -58,13 +60,13 @@ class ShipObject extends TangibleObject {
 	public unsigned long controlDeviceID;
 
 	@dereferenced
-	protected transient Reference<ShipRecoveryEvent> shipRecoveryEvent;
-
-	@dereferenced
 	protected transient Reference<ShipDeltaVector> shipDeltaVector;
 
 	@dereferenced
 	protected transient Reference<ShipTargetVector> shipTargetVector;
+
+	@dereferenced
+	protected transient ShipObjectTransform shipTransform;
 
 	protected int totalCellNumber;
 
@@ -480,12 +482,6 @@ class ShipObject extends TangibleObject {
 	@preLocked
 	public native void repairShip(float repairAmount, boolean decay = true);
 
-	@preLocked
-	public native void scheduleRecovery();
-
-	@preLocked
-	public native void cancelRecovery();
-
 	@dirty
 	@nativeStub
 	@local
@@ -513,11 +509,15 @@ class ShipObject extends TangibleObject {
 
 	public native void notifyInsertToZone(Zone zone);
 
+	public native void notifyRemoveFromZone();
+
 	@local
 	public native abstract void updateZone(boolean lightUpdate, boolean sendPackets = true);
 
 	public abstract native void updatePlayersInShip(boolean lightUpdate, boolean sendPackets = true);
 
+	@dirty
+	public native void broadcastPvpStatusBitmask();
 	/*
 
 		Mutators
@@ -1085,6 +1085,9 @@ class ShipObject extends TangibleObject {
 	public native void droidChatter(CreatureObject player, @dereferenced StringIdChatParameter message);
 
 	public native void setDroidCommandDelay(float delay);
+
+	@preLocked
+	public native void resetShipFaction();
 
 	/*
 
@@ -1655,6 +1658,10 @@ class ShipObject extends TangibleObject {
 
 	@preLocked
 	@local
+	public native void resetOptionsBitmask(boolean notify = true);
+
+	@preLocked
+	@local
 	public native void setComponentDemolished(unsigned int slot, boolean notify = true, ShipDeltaVector vector = null);
 
 	public native void restartBooster();
@@ -1760,6 +1767,10 @@ class ShipObject extends TangibleObject {
 	@read
 	public native int getReceiverFlags();
 
+	public native boolean isShipDisabled();
+
+	public native boolean isShipDestroyed();
+
 	public native boolean isComponentInstalled(unsigned int slot);
 
 	public native boolean isComponentFunctional(unsigned int slot);
@@ -1849,4 +1860,23 @@ class ShipObject extends TangibleObject {
 	public void setCertificationRequired(final string cert) {
 		certificationRequired = cert;
 	}
+
+	@local
+	public native void initializeTransform(@dereferenced final Vector3 position, @dereferenced final Quaternion direction);
+
+	@preLocked
+	@local
+	public native ShipObjectTransform getShipTransform();
+
+	@local
+	@dereferenced
+	public native SpaceTransform getPreviousTransform();
+
+	@local
+	@dereferenced
+	public native SpaceTransform getCurrentTransform();
+
+	@local
+	@dereferenced
+	public native SpaceTransform getNextTransform();
 }

@@ -25,7 +25,7 @@ massassi_command_ship_tier2 = ShipAgent:new {
 	appearance = "generic_pirate",
 
 	pvpBitmask = ATTACKABLE,
-	shipBitmask = NONE,
+	shipBitmask = TURRETSHIP,
 	optionsBitmask = AIENABLED,
 
 	customShipAiMap = "",

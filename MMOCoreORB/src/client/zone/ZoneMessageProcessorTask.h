@@ -6,18 +6,19 @@
 #define ZONEMESSAGEPROCESSORTASK_H_
 
 #include "ZonePacketHandler.h"
+#include "ClientCore.h"
 
-
-class ZoneMessageProcessorTask : public Task {
+class ZoneMessageProcessorTask : public Task, public Logger {
 	Message* message;
 
 	ZonePacketHandler* packetHandler;
 
 public:
-	ZoneMessageProcessorTask(Message* msg, ZonePacketHandler* handler) {
+	ZoneMessageProcessorTask(Message* msg, ZonePacketHandler* handler) : Logger("ZoneMessageProcessorTask") {
 		message = msg;
 
 		packetHandler = handler;
+		setLogLevel(static_cast<Logger::LogLevel>(ClientCore::getLogLevel()));
 	}
 
 	~ZoneMessageProcessorTask() {
@@ -32,26 +33,16 @@ public:
 			if (client->isAvailable())
 				packetHandler->handleMessage(message);
 		} catch (PacketIndexOutOfBoundsException& e) {
-			System::out << e.getMessage();
-
-			/*	StringBuffer str;
-					str << "incorrect packet - " << msg->toStringData();
-					error(str);*/
-
+			error() << e.getMessage();
 			e.printStackTrace();
 		} catch (Exception& e) {
-			StringBuffer msg;
-			msg << e.getMessage();
-			//error(msg);
-
+			error() << e.getMessage();
 			e.printStackTrace();
 		}
 
 		delete message;
 		message = nullptr;
-
 	}
-
 };
 
 #endif /*LOGINMESSAGEPROCESSORTASK_H_*/

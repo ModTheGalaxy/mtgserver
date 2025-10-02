@@ -22,7 +22,7 @@ reb_kessel_lootboat_tier5 = ShipAgent:new {
 	appearance = "rebel_pilot",
 
 	pvpBitmask = ATTACKABLE,
-	shipBitmask = NONE,
+	shipBitmask = TURRETSHIP,
 	optionsBitmask = AIENABLED,
 
 	customShipAiMap = "",

@@ -4,11 +4,11 @@
 
 /**
  * @author      : lordkator (lordkator@swgemu.com)
- * @file        : SessionAPIClient.h
+ * @file        : SWGRealmsAPI.h
  * @created     : Fri Nov 29 10:04:14 UTC 2019
  */
 
-#ifdef WITH_SESSION_API
+#ifdef WITH_SWGREALMS_API
 #pragma once
 
 #include "engine/engine.h"
@@ -17,6 +17,9 @@
 #include "server/login/LoginClient.h"
 
 namespace server {
+	namespace zone {
+		class ZoneClientSession;
+	}
 	namespace login {
 		class SessionApprovalResult {
 		public:
@@ -37,6 +40,10 @@ namespace server {
 			String resultTitle;
 			String resultMessage;
 			String resultDetails;
+			String resultEncryptedIP;
+			String resultSessionID;
+			uint32 resultAccountID;
+			uint32 resultStationID;
 			String resultRawJSON;
 			uint64 resultElapsedTimeMS;
 			HashTable<String, String> resultDebug;
@@ -174,6 +181,38 @@ namespace server {
 				return resultDetails;
 			}
 
+			inline void setEncryptedIP(const String& eip) {
+				resultEncryptedIP = eip;
+			}
+
+			inline const String& getEncryptedIP() const {
+				return resultEncryptedIP;
+			}
+
+			inline void setSessionID(const String& newSessionID) {
+				resultSessionID = newSessionID;
+			}
+
+			inline const String& getSessionID() const {
+				return resultSessionID;
+			}
+
+			inline void setAccountID(uint32 newAccountID) {
+				resultAccountID = newAccountID;
+			}
+
+			inline uint32 getAccountID() const {
+				return resultAccountID;
+			}
+
+			inline void setStationID(uint32 newStationID) {
+				resultStationID = newStationID;
+			}
+
+			inline uint32 getStationID() const {
+				return resultStationID;
+			}
+
 			inline void setElapsedTimeMS(uint64 elapsedTimeMS) {
 				resultElapsedTimeMS = elapsedTimeMS;
 			}
@@ -212,7 +251,7 @@ namespace server {
 
 		using SessionAPICallback = Function<void(SessionApprovalResult)>;
 
-		class SessionAPIClient : public Logger, public Singleton<SessionAPIClient>, public Object {
+		class SWGRealmsAPI : public Logger, public Singleton<SWGRealmsAPI>, public Object {
 		protected:
 			AtomicInteger trxCount = 0;
 			AtomicInteger errCount = 0;
@@ -225,8 +264,8 @@ namespace server {
 			bool failOpen = false;
 
 		public:
-			SessionAPIClient();
-			~SessionAPIClient();
+			SWGRealmsAPI();
+			~SWGRealmsAPI();
 
 			inline void incrementTrxCount() {
 				trxCount.increment();
@@ -247,22 +286,30 @@ namespace server {
 			String toString() const;
 			String toStringData() const;
 
-			// Hook for console "sessionapi" command
+			// Hook for console "swgrealms" command
 			bool consoleCommand(const String& arguments);
 
 			// API Helpers
-			void apiCall(const String& src, const String& basePath, const SessionAPICallback& resultCallback);
+			void apiCall(const String& src, const String& basePath, const SessionAPICallback& resultCallback,
+					const String& method = "GET", const String& body = "");
 			void apiNotify(const String& src, const String& basePath);
+
+			// EIP Helper
+			static void updateClientIPAddress(server::zone::ZoneClientSession* client, const SessionApprovalResult& result);
 
 			// Calls in general order of execution
 			void notifyGalaxyStart(uint32 galaxyID);
 			void notifyGalaxyShutdown();
+			void createSession(const String& username, const String& password, const String& clientVersion, const String& clientEndpoint,
+					const SessionAPICallback& resultCallback);
 			void approveNewSession(const String& ip, uint32 accountID, const SessionAPICallback& resultCallback);
+			void validateSession(const String& sessionID, uint32 accountID, const String& ip, const SessionAPICallback& resultCallback);
 			void notifySessionStart(const String& ip, uint32 accountID);
 			void notifyDisconnectClient(const String& ip, uint32 accountID, uint64_t characterID, String eventType);
 			void approvePlayerConnect(const String& ip, uint32 accountID, uint64_t characterID,
 					const ArrayList<uint32>& loggedInAccounts, const SessionAPICallback& resultCallback);
-			void notifyPlayerOnline(const String& ip, uint32 accountID, uint64_t characterID);
+			void notifyPlayerOnline(const String& ip, uint32 accountID, uint64_t characterID,
+					const SessionAPICallback& resultCallback = nullptr);
 			void notifyPlayerOffline(const String& ip, uint32 accountID, uint64_t characterID);
 		};
 	}
@@ -270,4 +317,4 @@ namespace server {
 
 using namespace server::login;
 
-#endif // WITH_SESSION_API
+#endif // WITH_SWGREALMS_API

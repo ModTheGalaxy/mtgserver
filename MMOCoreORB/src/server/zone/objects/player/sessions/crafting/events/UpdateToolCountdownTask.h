@@ -20,13 +20,19 @@ public:
 
 	void run() {
 		try {
-			ManagedReference<TangibleObject* > craftingTool = craftTool.get();
 			ManagedReference<CreatureObject* > crafter = player.get();
 
-			if (craftingTool == nullptr || crafter == nullptr)
+			if (crafter == nullptr) {
 				return;
+			}
 
 			Locker locker(crafter);
+
+			ManagedReference<TangibleObject* > craftingTool = craftTool.get();
+
+			if (craftingTool == nullptr) {
+				return;
+			}
 
 			Locker clocker(craftingTool, crafter);
 

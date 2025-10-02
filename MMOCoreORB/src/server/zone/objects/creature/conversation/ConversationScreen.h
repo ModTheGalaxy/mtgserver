@@ -73,6 +73,7 @@ class ConversationScreen : public Object {
 	UnicodeString customText;
 
 	String animation;
+	String playerAnimation;
 
 	Vector<Reference<ConversationOption*> > options;
 
@@ -100,6 +101,7 @@ public:
 		readOnly = objectToCopy.readOnly;
 		customText = objectToCopy.customText;
 		animation = objectToCopy.animation;
+		playerAnimation = objectToCopy.playerAnimation;
 	}
 
 	ConversationScreen* cloneScreen() {
@@ -198,8 +200,13 @@ public:
 
 		CreatureObject* creo = npc->asCreatureObject();
 
-		if (!animation.isEmpty() && creo != nullptr)
+		if (!animation.isEmpty() && creo != nullptr) {
 			creo->doAnimation(animation);
+		}
+
+		if (!playerAnimation.isEmpty()) {
+			player->doAnimation(playerAnimation);
+		}
 
 		ConversationScreen* screenToSave = this;
 
@@ -235,6 +242,7 @@ public:
 		dialogText.setStringId(luaObject->getStringField("leftDialog"));
 		customText = luaObject->getStringField("customDialogText");
 		animation = luaObject->getStringField("animation");
+		playerAnimation = luaObject->getStringField("playerAnimation");
 
 		if (luaObject->getStringField("stopConversation").toLowerCase() == "true") {
 			stopConversation = true;

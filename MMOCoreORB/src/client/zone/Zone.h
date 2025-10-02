@@ -6,77 +6,72 @@
 #define ZONE_H_
 
 #include "ZoneClient.h"
-#include "client/zone/objects/player/PlayerCreature.h"
+#include "client/zone/ZoneClientThread.h"
+#include "engine/util/JSONSerializationType.h"
 
-class ZoneClientThread;
 class ObjectController;
 class ObjectManager;
+class SceneObject;
 
 class Zone : public Thread, public Mutex, public Logger {
-	//LoginSession* loginSession;
-
-	//ObjectMap objectMap;
-
 	uint64 characterID;
 	uint32 accountID;
-	uint32 sessionID;
+	String sessionID;
+	String galaxyAddress;
+	uint32 galaxyPort;
 
 	Reference<ZoneClient*> client;
 	ZoneClientThread* clientThread;
 
-	Reference<PlayerCreature*> player;
-
 	ObjectController* objectController;
 
 	Condition characterCreatedCondition;
-
-	Vector<PlayerCreature*> playerArray;
+	Condition sceneReadyCondition;
 
 	ObjectManager* objectManager;
 
-	int instance;
-
 	Time startTime;
 	bool started;
+	bool sceneReady;
 
 public:
-	Zone(int instance, uint64 characterObjectID, uint32 account, uint32 session);
+	Zone(uint64 characterObjectID, uint32 account, const String& sessionID, const String& galaxyAddress, uint32 galaxyPort);
 	~Zone();
 
-	static int createdChar;
-
 	void run();
-	//void initConnection();
 
-	void disconnect();
+	void disconnect() {
+		if (client != nullptr) {
+			client->disconnect();
+			clientThread = nullptr;
+		}
+	}
 
-	void sceneStarted();
+	void setSceneStarted() {
+		info(true) << __FUNCTION__ << " in " << startTime.miliDifference() << "ms";
+	}
 
-	void follow(const String& name);
-	void stopFollow();
+	void setSceneReady() {
+		Locker locker(this);
 
-	void lurk();
+		info(true) << __FUNCTION__ << " in " << startTime.miliDifference() << "ms";
+		sceneReady = true;
 
-	bool doCommand(const String& command, const String& arguments);
+		sceneReadyCondition.signal(this);
+	}
 
-	//LocalPlayer* createLocalPlayer(uint64 pid);
+	bool waitForSceneReady(int timeoutMs) {
+		Locker locker(this);
 
-	void insertPlayer();
-	void insertPlayer(PlayerCreature* player);
+		if (sceneReady) {
+			return true;
+		}
 
-	//void waitFor();
+		Time timeout;
+		timeout.addMiliTime(timeoutMs);
+		bool success = !sceneReadyCondition.timedWait(this, &timeout);
 
-	/*inline void addEvent(Event* event, uint64 time) {
-		scheduler->addEvent(event, time);
-	}*/
-
-	PlayerCreature* getSelfPlayer();
-
-	bool isSelfPlayer(SceneObject* pl) {
-		if (characterID == 0)
-			return false;
-
-		return pl->getObjectID() == characterID;
+		return success && sceneReady;
 	}
 
 	bool hasSelfPlayer() {
@@ -88,6 +83,10 @@ public:
 	void setCharacterID(uint64 val) {
 		lock();
 
+		if (characterID != 0 && val != characterID) {
+			warning() << __FUNCTION__ << "(" << val << "): oid changing, current characterID=" << characterID;
+		}
+
 		characterID = val;
 
 		characterCreatedCondition.signal(this);
@@ -96,6 +95,14 @@ public:
 
 	inline uint64 getCharacterID() {
 		return characterID;
+	}
+
+	inline const String& getGalaxyAddress() {
+		return galaxyAddress;
+	}
+
+	inline uint32 getGalaxyPort() {
+		return galaxyPort;
 	}
 
 	inline ZoneClient* getZoneClient() {
@@ -110,13 +117,15 @@ public:
 		return objectController;
 	}
 
-	Vector<PlayerCreature*>* getNotInitiatedPlayers() {
-		return &playerArray;
-	}
-
 	bool isStarted() {
 		return started;
 	}
+
+	bool isSceneReady() {
+		return sceneReady;
+	}
+
+	JSONSerializationType collectStats();
 };
 
 #endif /* ZONE_H_ */

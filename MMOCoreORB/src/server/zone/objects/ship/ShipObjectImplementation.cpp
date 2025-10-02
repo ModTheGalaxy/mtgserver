@@ -38,6 +38,9 @@
 #include "server/zone/packets/object/StartNpcConversation.h"
 #include "server/zone/managers/conversation/ConversationManager.h"
 #include "server/zone/objects/creature/conversation/ConversationObserver.h"
+#include "server/zone/managers/faction/FactionManager.h"
+#include "server/zone/objects/ship/transform/ShipObjectTransform.h"
+#include "server/zone/objects/ship/transform/SpaceTransform.h"
 
 // #define DEBUG_COV
 
@@ -47,15 +50,14 @@ void ShipObjectImplementation::initializeTransientMembers() {
 	hyperspacing = false;
 	droidFeedback = true;
 
-	if (shipRecoveryEvent == nullptr && !isShipAiAgent()) {
-		shipRecoveryEvent = new ShipRecoveryEvent(asShipObject());
-	}
+	resetOptionsBitmask(false);
 
 	for (int i = 0; i < componentOptions.size(); ++i) {
 		resetComponentFlag(componentOptions.getKeyAt(i), false);
 	}
 
 	initializeUniqueID(false);
+	initializeTransform(getPosition(), *getDirection());
 
 	auto volume = getCollisionVolume();
 
@@ -452,7 +454,11 @@ void ShipObjectImplementation::uninstall(CreatureObject* player, int slot, bool 
 }
 
 void ShipObjectImplementation::notifyObjectInsertedToZone(SceneObject* object) {
-	// info(true) << getDisplayedName() << " ShipObjectImplementation --- notifyObjectInsertedToZone - Object " << object->getDisplayedName();
+#ifdef DEBUG_COV
+	if (!isShipAiAgent()) {
+		info(true) << getDisplayedName() << " ShipObjectImplementation --- notifyObjectInsertedToZone - Object " << object->getDisplayedName() << " SceneO Zone: " << object->getZone()->getZoneName();
+	}
+#endif // DEBUG_COV
 
 	auto closeObjectsVector = getCloseObjects();
 	Vector<TreeEntry*> closeObjects(closeObjectsVector->size(), 10);
@@ -536,7 +542,11 @@ void ShipObjectImplementation::notifyInsert(TreeEntry* object) {
 	uint64 scnoID = sceneO->getObjectID();
 
 #ifdef DEBUG_COV
-	info(true) << "Ship: " << getDisplayedName() << " -- ShipObjectImplementation::notifyInsert -- Object inserted: " << sceneO->getDisplayedName() << " ID: " << scnoID << " Players on Board Size: " << getTotalPlayersOnBoard();
+	if (!isShipAiAgent()) {
+		auto zone = getLocalZone();
+
+		info(true) << "ShipObjectImplementation::notifyInsert -- Players on Board Size: " << getTotalPlayersOnBoard() << " ---- Object inserted: " << sceneO->getDisplayedName() << " ID: " << scnoID << " Zone: " << (zone != nullptr ? zone->getZoneName() : "null zone");
+	}
 #endif // DEBUG_COV
 
 	try {
@@ -591,7 +601,11 @@ void ShipObjectImplementation::notifyDissapear(TreeEntry* object) {
 	uint64 scnoID = sceneO->getObjectID();
 
 #ifdef DEBUG_COV
-	info(true) << "ShipObjectImplementation::notifyDissapear -- Object removed: " << sceneO->getDisplayedName() << " ID: " << scnoID;
+	if (!isShipAiAgent()) {
+		auto zone = getLocalZone();
+
+		info(true) << "ShipObjectImplementation::notifyDissapear -- Object removed: " << sceneO->getDisplayedName() << " ID: " << scnoID << " Zone: " << (zone != nullptr ? zone->getZoneName() : "null zone");
+	}
 #endif // DEBUG_COV
 
 	try {
@@ -635,19 +649,43 @@ void ShipObjectImplementation::sendDestroyTo(SceneObject* player) {
 
 void ShipObjectImplementation::notifyInsertToZone(Zone* zone) {
 	StringBuffer newName;
-	newName << getDisplayedName() << " - " << zone->getZoneName();
+	newName << getDisplayedName() << " -- ID: " << getObjectID() << " - " << zone->getZoneName();
 
 	setLoggingName(newName.toString());
 
-	scheduleRecovery();
-
 	TangibleObjectImplementation::notifyInsertToZone(zone);
+
+#ifdef DEBUG_COV
+	if (isPlayerShip()) {
+		info(true) << "ShipObjectImplementation::notifyInsertToZone -- Zone: " << zone->getZoneName();
+	}
+#endif // DEBUG_COV
+}
+
+void ShipObjectImplementation::notifyRemoveFromZone() {
+	TangibleObjectImplementation::notifyRemoveFromZone();
+
+#ifdef DEBUG_COV
+	if (isPlayerShip()) {
+		auto zone = getLocalZone();
+
+		info(true) << "ShipObjectImplementation::notifyRemoveFromZone -- Zone: " << (zone != nullptr ? zone->getZoneName() : "null zone");
+	}
+#endif // DEBUG_COV
 }
 
 void ShipObjectImplementation::updateZone(bool lightUpdate, bool sendPackets) {
 	updatePlayersInShip(lightUpdate, sendPackets);
 
 	SceneObjectImplementation::updateZone(lightUpdate, sendPackets);
+
+#ifdef DEBUG_COV
+	if (isPlayerShip()) {
+		auto zone = getLocalZone();
+
+		info(true) << "ShipObjectImplementation::updateZone -- Zone: " << (zone != nullptr ? zone->getZoneName() : "null zone");
+	}
+#endif // DEBUG_COV
 }
 
 void ShipObjectImplementation::updatePlayersInShip(bool lightUpdate, bool sendPackets) {
@@ -687,14 +725,62 @@ void ShipObjectImplementation::updatePlayersInShip(bool lightUpdate, bool sendPa
 	}
 }
 
-void ShipObjectImplementation::doRecovery(int mselapsed) {
-	float deltaTime = mselapsed * 0.001f;
-
-	if (deltaTime <= 0.f) {
+void ShipObjectImplementation::broadcastPvpStatusBitmask() {
+	if (closeobjects == nullptr) {
 		return;
 	}
 
-	auto pilot = owner.get();
+	Zone* zone = getZoneUnsafe();
+
+	if (zone == nullptr) {
+		return;
+	}
+
+	CreatureObject* thisPilot = getPilot();
+
+	SortedVector<TreeEntry*> closeObjects(closeobjects->size(), 10);
+
+	closeobjects->safeCopyReceiversTo(closeObjects, CloseObjectsVector::CREOTYPE);
+
+	for (int i = 0; i < closeObjects.size(); ++i) {
+		SceneObject* obj = cast<SceneObject*>(closeObjects.get(i));
+
+		if (obj == nullptr || !obj->isCreatureObject())
+			continue;
+
+		CreatureObject* creo = obj->asCreatureObject();
+
+		if (!creo->isPlayerCreature())
+			continue;
+
+		sendPvpStatusTo(creo);
+
+		auto creoParent = creo->getRootParent();
+
+		if (creoParent == nullptr || !creoParent->isShipObject()) {
+			continue;
+		}
+
+		ShipObject* creoShip = creoParent->asShipObject();
+
+		if (creoShip == nullptr) {
+			continue;
+		}
+
+		if (thisPilot != nullptr && thisPilot->isPlayerCreature()) {
+			creoShip->sendPvpStatusTo(thisPilot);
+		}
+	}
+}
+
+void ShipObjectImplementation::doRecovery(int mselapsed) {
+	if (mselapsed < ShipObjectTimerTask::SCHEDULE_MIN) {
+		return;
+	}
+
+	float deltaTime = Math::clamp(0.1f, mselapsed * 0.001f, 10.f);
+
+	auto pilot = getPilot();
 	auto deltaVector = getDeltaVector();
 	auto componentMap = getShipComponentMap();
 
@@ -875,8 +961,6 @@ void ShipObjectImplementation::doRecovery(int mselapsed) {
 	if (targetVector != nullptr) {
 		targetVector->update();
 	}
-
-	scheduleRecovery();
 }
 
 float ShipObjectImplementation::getTotalShipDamage() {
@@ -906,39 +990,6 @@ float ShipObjectImplementation::getTotalShipDamage() {
 		float currentHitpoints = getCurrentHitpointsMap()->get(slot);
 
 		damage += maxHitpoints - currentHitpoints;
-
-		switch (slot) {
-			case Components::SHIELD0:
-			case Components::SHIELD1: {
-				float maxShieldFront = getMaxFrontShield();
-				float currentShieldFront = getFrontShield();
-
-				damage += maxShieldFront - currentShieldFront;
-
-				float maxShieldRear = getMaxRearShield();
-				float currentShieldRear = getRearShield();
-
-				damage += maxShieldRear - currentShieldRear;
-
-				break;
-			}
-			case Components::CAPACITOR: {
-				float maxCapacitor = getCapacitorMaxEnergy();
-				float currentCapacitor = getCapacitorEnergy();
-
-				damage += maxCapacitor - currentCapacitor;
-
-				break;
-			}
-			case Components::BOOSTER: {
-				float maxBoost = getBoosterMaxEnergy();
-				float currentBoost = getBoosterEnergy();
-
-				damage += maxBoost - currentBoost;
-
-				break;
-			}
-		}
 	}
 
 	return damage;
@@ -1137,16 +1188,6 @@ void ShipObjectImplementation::repairShip(float value, bool decay) {
 #endif
 }
 
-void ShipObjectImplementation::scheduleRecovery() {
-	if (shipRecoveryEvent != nullptr && !shipRecoveryEvent->isScheduled())
-		shipRecoveryEvent->schedule(1000);
-}
-
-void ShipObjectImplementation::cancelRecovery() {
-	if (shipRecoveryEvent != nullptr && shipRecoveryEvent->isScheduled())
-		shipRecoveryEvent->cancel();
-}
-
 bool ShipObject::isShipObject() {
 	return true;
 }
@@ -1231,6 +1272,32 @@ void ShipObjectImplementation::resetComponentFlag(uint32 slot, bool notifyClient
 	if (deltaVector != nullptr && notifyClient) {
 		deltaVector->sendMessages(asShipObject());
 	}
+}
+
+void ShipObjectImplementation::resetOptionsBitmask(bool notifyClient) {
+	uint32 optionsFlag = optionsBitmask;
+
+	if (optionsFlag & OptionBitmask::WINGS_OPEN) {
+		optionsFlag &= ~OptionBitmask::WINGS_OPEN;
+	}
+
+	if (optionsFlag & OptionBitmask::DOCKING) {
+		optionsFlag &= ~OptionBitmask::DOCKING;
+	}
+
+	if (optionsFlag & OptionBitmask::DESTROYING) {
+		optionsFlag &= ~OptionBitmask::DESTROYING;
+	}
+
+	if (optionsFlag & OptionBitmask::EJECT) {
+		optionsFlag &= ~OptionBitmask::EJECT;
+	}
+
+	if (optionsFlag == optionsBitmask) {
+		return;
+	}
+
+	setOptionsBitmask(optionsFlag, notifyClient);
 }
 
 void ShipObjectImplementation::setComponentDemolished(uint32 slot, bool notifyClient, ShipDeltaVector* deltaVector) {
@@ -1367,22 +1434,34 @@ bool ShipObjectImplementation::isAggressiveTo(TangibleObject* object) {
 	if (!isShipLaunched())
 		return false;
 
-	auto thisOwner = getOwner().get();
+	if (object->isPlayerCreature()) {
+		auto rootParent = object->getRootParent();
 
- 	if (thisOwner != nullptr) {
-		if (!object->isShipAiAgent() && object->isShipObject()) {
-			auto objectShip = object->asShipObject();
+		if (rootParent == nullptr || !rootParent->isShipObject()) {
+			return false;
+		}
 
-			if (objectShip != nullptr) {
-				auto attackerOwner = objectShip->getOwner().get();
+		ShipObject* creatureShip = rootParent->asShipObject();
 
-				// Owner of the other player ship for pvp checks
-				if (attackerOwner != nullptr) {
-					return thisOwner->isAggressiveTo(attackerOwner);
-				}
-			}
-		} else {
-			thisOwner->isAggressiveTo(object);
+		if (creatureShip == nullptr) {
+			return false;
+		}
+
+		return isAggressiveTo(creatureShip);
+	}
+
+	int thisFaction = getShipFaction();
+	int tanoFaction = object->getFaction();
+
+	if (object->isPlayerShip()) { // PvP check
+		if (getFactionStatus() == FactionStatus::OVERT && object->getFactionStatus() == FactionStatus::OVERT && thisFaction != tanoFaction) {
+			return true;
+		}
+	} else if (object->isShipAiAgent()) { //PvE check
+		auto attackerAiAgent = object->asShipAiAgent();
+
+		if (attackerAiAgent != nullptr) {
+			return attackerAiAgent->isAggressiveTo(asTangibleObject());
 		}
 	}
 
@@ -1405,35 +1484,16 @@ bool ShipObjectImplementation::isAttackableBy(TangibleObject* attackerTano) {
 		return false;
 	}
 
-	// info(true) << getDisplayedName() << " ShipObjectImplementation::isAttackableBy -- " << attackerTano->getDisplayedName();
-
-	auto thisOwner = getOwner().get();
-
-	if (thisOwner != nullptr) {
-		// Player ship attacking another player ship. Pass the owners to the CreO isAttackable Check
-		if (!attackerTano->isShipAiAgent() && attackerTano->isShipObject()) {
-			auto attackerShip = attackerTano->asShipObject();
-
-			if (attackerShip != nullptr) {
-				auto attackerOwner = attackerShip->getOwner().get();
-
-				// Owner of the other player ship for pvp checks
-				if (attackerOwner != nullptr) {
-					// info(true) << getDisplayedName() << "Using ship owners -- thisOwner: " << thisOwner->getDisplayedName() << " attackerOwner: " << attackerOwner->getDisplayedName();
-
-					return thisOwner->isAttackableBy(attackerOwner);
-				}
-			}
-		} else {
-			// info(true) << getDisplayedName() << "Using thisOwner: " << thisOwner->getDisplayedName() << " against tangible object: " << attackerTano->getDisplayedName();
-
-			// Attacking object is a TanO, likely another ship. Pass to CreO isAttackableBy TanO check
-			thisOwner->isAttackableBy(attackerTano);
+	if (attackerTano->isPlayerShip()) { // PvP check
+		if (getFactionStatus() != FactionStatus::OVERT || attackerTano->getFactionStatus() != FactionStatus::OVERT) {
+			return false;
 		}
-	} else if (attackerTano->isCreatureObject()) {
-		// info(true) << getDisplayedName() << " isAttackableBy creature: " << attackerTano->getDisplayedName();
+	} else if (attackerTano->isShipAiAgent()) {
+		auto attackerAiAgent = attackerTano->asShipAiAgent();
 
-		return isAttackableBy(attackerTano->asCreatureObject());
+		if (attackerAiAgent != nullptr) {
+			return attackerAiAgent->isAttackableBy(asTangibleObject());
+		}
 	}
 
 	/*
@@ -1442,10 +1502,10 @@ bool ShipObjectImplementation::isAttackableBy(TangibleObject* attackerTano) {
 
 	// info(true) << "ShipObjectImplementation::isAttackableBy TANGIBLE -- attacking object: " << attackerTano->getDisplayedName();
 
-	int thisFaction = getFaction();
+	// GCW Faction Checks
+	int thisFaction = getShipFaction();
 	int tanoFaction = attackerTano->getFaction();
 
-	// GCW Faction Checks
 	if (thisFaction > 0 && tanoFaction > 0 && thisFaction == tanoFaction) {
 		// Same faction, unable to attack
 		return false;
@@ -1469,15 +1529,19 @@ bool ShipObjectImplementation::isAttackableBy(CreatureObject* creature) {
 	if (!isShipLaunched())
 		return false;
 
-	auto owner = getOwner().get();
+	auto rootParent = creature->getRootParent();
 
-	// This should handle most of our pvp checks, using the CreO isAttackable checks
-	if (owner != nullptr)
-		return owner->isAttackableBy(creature);
+	if (rootParent == nullptr || !rootParent->isShipObject()) {
+		return false;
+	}
 
-	// info(true) << "ShipObjectImplementation::isAttackableBy CREATURE == TRUE -- attacking creature: " << creature->getDisplayedName();
+	ShipObject* creatureShip = rootParent->asShipObject();
 
-	return true;
+	if (creatureShip == nullptr) {
+		return false;
+	}
+
+	return isAttackableBy(creatureShip);
 }
 
 ShipDeltaVector* ShipObjectImplementation::getDeltaVector() {
@@ -1496,6 +1560,10 @@ ShipTargetVector* ShipObjectImplementation::getTargetVector() {
 	}
 
 	return shipTargetVector.get();
+}
+
+ShipObjectTransform* ShipObjectImplementation::getShipTransform() {
+	return &shipTransform;
 }
 
 void ShipObjectImplementation::destroyObjectFromDatabase(bool destroyContainedObjects) {
@@ -1823,6 +1891,27 @@ void ShipObjectImplementation::droidChatter(CreatureObject* player, StringIdChat
 void ShipObjectImplementation::setDroidCommandDelay(float delay) {
 	droidTimer.updateToCurrentTime();
 	droidTimer.addMiliTime(delay * 1000);
+}
+
+void ShipObjectImplementation::resetShipFaction() {
+	auto pilot = getOwner().get();
+
+	if (pilot == nullptr) {
+		return;
+	}
+
+	auto ghost = pilot->getPlayerObject();
+
+	if (ghost == nullptr) {
+		return;
+	}
+
+	int pilotSquadron = ghost->getPilotSquadron();
+	int pilotTier = ghost->getPilotTier();
+	String pilotFaction = FactionManager::instance()->getSpaceFactionBySquadron(pilotSquadron, pilotTier);
+
+	setShipFactionString(pilotFaction);
+	setFactionStatus(0);
 }
 
 CreatureObject* ShipObjectImplementation::getPlayerOnBoard(int index) {
@@ -2157,6 +2246,14 @@ float ShipObjectImplementation::getOutOfRangeDistance(uint64 specialRangeID) {
 	return ZoneServer::SPACECLOSEOBJECTRANGE;
 }
 
+bool ShipObjectImplementation::isShipDisabled() {
+	return isShipDestroyed() || !isComponentFunctional(Components::REACTOR) || !isComponentFunctional(Components::ENGINE);
+}
+
+bool ShipObjectImplementation::isShipDestroyed() {
+	return getChassisCurrentHealth() <= 0.f;
+}
+
 bool ShipObjectImplementation::isComponentInstalled(uint32 slot) {
 	return getShipComponentMap()->get(slot) != 0;
 }
@@ -2285,8 +2382,8 @@ void ShipObjectImplementation::updateActualEngineValues(bool notifyClient, ShipD
 	float actualYawAccel = getEngineYawAccelerationRate() * componentEfficiency;
 	float actualRollAccel = getEngineRollAccelerationRate() * componentEfficiency;
 	float actualPitch = getEnginePitchRate() * componentEfficiency * rotationFactor;
-	float actualYaw = getEnginePitchRate() * componentEfficiency * rotationFactor;
-	float actualRoll = getEnginePitchRate() * componentEfficiency;
+	float actualYaw = getEngineYawRate() * componentEfficiency * rotationFactor;
+	float actualRoll = getEngineRollRate() * componentEfficiency;
 	float actualSpeed = calculateActualMaxSpeed();
 
 	if (deltaVector == nullptr && notifyClient) {
@@ -2534,4 +2631,25 @@ bool ShipObjectImplementation::isSorosuubSpaceYacht() {
 	auto chassisName = getShipChassisName().hashCode();
 
 	return (STRING_HASHCODE("player_sorosuub_space_yacht") == chassisName);
+}
+
+void ShipObjectImplementation::initializeTransform(const Vector3& position, const Quaternion& direction) {
+	initializePosition(position);
+	setDirection(direction);
+	setRotationMatrix(direction);
+	setCurrentSpeed(0.f);
+
+	shipTransform.initializeTransform(asShipObject());
+}
+
+SpaceTransform ShipObjectImplementation::getPreviousTransform() {
+	return shipTransform.getPreviousTransform();
+}
+
+SpaceTransform ShipObjectImplementation::getCurrentTransform() {
+	return shipTransform.getCurrentTransform();
+}
+
+SpaceTransform ShipObjectImplementation::getNextTransform() {
+	return shipTransform.getNextTransform();
 }

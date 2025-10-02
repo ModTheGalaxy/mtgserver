@@ -6,17 +6,19 @@
 #define LOGINMESSAGEPROCESSORTASK_H_
 
 #include "LoginPacketHandler.h"
+#include "ClientCore.h"
 
-class LoginMessageProcessorTask : public Task {
+class LoginMessageProcessorTask : public Task, public Logger {
 	Message* message;
 
 	LoginPacketHandler* packetHandler;
 
 public:
-	LoginMessageProcessorTask(Message* msg, LoginPacketHandler* handler) {
+	LoginMessageProcessorTask(Message* msg, LoginPacketHandler* handler) : Logger("LoginMessageProcessorTask") {
 		message = msg;
 
 		packetHandler = handler;
+		setLogLevel(static_cast<Logger::LogLevel>(ClientCore::getLogLevel()));
 	}
 
 	~LoginMessageProcessorTask() {
@@ -28,24 +30,15 @@ public:
 		try {
 			packetHandler->handleMessage(message);
 		} catch (PacketIndexOutOfBoundsException& e) {
-			System::out << e.getMessage();
-
-			/*	StringBuffer str;
-					str << "incorrect packet - " << msg->toStringData();
-					error(str);*/
-
+			error() << e.getMessage();
 			e.printStackTrace();
 		} catch (Exception& e) {
-			StringBuffer msg;
-			msg << e.getMessage();
-			//error(msg);
-
+			error() << e.getMessage();
 			e.printStackTrace();
 		}
 
 		delete message;
 		message = nullptr;
-
 	}
 
 };

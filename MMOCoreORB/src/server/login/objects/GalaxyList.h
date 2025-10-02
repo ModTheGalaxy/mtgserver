@@ -57,6 +57,30 @@ public:
 #endif // USE_RANDOM_EXTRA_PORTS
 	}
 
+	Galaxy(uint32 id) {
+		this->id = id;
+	}
+
+	void setName(const String& name) {
+		this->name = name;
+	}
+
+	void setAddress(const String& address) {
+		this->address = address;
+	}
+
+	void setPort(uint32 port) {
+		this->port = port;
+	}
+
+	void setPingPort(uint32 pingPort) {
+		this->pingPort = pingPort;
+	}
+
+	void setPopulation(uint32 population) {
+		this->population = population;
+	}
+
 	uint32 getID() const {
 		return id;
 	}
@@ -126,6 +150,10 @@ public:
 		buf << ")";
 
 		return buf.toString();
+	}
+
+	String toStringData() const {
+		return toString();
 	}
 };
 

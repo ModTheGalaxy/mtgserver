@@ -294,6 +294,7 @@ private:
 		_REGISTERSPACELEAF(GeneratePatrol);
 		_REGISTERSPACELEAF(ExitCombat);
 		_REGISTERSPACELEAF(WriteBlackboard);
+		_REGISTERSPACELEAF(WriteBlackboardFloat);
 		_REGISTERSPACELEAF(EraseBlackboard);
 		_REGISTERSPACELEAF(CalculateAggroMod);
 		_REGISTERSPACELEAF(SetMovementState);
@@ -306,6 +307,7 @@ private:
 		_REGISTERSPACELEAF(SetDisabledEngineSpeed);
 		_REGISTERSPACELEAF(Leash);
 		_REGISTERSPACELEAF(GetProspectFromDefenders);
+		_REGISTERSPACELEAF(UpdateHomePosition);
 	}
 
 	void putBitmask(Lua* lua, String key) {

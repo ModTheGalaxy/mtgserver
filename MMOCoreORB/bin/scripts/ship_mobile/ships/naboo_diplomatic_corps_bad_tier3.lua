@@ -23,7 +23,7 @@ naboo_diplomatic_corps_bad_tier3 = ShipAgent:new {
 	appearance = "civilian",
 
 	pvpBitmask = ATTACKABLE,
-	shipBitmask = NONE,
+	shipBitmask = TURRETSHIP,
 	optionsBitmask = AIENABLED,
 
 	customShipAiMap = "",

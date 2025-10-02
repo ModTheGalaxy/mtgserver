@@ -34,7 +34,7 @@ lords_mistress_tier3 = ShipAgent:new {
 	tauntAggressiveness = 0.05,
 
 	pvpBitmask = ATTACKABLE,
-	shipBitmask = NONE,
+	shipBitmask = TURRETSHIP,
 	optionsBitmask = AIENABLED,
 
 	customShipAiMap = "",

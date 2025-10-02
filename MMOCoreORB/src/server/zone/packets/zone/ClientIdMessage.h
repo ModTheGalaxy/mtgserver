@@ -9,14 +9,20 @@
 
 class ClientIdMessage : public BaseMessage {
 public:
-	ClientIdMessage(uint32 accountID, uint32 sessionKey) : BaseMessage() {
+	ClientIdMessage(uint32 accountID, const String& sessionID) : BaseMessage() {
 		insertShort(0x03);
-		insertInt(STRING_HASHCODE("ClientIdMessage"));
+		insertInt(STRING_HASHCODE("ClientIdMsg"));
 
-		insertInt(0x00); // Spacer
-		insertInt(0x00); // dataLen
-		insertInt(sessionKey); // Session Key
+		insertInt(0xFE); // gameBits
+		insertInt(sessionID.length() + 4); // dataLen (sessionID length + 4 for accountID)
+
+		// Insert sessionID as bytes
+		for (const auto val : sessionID) {
+			insertByte(val);
+		}
+
 		insertInt(accountID); // Account ID
+		insertAscii("20050408-18:00"); // Client version
 	}
 };
 

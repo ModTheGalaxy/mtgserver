@@ -693,27 +693,36 @@ void CombatManager::broadcastCombatAction(CreatureObject* attacker, WeaponObject
 		return;
 	}
 
+	String effect = "";
 	DefenderHitList* hitList = targetDefenders.get(0);
 
 	if (hitList != nullptr && weapon != nullptr) {
 		TangibleObject* defenderObject = hitList->getDefender();
 
 		if (defenderObject != nullptr) {
-			const String& animation = data.getCommand()->getAnimation(attacker, defenderObject, weapon, hitList->getHitLocation(), hitList->getInitialDamage());
-
 			uint32 animationCRC = 0;
+			auto combatCommand = data.getCommand();
 
-			if (!animation.isEmpty()) {
-				animationCRC = animation.hashCode();
+			if (combatCommand != nullptr) {
+				const String& animation = combatCommand->getAnimation(attacker, defenderObject, weapon, hitList->getHitLocation(), hitList->getInitialDamage());
+
+				if (!animation.isEmpty()) {
+					animationCRC = animation.hashCode();
+				}
+
+				effect = combatCommand->getEffectString();
 			}
 
-			if (animationCRC != 0) {
+			if (animationCRC > 0) {
 				uint64 weaponID = weapon->getObjectID();
 
-				CombatAction* combatAction = new CombatAction(attacker, targetDefenders, animationCRC, data.getTrails(), weaponID);
-				attacker->broadcastMessage(combatAction, true);
+				auto combatAction = new CombatAction(attacker, targetDefenders, animationCRC, data.getTrails(), weaponID);
+
+				if (combatAction != nullptr) {
+					attacker->broadcastMessage(combatAction, true);
+				}
 			} else {
-				attacker->error("animationCRC is 0 for " + data.getCommandName());
+				attacker->error() << "animationCRC is 0 for " << data.getCommandName();
 			}
 		}
 	}
@@ -721,8 +730,6 @@ void CombatManager::broadcastCombatAction(CreatureObject* attacker, WeaponObject
 	if (data.changesAttackerPosture()) {
 		attacker->updatePostures(false);
 	}
-
-	const String& effect = data.getCommand()->getEffectString();
 
 	if (!effect.isEmpty()) {
 		attacker->playEffect(effect);

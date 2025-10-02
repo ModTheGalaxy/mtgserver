@@ -12,9 +12,9 @@
 #include "server/features/Features.h"
 
 #include "server/login/LoginServer.h"
-#ifdef WITH_SESSION_API
-#include "server/login/SessionAPIClient.h"
-#endif // WITH_SESSION_API
+#ifdef WITH_SWGREALMS_API
+#include "server/login/SWGRealmsAPI.h"
+#endif // WITH_SWGREALMS_API
 #include "server/ping/PingServer.h"
 
 namespace server {
@@ -59,9 +59,9 @@ class ServerCore : public Core, public Logger {
 #ifdef WITH_REST_API
 	server::web3::RESTServer* restServer;
 #endif // WITH_REST_API
-#ifdef WITH_SESSION_API
-	Reference<server::login::SessionAPIClient*> sessionAPIClient;
-#endif // WITH_SESSION_API
+#ifdef WITH_SWGREALMS_API
+	Reference<server::login::SWGRealmsAPI*> swgRealmsAPI;
+#endif // WITH_SWGREALMS_API
 
 	Mutex shutdownBlockMutex;
 	Condition waitCondition;
