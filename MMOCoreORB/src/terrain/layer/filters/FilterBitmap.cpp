@@ -80,22 +80,23 @@ float FilterBitmap::process(float x, float y, float transformValue, float& baseV
 
 	float transformedX = (x - rect->minX) * image_width / (rect->maxX - rect->minX);
 	float transformedY = (y - rect->minY) * image_height / (rect->maxY - rect->minY);
+	float v39 = transformedX + 1;
+	float arg1 = (int) transformedY + 1;
 
 	if (transformedX > image_width - 1) {
 		transformedX = image_width - 1;
+		v39 = transformedX;
 	}
 
 	if (transformedY > image_height - 1) {
 		transformedY = image_height - 1;
+		arg1 = transformedY;
 	}
 
 	int v41 = transformedY;
-	float v39 = transformedX + 1;
 	int v43 = transformedX;
 	float v42 = transformedX;
 	float v40 = transformedY;
-
-	float arg1 = (int) transformedY + 1;
 
 	//v24 = lockReadOnly__Image(v7, 0);
 

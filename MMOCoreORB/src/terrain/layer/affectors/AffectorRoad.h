@@ -11,7 +11,6 @@
 #include "../ProceduralRule.h"
 #include "../Road.h"
 #include "../HeightData.h"
-#include "../boundaries/BoundaryRectangle.h"
 #include "../../TerrainGenerator.h"
 #include "AffectorRiver.h"
 
