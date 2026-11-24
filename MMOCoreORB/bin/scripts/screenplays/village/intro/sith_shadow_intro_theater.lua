@@ -2,7 +2,6 @@ local ObjectManager = require("managers.object.object_manager")
 local QuestManager = require("managers.quest.quest_manager")
 local SpawnMobiles = require("utils.spawn_mobiles")
 require("utils.helpers")
-local READ_DISK_2_STRING = "@quest/force_sensitive/intro:read_disk2"
 local READ_DISK_ERROR_STRING = "@quest/force_sensitive/intro:read_disk_error"
 
 SithShadowIntroTheater = GoToTheater:new {
@@ -141,14 +140,13 @@ end
 function SithShadowIntroTheater:useTheaterDatapad(pSceneObject, pPlayer)
 	Logger:log("Player used the looted theater datapad.", LT_INFO)
 	if QuestManager.hasCompletedQuest(pPlayer, QuestManager.quests.GOT_DATAPAD_2) then
-		CreatureObject(pPlayer):sendSystemMessage(READ_DISK_2_STRING)
+		CreatureObject(pPlayer):sendSystemMessage("The disk directs you to meditate at a Force shrine to begin your Padawan trials, then self-destructs.")
 
 		SceneObject(pSceneObject):destroyObjectFromWorld()
 		SceneObject(pSceneObject):destroyObjectFromDatabase()
 
 		QuestManager.completeQuest(pPlayer, QuestManager.quests.LOOT_DATAPAD_2)
-		FsIntro:setCurrentStep(pPlayer, 8)
-		GoToDathomir:start(pPlayer)
+		JediShrineProgression:startPadawanTrials(pPlayer)
 	else
 		CreatureObject(pPlayer):sendSystemMessage(READ_DISK_ERROR_STRING)
 	end

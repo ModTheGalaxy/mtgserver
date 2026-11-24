@@ -68,15 +68,6 @@ SprayShotCommand = {
 		100,
 		0,
 		30
-	  ),
-	  StateEffect(
-		STUN_EFFECT,
-		{},
-		{ "stun_defense" },
-		{ "jedi_state_defense", "resistance_states" },
-		30,
-		0,
-		10
 	  )
 	},
 

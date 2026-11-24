@@ -22,14 +22,20 @@ JediTrials = ScreenPlay:new {
 	COUNCIL_DARK = 2,
 }
 
+function JediTrials:isPadawanTrialsReady(pPlayer)
+	return pPlayer ~= nil and (CreatureObject(pPlayer):hasScreenPlayState(32, "VillageJediProgression") or CreatureObject(pPlayer):hasScreenPlayState(4, "JediShrineProgression"))
+end
+
+function JediTrials:hasCompletedPadawanTasks(pPlayer)
+	return pPlayer ~= nil and (CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_02") or (tonumber(readScreenPlayData(pPlayer, "PadawanTrials", "trialsCompleted")) or 0) >= #padawanTrialQuests)
+end
+
 function JediTrials:isEligibleForPadawanTrials(pPlayer)
 	if (pPlayer == nil or not self.padawanTrialsEnabled) then
 		return false
 	end
 
-	local learnedBranches = VillageJediManagerCommon.getLearnedForceSensitiveBranches(pPlayer)
-
-	return CreatureObject(pPlayer):hasScreenPlayState(32, "VillageJediProgression") and not CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_02") and learnedBranches >= 6 and tonumber(readScreenPlayData(pPlayer, "PadawanTrials", "completedTrials")) ~= 1
+	return self:isPadawanTrialsReady(pPlayer) and not CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_02") and tonumber(readScreenPlayData(pPlayer, "PadawanTrials", "completedTrials")) ~= 1
 end
 
 function JediTrials:isOnPadawanTrials(pPlayer)
@@ -67,6 +73,15 @@ function JediTrials:onPlayerLoggedIn(pPlayer)
 
 	if (CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_03") and tonumber(readScreenPlayData(pPlayer, "KnightTrials", "completedTrials")) ~= 1) then
 		writeScreenPlayData(pPlayer, "KnightTrials", "completedTrials", 1)
+	end
+	if (CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_03")) then
+		local ghost = CreatureObject(pPlayer):getPlayerObject()
+		if (ghost ~= nil) then
+			local council = PlayerObject(ghost):getFrsCouncil()
+			if ((council == self.COUNCIL_LIGHT and not CreatureObject(pPlayer):hasSkill("force_rank_light_novice")) or (council == self.COUNCIL_DARK and not CreatureObject(pPlayer):hasSkill("force_rank_dark_novice")) or (council ~= self.COUNCIL_LIGHT and council ~= self.COUNCIL_DARK)) then
+				printLuaError("JediTrials: Knight has inconsistent FRS council or rank skill: " .. SceneObject(pPlayer):getObjectID())
+			end
+		end
 	end
 
 	if (self:isOnPadawanTrials(pPlayer)) then
@@ -116,24 +131,45 @@ function JediTrials:unlockJediPadawan(pPlayer, dontSendSui)
 		return
 	end
 
-	if (dontSendSui == nil or dontSendSui == false) then
-		local sui = SuiMessageBox.new("JediTrials", "emptyCallback") -- No callback
-		sui.setTitle("@jedi_trials:padawan_trials_title")
-		sui.setPrompt("@jedi_trials:padawan_trials_completed")
-		sui.sendTo(pPlayer)
+	if (CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_02")) then
+		return
+	end
+	if (not self:hasCompletedPadawanTasks(pPlayer)) then
+		printLuaError("JediTrials:unlockJediPadawan called before all trials were completed for " .. SceneObject(pPlayer):getObjectID())
+		CreatureObject(pPlayer):sendSystemMessage("Complete all Padawan trials before seeking Mellichae.")
+		return
+	end
+	if (not CreatureObject(pPlayer):hasScreenPlayState(32, "VillageJediProgression")) then
+		JediShrineProgression:startOutro(pPlayer)
+		return
 	end
 
-	if (not CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_01")) then
-		awardSkill(pPlayer, "force_title_jedi_rank_01")
+	if (not self:awardPadawanRankOne(pPlayer)) then
+		return
 	end
 
-	awardSkill(pPlayer, "force_title_jedi_rank_02")
+	if (not CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_02")) then
+		awardSkill(pPlayer, "force_title_jedi_rank_02")
+	end
+	if (not CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_02")) then
+		printLuaError("JediTrials:unlockJediPadawan failed to award rank 2 for " .. SceneObject(pPlayer):getObjectID())
+		CreatureObject(pPlayer):sendSystemMessage("Your Padawan rank could not be awarded. Please contact a CSR.")
+		return
+	end
+
 	writeScreenPlayData(pPlayer, "PadawanTrials", "completedTrials", 1)
 
 	CreatureObject(pPlayer):playEffect("clienteffect/trap_electric_01.cef", "")
 	CreatureObject(pPlayer):playMusicMessage("sound/music_become_jedi.snd")
 
 	PlayerObject(pGhost):setJediState(2)
+
+	if (dontSendSui == nil or dontSendSui == false) then
+		local sui = SuiMessageBox.new("JediTrials", "emptyCallback") -- No callback
+		sui.setTitle("@jedi_trials:padawan_trials_title")
+		sui.setPrompt("@jedi_trials:padawan_trials_completed")
+		sui.sendTo(pPlayer)
+	end
 
 	local pInventory = SceneObject(pPlayer):getSlottedObject("inventory")
 
@@ -145,6 +181,26 @@ function JediTrials:unlockJediPadawan(pPlayer, dontSendSui)
 	end
 
 	sendMail("system", "@jedi_spam:welcome_subject", "@jedi_spam:welcome_body", CreatureObject(pPlayer):getFirstName())
+end
+
+function JediTrials:awardPadawanRankOne(pPlayer)
+	if (not CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_01")) then
+		local key = SceneObject(pPlayer):getObjectID() .. ":padawanTrialRankAward"
+		writeData(key, 1)
+		local success, awardError = pcall(awardSkill, pPlayer, "force_title_jedi_rank_01")
+		deleteData(key)
+		if (not success) then
+			error(awardError)
+		end
+	end
+
+	if (not CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_01")) then
+		printLuaError("JediTrials:awardPadawanRankOne failed for " .. SceneObject(pPlayer):getObjectID())
+		CreatureObject(pPlayer):sendSystemMessage("Your Jedi trial skill could not be awarded. Please contact a CSR.")
+		return false
+	end
+
+	return true
 end
 
 function JediTrials:unlockJediKnight(pPlayer)
@@ -183,6 +239,11 @@ function JediTrials:unlockJediKnight(pPlayer)
 	end
 
 	awardSkill(pPlayer, "force_title_jedi_rank_03")
+	if (not CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_03")) then
+		printLuaError("JediTrials:unlockJediKnight failed to award rank 3 for " .. SceneObject(pPlayer):getObjectID())
+		CreatureObject(pPlayer):sendSystemMessage("Your Knight rank could not be awarded. Please contact a CSR.")
+		return
+	end
 	writeScreenPlayData(pPlayer, "KnightTrials", "completedTrials", 1)
 	CreatureObject(pPlayer):playMusicMessage(unlockMusic)
 	playClientEffectLoc(pPlayer, "clienteffect/trap_electric_01.cef", CreatureObject(pPlayer):getZoneName(), CreatureObject(pPlayer):getPositionX(), CreatureObject(pPlayer):getPositionZ(), CreatureObject(pPlayer):getPositionY(), CreatureObject(pPlayer):getParentID())
@@ -264,6 +325,10 @@ end
 
 function JediTrials:getRandomShrineOnPlanet(planet)
 	local shrineList = self.forceShrineIds[planet]
+	if (shrineList == nil or #shrineList == 0) then
+		printLuaError("JediTrials:getRandomShrineOnPlanet received an invalid planet.")
+		return nil
+	end
 	local shrineID = shrineList[getRandomNumber(1, #shrineList)]
 	local pShrine = getSceneObject(shrineID)
 	local attempts = 0
@@ -489,6 +554,7 @@ end
 function JediTrials:completePadawanForTesting(pPlayer)
 	writeScreenPlayData(pPlayer, "PadawanTrials", "startedTrials", 1)
 	self:setTrialsCompleted(pPlayer, #padawanTrialQuests)
+	VillageJediManagerCommon.setJediProgressionScreenPlayState(pPlayer, VILLAGE_JEDI_PROGRESSION_DEFEATED_MELLIACHAE)
 	self:unlockJediPadawan(pPlayer, true)
 end
 

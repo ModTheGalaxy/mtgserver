@@ -694,9 +694,6 @@ class AiAgent extends CreatureObject {
 	@preLocked
 	public abstract native void activateHAMRegeneration(int latency);
 
-	@preLocked
-	public native void queueDizzyFallEvent();
-
 	/**
 	 * Cleares the combat state
 	 * @pre { this object is locked }

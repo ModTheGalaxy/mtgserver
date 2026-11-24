@@ -4,12 +4,22 @@ local Logger = require("utils.logger")
 Glowing = ScreenPlay:new {
 	requiredBadges = {
 		{ type = "exploration_jedi", amount = 3 },
-		{ type = "exploration_dangerous", amount = 2 },
-		{ type = "exploration_easy", amount = 5 },
-		{ type = "master", amount = 1 },
-		{ type = "content", amount = 5 },
 	}
 }
+
+function Glowing:getJediBadgeCount(pPlayer)
+	local pGhost = CreatureObject(pPlayer):getPlayerObject()
+	if (pGhost == nil) then
+		return 0
+	end
+	local count = 0
+	for _, badge in ipairs(getBadgeListByType("exploration_jedi")) do
+		if (PlayerObject(pGhost):hasBadge(badge)) then
+			count = count + 1
+		end
+	end
+	return count
+end
 
 function Glowing:getCompletedBadgeTypeCount(pPlayer)
 	local pGhost = CreatureObject(pPlayer):getPlayerObject()
@@ -61,7 +71,7 @@ function Glowing:badgeAwardedEventHandler(pPlayer, pPlayer2, badgeNumber)
 		return 0
 	end
 
-	if self:hasRequiredBadgeCount(pPlayer) and not CreatureObject(pPlayer):hasSkill("force_title_jedi_novice") then
+	if self:hasRequiredBadgeCount(pPlayer) and not self:isGlowing(pPlayer) and not CreatureObject(pPlayer):hasSkill("force_title_jedi_novice") then
 		VillageJediManagerCommon.setJediProgressionScreenPlayState(pPlayer, VILLAGE_JEDI_PROGRESSION_GLOWING)
 		FsIntro:startPlayerOnIntro(pPlayer)
 		return 1
@@ -80,7 +90,7 @@ end
 -- Handling of the onPlayerLoggedIn event. The progression of the player will be checked and observers will be registered.
 -- @param pPlayer pointer to the creature object of the player who logged in.
 function Glowing:onPlayerLoggedIn(pPlayer)
-	if not self:isGlowing(pPlayer) then
+	if not self:isGlowing(pPlayer) and not CreatureObject(pPlayer):hasSkill("force_title_jedi_novice") then
 		if self:hasRequiredBadgeCount(pPlayer) then
 			VillageJediManagerCommon.setJediProgressionScreenPlayState(pPlayer, VILLAGE_JEDI_PROGRESSION_GLOWING)
 			FsIntro:startPlayerOnIntro(pPlayer)
@@ -93,9 +103,7 @@ end
 -- Handling of the checkForceStatus command.
 -- @param pPlayer pointer to the creature object of the player who performed the command
 function Glowing:checkForceStatusCommand(pPlayer)
-	local progress = "@jedi_spam:fs_progress_" .. self:getCompletedBadgeTypeCount(pPlayer)
-
-	CreatureObject(pPlayer):sendSystemMessage(progress)
+	CreatureObject(pPlayer):sendSystemMessage("Jedi POI badges: " .. self:getJediBadgeCount(pPlayer) .. "/" .. self.requiredBadges[1].amount)
 end
 
 return Glowing

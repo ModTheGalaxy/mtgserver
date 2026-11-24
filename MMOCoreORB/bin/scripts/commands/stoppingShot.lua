@@ -60,7 +60,11 @@ StoppingShotCommand = {
 	
 	weaponType = PISTOLWEAPON,
 
-	range = -1
+	range = 20,
+
+	stateEffects = {
+		StateEffect(INTIMIDATE_EFFECT, {}, { "intimidate_defense" }, { "jedi_state_defense", "resistance_states" }, 100, 0, 15)
+	}
 }
 
 AddCommand(StoppingShotCommand)

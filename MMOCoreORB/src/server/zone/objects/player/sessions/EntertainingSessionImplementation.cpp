@@ -12,6 +12,7 @@
 #include "server/zone/managers/player/PlayerManager.h"
 #include "server/zone/objects/group/GroupObject.h"
 #include "server/zone/objects/creature/CreatureObject.h"
+#include "server/zone/objects/creature/HamCost.h"
 #include "server/zone/objects/player/events/EntertainingSessionTask.h"
 #include "server/zone/objects/player/EntertainingObserver.h"
 #include "templates/params/creature/CreatureAttribute.h"
@@ -24,6 +25,7 @@
 #include "server/zone/objects/mission/EntertainerMissionObjective.h"
 #include "server/zone/objects/creature/buffs/PerformanceBuff.h"
 #include "server/zone/objects/creature/buffs/PerformanceBuffType.h"
+#include "server/zone/objects/creature/buffs/PerformanceEnhancement.h"
 #include "server/zone/objects/mission/MissionTypes.h"
 #include "server/zone/objects/building/BuildingObject.h"
 #include "server/chat/ChatManager.h"
@@ -645,15 +647,7 @@ void EntertainingSessionImplementation::doFlourish(int flourishNumber, bool gran
 
 	ManagedReference<Instrument*> instrument = entertainer->getPlayableInstrument();
 
-	float baseActionDrain = performance->getActionPointsPerLoop() - (int)(entertainer->getHAM(CreatureAttribute::QUICKNESS)/35.f);
-
-	if (baseActionDrain < 0)
-		baseActionDrain = 0;
-
-	//float baseActionDrain = -40 + (getQuickness() / 37.5);
-	float flourishActionDrain = baseActionDrain / 2.0;
-
-	int actionDrain = (int)round((flourishActionDrain * 10 + 0.5) / 10.0); // Round to nearest dec for actual int cost
+	int actionDrain = HamCost::flourishActionCost(performance->getActionPointsPerLoop(), entertainer->getHAM(CreatureAttribute::QUICKNESS));
 
 	if (entertainer->getHAM(CreatureAttribute::ACTION) <= actionDrain) {
 		entertainer->sendSystemMessage("@performance:flourish_too_tired");
@@ -717,9 +711,6 @@ void EntertainingSessionImplementation::addEntertainerBuffStrength(CreatureObjec
 	} else if (isPlayingMusic()) {
 		maxBuffStrength = (float) entertainer->getSkillMod("healing_music_mind");
 	}
-
-	if (maxBuffStrength > 125.0f)
-		maxBuffStrength = 125.0f;	//cap at 125% power
 
 	float factionPerkStrength = entertainer->getSkillMod("private_faction_buff_mind");
 
@@ -880,23 +871,21 @@ void EntertainingSessionImplementation::activateEntertainerBuff(CreatureObject* 
 			return;
 		}
 
-		// Returns a % of base stat
-		int campModTemp = 100;
-
-
 		float buffStrength = getEntertainerBuffStrength(creature, performanceType) / 100.0f;
 
 		if (buffStrength == 0)
 			return;
 
-		ManagedReference<PerformanceBuff*> oldBuff = nullptr;
 		switch (performanceType) {
 		case PerformanceType::MUSIC:
 		{
 			uint32 focusBuffCRC = STRING_HASHCODE("performance_enhance_music_focus");
 			uint32 willBuffCRC = STRING_HASHCODE("performance_enhance_music_willpower");
-			oldBuff = cast<PerformanceBuff*>(creature->getBuff(focusBuffCRC));
-			if (oldBuff != nullptr && oldBuff->getBuffStrength() > buffStrength)
+			ManagedReference<Buff*> oldFocusBuff = creature->getBuff(focusBuffCRC);
+			ManagedReference<Buff*> oldWillBuff = creature->getBuff(willBuffCRC);
+			int newPower = PerformanceEnhancement::secondaryBuffPower(buffStrength);
+			if ((oldFocusBuff != nullptr && oldFocusBuff->getAttributeModifierValue(CreatureAttribute::FOCUS) > newPower)
+					|| (oldWillBuff != nullptr && oldWillBuff->getAttributeModifierValue(CreatureAttribute::WILLPOWER) > newPower))
 				return;
 			ManagedReference<PerformanceBuff*> focusBuff = new PerformanceBuff(creature, focusBuffCRC, buffStrength, buffDuration * 60, PerformanceBuffType::MUSIC_FOCUS);
 			ManagedReference<PerformanceBuff*> willBuff = new PerformanceBuff(creature, willBuffCRC, buffStrength, buffDuration * 60, PerformanceBuffType::MUSIC_WILLPOWER);
@@ -912,8 +901,8 @@ void EntertainingSessionImplementation::activateEntertainerBuff(CreatureObject* 
 		case PerformanceType::DANCE:
 		{
 			uint32 mindBuffCRC = STRING_HASHCODE("performance_enhance_dance_mind");
-			oldBuff = cast<PerformanceBuff*>(creature->getBuff(mindBuffCRC));
-			if (oldBuff != nullptr && oldBuff->getBuffStrength() > buffStrength)
+			ManagedReference<Buff*> oldBuff = creature->getBuff(mindBuffCRC);
+			if (oldBuff != nullptr && oldBuff->getAttributeModifierValue(CreatureAttribute::MIND) > PerformanceEnhancement::mindBuffPower(buffStrength))
 				return;
 			ManagedReference<PerformanceBuff*> mindBuff = new PerformanceBuff(creature, mindBuffCRC, buffStrength, buffDuration * 60, PerformanceBuffType::DANCE_MIND);
 

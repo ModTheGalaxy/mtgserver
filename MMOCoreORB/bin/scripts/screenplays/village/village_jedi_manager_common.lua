@@ -59,14 +59,6 @@ function VillageJediManagerCommon.setJediProgressionScreenPlayState(pPlayer, sta
 	CreatureObject(pPlayer):setScreenPlayState(state, VILLAGE_JEDI_PROGRESSION_SCREEN_PLAY_STATE_STRING)
 end
 
-function VillageJediManagerCommon.isVillageEligible(pPlayer)
-	if (pPlayer == nil) then
-		return false
-	end
-
-	return VillageJediManagerCommon.hasJediProgressionScreenPlayState(pPlayer, VILLAGE_JEDI_PROGRESSION_HAS_VILLAGE_ACCESS) and QuestManager.hasCompletedQuest(pPlayer, QuestManager.quests.FS_VILLAGE_ELDER)
-end
-
 -- Check if the player has the jedi progression screen play state.
 -- @param pPlayer pointer to the creature object of the player.
 -- @param state the state to check if the player has.

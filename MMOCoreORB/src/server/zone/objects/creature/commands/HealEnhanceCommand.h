@@ -12,6 +12,7 @@
 #include "server/zone/objects/creature/events/InjuryTreatmentTask.h"
 #include "server/zone/objects/creature/buffs/Buff.h"
 #include "server/zone/objects/creature/BuffAttribute.h"
+#include "server/zone/objects/creature/DoctorEnhancement.h"
 #include "server/zone/objects/creature/buffs/DelayedBuff.h"
 #include "server/zone/managers/collision/CollisionManager.h"
 
@@ -209,6 +210,14 @@ public:
 			buffPower = buffPower * patient->calculateBFRatio();
 		} else
 			buffPower = enhancePack->calculatePower(enhancer, patient);
+
+		uint8 attribute = enhancePack->getAttribute();
+
+		if (attribute == BuffAttribute::HEALTH || attribute == BuffAttribute::ACTION)
+			buffPower = DoctorEnhancement::poolBuffPower(buffPower);
+		else if (attribute == BuffAttribute::STRENGTH || attribute == BuffAttribute::CONSTITUTION
+				|| attribute == BuffAttribute::QUICKNESS || attribute == BuffAttribute::STAMINA)
+			buffPower = DoctorEnhancement::secondaryBuffPower(buffPower);
 
 		return buffPower;
 	}

@@ -66,7 +66,7 @@ public:
 			}
 		}
 
-		int ret = doCombatAction(player, (uint64)target);
+		int ret = doCombatAction(player, *target);
 
 		if (!skillCRC.isEmpty())
 			player->addSkillMod(SkillModManager::ABILITYBONUS, skillCRC, (int) skillMod * -2, false);
@@ -95,7 +95,7 @@ public:
 			String queueAction = "volleyfireattack";
 			uint64 queueActionCRC = queueAction.hashCode();
 
-			member->executeObjectControllerAction(queueActionCRC, (uint64)target, "");
+			member->executeObjectControllerAction(queueActionCRC, *target, "");
 
 			checkForTef(leader, member);
 		}

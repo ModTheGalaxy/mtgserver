@@ -319,7 +319,7 @@ TEST_F(LuaMobileTest, LuaMobileTemplatesTest) {
 		String bone = creature->getBoneType();
 		float boneMax = creature->getBoneMax();
 		if (!bone.isEmpty()) {
-			String boneResources = "bone_avian,bone_mammal";
+			String boneResources = "bone_avian,bone_mammal,bone_horn";
 			StringTokenizer tokenizer(boneResources);
 			tokenizer.setDelimeter(",");
 			bool match = false;

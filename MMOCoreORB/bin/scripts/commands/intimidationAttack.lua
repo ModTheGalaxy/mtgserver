@@ -50,7 +50,7 @@ IntimidationAttackCommand = {
 	  StateEffect( 
 		INTIMIDATE_EFFECT, 
 		{}, 
-		{}, 
+		{ "intimidate_defense" },
 		{}, 
 		85, 
 		0, 

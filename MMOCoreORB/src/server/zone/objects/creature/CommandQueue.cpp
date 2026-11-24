@@ -12,12 +12,44 @@
 #include "CommandQueue.h"
 #include "server/zone/managers/objectcontroller/ObjectController.h"
 #include "server/zone/objects/creature/CreatureObject.h"
+#include "server/zone/objects/player/PlayerObject.h"
 #include "server/zone/objects/creature/commands/QueueCommand.h"
 #include "server/zone/ZoneServer.h"
 #include "server/zone/objects/creature/variables/CommandQueueActionVector.h"
 #include "server/zone/packets/object/CommandQueueRemove.h"
 #include "server/zone/packets/object/CommandQueueAdd.h"
 #include "templates/params/ObserverEventType.h"
+
+namespace {
+
+bool isCombatQueueCommand(const QueueCommand* command) {
+	return command != nullptr && command->isCombatCommand();
+}
+
+void notifyAutoAttackSpecialCancelled(CreatureObject* creature, uint32 commandCRC) {
+	if (creature == nullptr || !creature->isPlayerCreature())
+		return;
+
+	ZoneServer* zoneServer = creature->getZoneServer();
+	if (zoneServer == nullptr)
+		return;
+
+	ObjectController* objectController = zoneServer->getObjectController();
+	if (objectController == nullptr)
+		return;
+
+	if (!isCombatQueueCommand(objectController->getQueueCommand(commandCRC)))
+		return;
+
+	PlayerObject* playerObject = creature->getPlayerObject();
+	if (playerObject != nullptr) {
+		Time cancellationTime;
+		cancellationTime.updateToCurrentTime();
+		playerObject->onQueuedSpecialAttack(commandCRC, false, cancellationTime.getMiliTime(), 0);
+	}
+}
+
+}
 
 CommandQueue::CommandQueue(CreatureObject* creature) {
 #ifdef DEBUG_QUEUE
@@ -189,34 +221,6 @@ int CommandQueue::handleRunningState() {
 	Time currTime;
 	int remainingActionTime = nextActionTime->getMiliTime() - currTime.getMiliTime();
 
-	// Auto attack timer only applies to players
-	if (creature->isPlayerCreature()) {
-
-#ifdef DEBUG_QUEUE
-		info(true) << "Remaining action time = " << remainingActionTime;
-#endif
-
-		CooldownTimerMap* cooldownTimerMap = creature->getCooldownTimerMap();
-
-		if (cooldownTimerMap != nullptr && !cooldownTimerMap->isPast("autoAttackDelay")) {
-			const Time* autoAttackTime = cooldownTimerMap->getTime("autoAttackDelay");
-
-			if (autoAttackTime != nullptr) {
-				auto autoTime = fabs(autoAttackTime->miliDifference());
-
-				if (autoTime > remainingActionTime) {
-#ifdef DEBUG_QUEUE
-					info(true) << "Auto attack delay is > than remainingActionTime adding to delay = " << autoTime;
-#endif
-					nextActionTime->addMiliTime(autoTime);
-
-					if (priority == QueueCommand::NORMAL)
-						return autoTime;
-				}
-			}
-		}
-	}
-
 	if (priority == QueueCommand::NORMAL && nextActionTime->isFuture()) {
 #ifdef DEBUG_QUEUE
 		info(true) << "Next normal action is future returning time of " << remainingActionTime;
@@ -229,7 +233,7 @@ int CommandQueue::handleRunningState() {
 	}
 
 	try {
-		time = objectController->activateCommand(creature, action->getCommand(), action->getActionCounter(), action->getTarget(), action->getArguments());
+		time = objectController->activateCommand(creature, action->getCommand(), action->getActionCounter(), action->getTarget(), action->getArguments(), true);
 	} catch (const Exception &e) {
 		Logger::console.error() << "CommandQueue ERROR -- Creature: " << creature->getDisplayedName() << " ID: " << creature->getObjectID() << " Command Name: " << queueCommand->getName() << " Issue: " << e.getMessage();
 		e.printStackTrace();
@@ -557,6 +561,7 @@ void CommandQueue::clearQueueActions(bool combatOnly) {
 		if (command->getActionCounter() != 0)
 			clearQueueAction(command->getActionCounter(), 0, 0, 0);
 
+		notifyAutoAttackSpecialCancelled(creature, command->getCommand());
 		queueVector.remove(i);
 	}
 }
@@ -568,6 +573,7 @@ void CommandQueue::deleteQueueAction(uint32 actionCount) {
 		CommandQueueAction* action = queueVector.get(i);
 
 		if (action->getActionCounter() == actionCount) {
+			notifyAutoAttackSpecialCancelled(weakCreature.get(), action->getCommand());
 			queueVector.remove(i);
 			break;
 		}

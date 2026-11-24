@@ -6,6 +6,7 @@
  */
 
 #include "server/zone/objects/player/sessions/SlicingSession.h"
+#include "server/zone/objects/player/sessions/SlicingPermissions.h"
 #include "server/zone/objects/player/sui/SuiWindowType.h"
 #include "server/zone/objects/player/sui/listbox/SuiListBox.h"
 #include "server/zone/objects/tangible/tool/smuggler/SlicingTool.h"
@@ -43,6 +44,7 @@ int SlicingSessionImplementation::initializeSession() {
 
 	baseSlice = false;
 	keypadSlice = false;
+	rankSelection = false;
 
 	return 0;
 }
@@ -59,6 +61,16 @@ void SlicingSessionImplementation::initalizeSlicingMenu(CreatureObject* pl, Tang
 
 	if (!tangibleObject->isSliceable() && !isBaseSlice() && !isKeypadSlice())
 		return;
+
+	if (tangibleObject->isWeaponObject() && SlicingPermissions::weaponPointLimit(player) == 0) {
+		player->sendSystemMessage("You lack the ability to slice weapons.");
+		return;
+	}
+
+	if (tangibleObject->isArmorObject() && !SlicingPermissions::canSliceArmor(player)) {
+		player->sendSystemMessage("You lack the ability to slice armor.");
+		return;
+	}
 
 	if (tangibleObject->containsActiveSession(SessionFacadeType::SLICING)) {
 		player->sendSystemMessage("@slicing/slicing:slicing_underway");
@@ -154,12 +166,176 @@ void SlicingSessionImplementation::generateSliceMenu(SuiListBox* suiBox) {
 
 }
 
+void SlicingSessionImplementation::generateRankMenu(SuiListBox* suiBox) {
+	ManagedReference<CreatureObject*> player = this->player.get();
+	ManagedReference<TangibleObject*> tangibleObject = this->tangibleObject.get();
+
+	if (player == nullptr || tangibleObject == nullptr)
+		return;
+
+	rankSelection = true;
+	suiBox->removeAllMenuItems();
+	suiBox->setCancelButton(true, "@cancel");
+	suiBox->setPromptText("Choose a slice rank:");
+
+	if (tangibleObject->isWeaponObject()) {
+		WeaponObject* weapon = cast<WeaponObject*>(tangibleObject.get());
+		uint8 spent = weapon->getWeaponSlicePoints();
+		int available = SlicingPermissions::weaponPointLimit(player);
+
+		suiBox->addMenuItem("@slicing_weapon:replace_stock_cap", 0);
+		suiBox->addMenuItem("@slicing_weapon:overcharge_core", 1);
+		suiBox->addMenuItem("@slicing_weapon:embed_booster", 2);
+		suiBox->addMenuItem("@slicing_weapon:rebuild_body", 3);
+		suiBox->addMenuItem("@slicing_weapon:reduce_weight", 4);
+		suiBox->addMenuItem("@slicing_weapon:streamline_load", 5);
+		suiBox->addMenuItem("@slicing_weapon:rebuild_pin", 6);
+		suiBox->addMenuItem("@slicing_weapon:optimize_power_flow", 7);
+		suiBox->addMenuItem("@slicing_weapon:tune_power_regulator", 8);
+		suiBox->addMenuItem("@slicing_weapon:install_efficiency_booster", 9);
+
+		StringBuffer prompt;
+		prompt << "Choose a slice rank. Points used: " << spent << "/" << available;
+		suiBox->setPromptText(prompt.toString());
+	} else if (tangibleObject->isArmorObject()) {
+		ArmorObject* armor = cast<ArmorObject*>(tangibleObject.get());
+
+		suiBox->addMenuItem("@slicing_armor:strengthen_jointing", 0);
+		suiBox->addMenuItem("@slicing_armor:custom_seals", 1);
+		suiBox->addMenuItem("@slicing_armor:install_under_layer", 2);
+		suiBox->addMenuItem("@slicing_armor:reflect_coat", 3);
+		suiBox->addMenuItem("@slicing_armor:rework_plating", 4);
+		suiBox->addMenuItem("@slicing_armor:install_motivators", 5);
+		suiBox->addMenuItem("@slicing_armor:intraframe_basic", 6);
+		suiBox->addMenuItem("@slicing_armor:intraframe_trandoshan", 7);
+		suiBox->addMenuItem("@slicing_armor:intraframe_mandalorian", 8);
+		suiBox->addMenuItem("@slicing_armor:adjust_padding", 9);
+		suiBox->addMenuItem("@slicing_armor:reduce_plating_weight", 10);
+		suiBox->addMenuItem("@slicing_armor:install_lightweight_supports", 11);
+
+		StringBuffer prompt;
+		prompt << "Choose a slice rank. Points used: " << armor->getArmorSlicePoints() << "/100";
+		suiBox->setPromptText(prompt.toString());
+	}
+
+	player->getPlayerObject()->addSuiBox(suiBox);
+	player->sendMessage(suiBox->generateMessage());
+}
+
 void SlicingSessionImplementation::handleMenuSelect(CreatureObject* pl, byte menuID, SuiListBox* suiBox) {
 	ManagedReference<CreatureObject*> player = this->player.get();
 	ManagedReference<TangibleObject*> tangibleObject = this->tangibleObject.get();
 
 	if (tangibleObject == nullptr || player == nullptr || player != pl)
 		return;
+
+	if (tangibleObject->isWeaponObject() && SlicingPermissions::weaponPointLimit(player) == 0) {
+		player->sendSystemMessage("You lack the ability to slice weapons.");
+		cancelSession();
+		return;
+	}
+
+	if (tangibleObject->isArmorObject() && !SlicingPermissions::canSliceArmor(player)) {
+		player->sendSystemMessage("You lack the ability to slice armor.");
+		cancelSession();
+		return;
+	}
+
+	if (rankSelection) {
+		bool applied = false;
+
+		if (tangibleObject->isWeaponObject()) {
+			WeaponObject* weapon = cast<WeaponObject*>(tangibleObject.get());
+			uint8 rank = (menuID % 10) + 1;
+			uint8 cost = 0;
+			uint8 currentPoints = weapon->getWeaponSlicePoints();
+			int maxPoints = SlicingPermissions::weaponPointLimit(player);
+
+			if (menuID < 3) {
+				cost = rank == 1 ? 20 : 20;
+				if (weapon->getDamageSliceRank() + 1 == rank && currentPoints + cost <= maxPoints) {
+					weapon->setDamageSliceRank(rank);
+					weapon->setWeaponSlicePoints(currentPoints + cost);
+					applied = true;
+				}
+			} else if (menuID < 7) {
+				rank = menuID - 2;
+				switch (rank) {
+					case 1: cost = 20; break;
+					case 2: cost = 25; break;
+					case 3: cost = 25; break;
+					case 4: cost = 30; break;
+				}
+				if (weapon->getSpeedSliceRank() + 1 == rank && currentPoints + cost <= maxPoints) {
+					weapon->setSpeedSliceRank(rank);
+					weapon->setWeaponSlicePoints(currentPoints + cost);
+					applied = true;
+				}
+			} else {
+				rank = menuID - 6;
+				cost = rank == 1 ? 20 : (rank == 2 ? 40 : 40);
+				if (weapon->getHamSliceRank() + 1 == rank && currentPoints + cost <= maxPoints) {
+					weapon->setHamSliceRank(rank);
+					weapon->setWeaponSlicePoints(currentPoints + cost);
+					applied = true;
+				}
+			}
+
+			if (applied)
+				weapon->setSliced(true);
+		} else if (tangibleObject->isArmorObject()) {
+			ArmorObject* armor = cast<ArmorObject*>(tangibleObject.get());
+			uint8 rank = (menuID % 3) + 1;
+			uint8 cost = 0;
+			uint8 currentPoints = armor->getArmorSlicePoints();
+
+			if (menuID < 3) {
+				cost = 25;
+				if (armor->getResilienceSliceRank() + 1 == rank && currentPoints + cost <= 100) {
+					armor->setResilienceSliceRank(rank);
+					armor->setArmorSlicePoints(currentPoints + cost);
+					applied = true;
+				}
+			} else if (menuID < 6) {
+				rank = menuID - 2;
+				cost = 25;
+				if (armor->getDeflectionSliceRank() + 1 == rank && currentPoints + cost <= 100) {
+					armor->setDeflectionSliceRank(rank);
+					armor->setArmorSlicePoints(currentPoints + cost);
+					applied = true;
+				}
+			} else if (menuID < 9) {
+				rank = menuID - 5;
+				cost = rank == 1 ? 15 : (rank == 2 ? 35 : 50);
+				if (armor->getHardeningSliceRank() + 1 == rank && currentPoints + cost <= 100) {
+					armor->setHardeningSliceRank(rank);
+					armor->setArmorSlicePoints(currentPoints + cost);
+					applied = true;
+				}
+			} else {
+				rank = menuID - 8;
+				cost = 20;
+				if (armor->getEncumbranceSliceRank() + 1 == rank && currentPoints + cost <= 100) {
+					armor->setEncumbranceSliceRank(rank);
+					armor->setArmorSlicePoints(currentPoints + cost);
+					applied = true;
+				}
+			}
+
+			if (applied)
+				armor->setSliced(true);
+		}
+
+		if (applied) {
+			tangibleObject->notifyObservers(ObserverEventType::SLICED, player, 1);
+			player->sendSystemMessage("Slice rank applied.");
+			generateRankMenu(suiBox);
+		} else {
+			player->sendSystemMessage("That slice rank is unavailable or exceeds the customization-point limit.");
+			generateRankMenu(suiBox);
+		}
+		return;
+	}
 
 	ManagedReference<SceneObject*> inventory = player->getSlottedObject("inventory");
 	if (inventory == nullptr)
@@ -477,11 +653,13 @@ void SlicingSessionImplementation::handleSlice(SuiListBox* suiBox) {
 		term->addSlicer(player);
 		player->sendSystemMessage("@slicing/slicing:terminal_success");
 	} else if (tangibleObject->isWeaponObject()) {
-		handleWeaponSlice();
 		playerManager->awardExperience(player, "slicing", 250, true); // Weapon Slice XP
+		generateRankMenu(suiBox);
+		return;
 	} else if (tangibleObject->isArmorObject()) {
-		handleArmorSlice();
 		playerManager->awardExperience(player, "slicing", 250, true); // Armor Slice XP
+		generateRankMenu(suiBox);
+		return;
 	} else if ( isBaseSlice()){
 		playerManager->awardExperience(player,"slicing", 1000, true); // Base slicing
 

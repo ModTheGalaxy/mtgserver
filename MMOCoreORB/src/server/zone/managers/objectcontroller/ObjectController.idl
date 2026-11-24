@@ -47,10 +47,11 @@ class ObjectController extends ManagedService implements Logger {
 	 * @param actionCount count of the command
 	 * @paramt targetID target object id
 	 * @param arguments arguments of the command
+	 * @param fromQueue true when activated by the creature's queued-command scheduler
 	 * @returns time in seconds of command execution
 	 */
 	@read
-	public native float activateCommand(CreatureObject object, unsigned int actionCRC, unsigned int actionCount, unsigned long targetID, final unicode arguments);
+	public native float activateCommand(CreatureObject object, unsigned int actionCRC, unsigned int actionCount, unsigned long targetID, final unicode arguments, boolean fromQueue = false);
 
 	@local
 	public native void addQueueCommand(QueueCommand command);

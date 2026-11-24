@@ -78,9 +78,6 @@ public:
 			if (targetAgent->isPet()) {
 				creature->sendSystemMessage("@trap/trap:sys_no_pets");
 				return GENERALERROR;
-			} else if (!targetAgent->isCreature() || !targetAgent->isMonster()) {
-				creature->sendSystemMessage("@trap/trap:sys_creatures_only");
-				return GENERALERROR;
 			}
 
 			// Trapping skill mod check

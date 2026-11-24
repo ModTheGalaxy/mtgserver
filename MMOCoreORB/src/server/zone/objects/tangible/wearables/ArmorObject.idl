@@ -40,6 +40,11 @@ class ArmorObject extends WearableObject {
 
 	protected float effectivenessSlice;
 	protected float encumbranceSlice;
+	protected unsigned byte resilienceSliceRank;
+	protected unsigned byte deflectionSliceRank;
+	protected unsigned byte hardeningSliceRank;
+	protected unsigned byte encumbranceSliceRank;
+	protected unsigned byte armorSlicePoints;
 
 	public static final int LIGHT = 0x1;
 	public static final int MEDIUM = 0x2;
@@ -63,6 +68,11 @@ class ArmorObject extends WearableObject {
 		lightSaber = 0;
 		effectivenessSlice = 1;
 		encumbranceSlice = 1;
+		resilienceSliceRank = 0;
+		deflectionSliceRank = 0;
+		hardeningSliceRank = 0;
+		encumbranceSliceRank = 0;
+		armorSlicePoints = 0;
 
 		baseProtection = 0;
 		specialProtection = 0;
@@ -253,6 +263,70 @@ class ArmorObject extends WearableObject {
 		if (value > 0.5f || value < 0)
 			return;
 		encumbranceSlice = 1 - value;
+	}
+
+	public unsigned byte getResilienceSliceRank() {
+		return resilienceSliceRank;
+	}
+
+	public boolean setResilienceSliceRank(unsigned byte rank) {
+		if (rank > 3)
+			return false;
+		resilienceSliceRank = rank;
+		return true;
+	}
+
+	public unsigned byte getDeflectionSliceRank() {
+		return deflectionSliceRank;
+	}
+
+	public boolean setDeflectionSliceRank(unsigned byte rank) {
+		if (rank > 3)
+			return false;
+		deflectionSliceRank = rank;
+		return true;
+	}
+
+	public unsigned byte getHardeningSliceRank() {
+		return hardeningSliceRank;
+	}
+
+	public boolean setHardeningSliceRank(unsigned byte rank) {
+		if (rank > 3)
+			return false;
+		hardeningSliceRank = rank;
+		return true;
+	}
+
+	public unsigned byte getEncumbranceSliceRank() {
+		return encumbranceSliceRank;
+	}
+
+	public boolean setEncumbranceSliceRank(unsigned byte rank) {
+		if (rank > 3)
+			return false;
+		encumbranceSliceRank = rank;
+		if (rank == 0)
+			encumbranceSlice = 1;
+		else if (rank == 1)
+			encumbranceSlice = 0.90;
+		else if (rank == 2)
+			encumbranceSlice = 0.80;
+		else
+			encumbranceSlice = 0.70;
+		return true;
+	}
+
+	@read
+	public native float getResilienceConditionReduction(float value);
+
+	public unsigned byte getArmorSlicePoints() {
+		return armorSlicePoints;
+	}
+
+	public void setArmorSlicePoints(unsigned byte value) {
+		if (value <= 100)
+			armorSlicePoints = value;
 	}
 
 	@read

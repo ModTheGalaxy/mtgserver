@@ -276,6 +276,8 @@ function VillageGmSui.playerInfo(pPlayer, targetID)
 
 	local promptBuf = " \\#pcontrast1 " .. "Player:" .. " \\#pcontrast2 " .. SceneObject(pTarget):getCustomObjectName() .. " (" .. targetID .. ")\n"
 	promptBuf = promptBuf .. " \\#pcontrast1 " .. "Jedi State:" .. " \\#pcontrast2 " .. jediState .. "\n"
+	promptBuf = promptBuf .. " \\#pcontrast1 Jedi Shrine Progression: \\#pcontrast2 " .. CreatureObject(pTarget):getScreenPlayState("JediShrineProgression") .. "\n"
+	promptBuf = promptBuf .. " \\#pcontrast1 Shrine IDs (intro / outro): \\#pcontrast2 " .. readScreenPlayData(pTarget, "JediShrineProgression", "introShrineId") .. " / " .. readScreenPlayData(pTarget, "JediShrineProgression", "outroShrineId") .. "\n"
 	promptBuf = promptBuf .. " \\#pcontrast1 " .. "Progression:" .. " \\#pcontrast2 "
 
 	if (CreatureObject(pTarget):hasSkill("force_title_jedi_rank_03")) then
@@ -298,21 +300,10 @@ function VillageGmSui.playerInfo(pPlayer, targetID)
 		local curStep = FsOutro:getCurrentStep(pTarget)
 
 		if (curStep == FsOutro.OLDMANWAIT) then
-			promptBuf = promptBuf .. "Outro (Waiting for Old Man)\n"
-			if (FsOutro:hasDelayPassed(pTarget)) then
-				promptBuf = promptBuf .. " \\#pcontrast1 " .. "Has Delay Passed: \\#pcontrast2 YES \n"
-			else
-				promptBuf = promptBuf .. " \\#pcontrast1 " .. "Has Delay Passed: \\#pcontrast2 NO \n"
-			end
-
-			local timeTilVisit = readScreenPlayData(pTarget, "VillageJediProgression", "FsOutroDelay") - os.time()
-
-			if (not PlayerObject(pGhost):isOnline()) then
-				promptBuf = promptBuf .. " \\#pcontrast1 " .. "Time until visit:" .. " \\#pcontrast2 Player Offline\n"
-			elseif (timeTilVisit > 0) then
-				promptBuf = promptBuf .. " \\#pcontrast1 " .. "Time until visit:" .. " \\#pcontrast2 " .. VillageGmSui:getTimeString(timeTilVisit * 1000) .. "\n"
-			else
-				promptBuf = promptBuf .. " \\#pcontrast1 " .. "Time until visit:" .. " \\#pcontrast2 Soon\n"
+			promptBuf = promptBuf .. "Outro (Seek Shrine)\n"
+			local cooldown = tonumber(readScreenPlayData(pTarget, "JediShrineProgression", "outroCooldown")) or 0
+			if (cooldown > os.time()) then
+				promptBuf = promptBuf .. " \\#pcontrast1 Retry cooldown: \\#pcontrast2 " .. VillageGmSui:getTimeString((cooldown - os.time()) * 1000) .. "\n"
 			end
 		elseif (curStep == FsOutro.OLDMANMEET) then
 			promptBuf = promptBuf .. "Outro (Old Man Visit)\n"
@@ -323,25 +314,11 @@ function VillageGmSui.playerInfo(pPlayer, targetID)
 		local curStep = FsIntro:getCurrentStep(pTarget)
 
 		if (curStep == FsIntro.OLDMANWAIT) then
-			promptBuf = promptBuf .. "Intro (Waiting for Old Man)\n"
-			if (FsIntro:hasDelayPassed(pTarget)) then
-				promptBuf = promptBuf .. " \\#pcontrast1 " .. "Has Delay Passed: \\#pcontrast2 YES \n"
-			else
-				promptBuf = promptBuf .. " \\#pcontrast1 " .. "Has Delay Passed: \\#pcontrast2 NO \n"
+			promptBuf = promptBuf .. "Intro (Seek Shrine)\n"
+			local cooldown = tonumber(readScreenPlayData(pTarget, "JediShrineProgression", "introCooldown")) or 0
+			if (cooldown > os.time()) then
+				promptBuf = promptBuf .. " \\#pcontrast1 Retry cooldown: \\#pcontrast2 " .. VillageGmSui:getTimeString((cooldown - os.time()) * 1000) .. "\n"
 			end
-			local timeTilVisit = readScreenPlayData(pTarget, "VillageJediProgression", "FsIntroDelay") - os.time()
-
-			if (not PlayerObject(pGhost):isOnline()) then
-				promptBuf = promptBuf .. " \\#pcontrast1 " .. "Time until visit:" .. " \\#pcontrast2 Player Offline\n"
-			elseif (timeTilVisit > 0) then
-				promptBuf = promptBuf .. " \\#pcontrast1 " .. "Time until visit:" .. " \\#pcontrast2 " .. VillageGmSui:getTimeString(timeTilVisit * 1000) .. "\n"
-			else
-				promptBuf = promptBuf .. " \\#pcontrast1 " .. "Time until visit:" .. " \\#pcontrast2 Soon\n"
-			end
-			local totalVisits = tonumber(readScreenPlayData(pTarget, "VillageJediProgression", "FsIntroOldManVisits"))
-
-			if (totalVisits == nil) then totalVisits = 0 end
-			promptBuf = promptBuf .. " \\#pcontrast1 " .. "Old Man Visits So Far:" .. " \\#pcontrast2 " .. totalVisits .. "\n"
 		elseif (curStep == FsIntro.OLDMANMEET) then
 			promptBuf = promptBuf .. "Intro (Old Man Visit)\n"
 		elseif (curStep == FsIntro.SITHWAIT) then
@@ -372,7 +349,7 @@ function VillageGmSui.playerInfo(pPlayer, targetID)
 			promptBuf = promptBuf .. "Intro (Sent to Village)\n"
 		end
 
-		if (curStep == FsIntro.OLDMANWAIT or curStep == FsIntro.OLDMANMEET or curStep == FsIntro.SITHWAIT or curStep == FsIntro.SITHATTACK) then
+		if (curStep == FsIntro.SITHWAIT or curStep == FsIntro.SITHATTACK) then
 			promptBuf = promptBuf .. " -- Encounter Checks --\n" .. "\\#pcontrast1 " .. "InPositionForEncounter:" .. " \\#pcontrast2 " .. tostring(Encounter:isPlayerInPositionForEncounter(pTarget)) .. "\n"
 
 			if (not Encounter:isPlayerInPositionForEncounter(pTarget)) then

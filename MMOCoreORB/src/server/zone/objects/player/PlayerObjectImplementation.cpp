@@ -41,6 +41,7 @@
 #include "server/zone/objects/area/ActiveArea.h"
 #include "server/zone/objects/player/events/PlayerDisconnectEvent.h"
 #include "server/zone/objects/player/events/PlayerRecoveryEvent.h"
+#include "server/zone/objects/player/events/PlayerAutoAttackEvent.h"
 #include "server/zone/managers/group/GroupManager.h"
 #include "server/zone/objects/creature/variables/Skill.h"
 #include "server/zone/objects/player/sui/inputbox/SuiInputBox.h"
@@ -86,6 +87,28 @@
 #ifdef WITH_SWGREALMS_API
 #include "server/login/SWGRealmsAPI.h"
 #endif // WITH_SWGREALMS_API
+
+namespace {
+
+uint64 getAutoAttackActionLockEnd(CreatureObject* creature) {
+	uint64 lockEnd = 0;
+
+	Time* nextActionTime = creature->getNextActionTime();
+	if (nextActionTime != nullptr && nextActionTime->isFuture())
+		lockEnd = Math::max(lockEnd, nextActionTime->getMiliTime());
+
+	const Time* attackDelay = creature->getCooldownTime("nextAttackDelay");
+	if (attackDelay != nullptr && !attackDelay->isPast())
+		lockEnd = Math::max(lockEnd, attackDelay->getMiliTime());
+
+	const Time* postureChangeDelay = creature->getCooldownTime("postureChangeDelay");
+	if (postureChangeDelay != nullptr && !postureChangeDelay->isPast())
+		lockEnd = Math::max(lockEnd, postureChangeDelay->getMiliTime());
+
+	return lockEnd;
+}
+
+}
 
 void PlayerObjectImplementation::initializeTransientMembers() {
 	playerLogLevel = ConfigManager::instance()->getPlayerLogLevel();
@@ -2250,6 +2273,8 @@ void PlayerObjectImplementation::logout(bool doLock) {
 	Locker _locker(parent.get());
 
 	try {
+		stopAutoAttackEvent();
+
 		if (disconnectEvent == nullptr) {
 			Reference<CreatureObject*> creature = dynamic_cast<CreatureObject*>(parent.get().get());
 
@@ -2334,32 +2359,6 @@ void PlayerObjectImplementation::doRecovery(int latency) {
 	}
 
 	if (isOnline()) {
-		if (creature->isInCombat() && creature->getTargetID() != 0 && !creature->isPeaced() && !creature->hasBuff(STRING_HASHCODE("private_feign_buff")) && !creature->hasAttackDelay() && !creature->hasPostureChangeDelay() &&
-		creature->isNextActionPast() && creature->getCommandQueueSize() == 0 && !creature->isDead() && !creature->isIncapacitated() && cooldownTimerMap->isPast("autoAttackDelay")) {
-
-			ManagedReference<SceneObject*> targetObject = zoneServer->getObject(creature->getTargetID());
-
-			if (targetObject != nullptr) {
-				WeaponObject* weapon = creature->getWeapon();
-
-				if (weapon != nullptr) {
-					if (targetObject->isInRange(creature, Math::max(10, weapon->getMaxRange()) + targetObject->getTemplateRadius() + creature->getTemplateRadius())) {
-						creature->executeObjectControllerAction(STRING_HASHCODE("attack"), creature->getTargetID(), "");
-					}
-
-					float weaponSpeed = CombatManager::instance()->calculateWeaponAttackSpeed(creature, weapon, 1.f);
-					float delay = weaponSpeed * 1000;
-
-					Locker lock(creature);
-
-					// as long as the target is still valid, we still want to continue to queue auto attacks
-					cooldownTimerMap->updateToCurrentAndAddMili("autoAttackDelay", (uint64)delay);
-				}
-			} else {
-				creature->setTargetID(0);
-			}
-		}
-
 		auto zoneServer = getZoneServer();
 
 		if (zoneServer != nullptr && !zoneServer->isServerLoading()) {
@@ -2401,6 +2400,188 @@ void PlayerObjectImplementation::doRecovery(int latency) {
 	}
 
 	activateRecovery();
+}
+
+void PlayerObjectImplementation::startAutoAttackEvent(bool freshAnchor) {
+	CreatureObject* creature = dynamic_cast<CreatureObject*>(parent.get().get());
+
+	if (creature == nullptr || !isOnline() || isLinkDead() || isLoggingOut() || !creature->isInCombat() ||
+			creature->isDead() || creature->isIncapacitated() || creature->getZone() == nullptr || creature->getZoneServer() == nullptr) {
+		stopAutoAttackEvent();
+		return;
+	}
+
+	if (freshAnchor) {
+		autoAttackCycleAnchor = System::getMiliTime();
+		autoAttackTargetID = creature->getTargetID();
+		autoAttackCycleAnchor = Math::max(autoAttackCycleAnchor, getAutoAttackActionLockEnd(creature));
+	}
+
+	rescheduleAutoAttackEvent();
+}
+
+void PlayerObjectImplementation::stopAutoAttackEvent() {
+	if (autoAttackEvent != nullptr) {
+		autoAttackEvent->cancel();
+		autoAttackEvent = nullptr;
+	}
+
+	++autoAttackEventGeneration;
+	autoAttackCycleAnchor = 0;
+	autoAttackTargetID = 0;
+}
+
+void PlayerObjectImplementation::rescheduleAutoAttackEvent() {
+	CreatureObject* creature = dynamic_cast<CreatureObject*>(parent.get().get());
+
+	if (creature == nullptr || !isOnline() || isLinkDead() || isLoggingOut() || !creature->isInCombat() ||
+			creature->isDead() || creature->isIncapacitated() || creature->getZone() == nullptr || creature->getZoneServer() == nullptr) {
+		stopAutoAttackEvent();
+		return;
+	}
+
+	if (autoAttackCycleAnchor == 0) {
+		autoAttackCycleAnchor = System::getMiliTime();
+		autoAttackTargetID = creature->getTargetID();
+	}
+
+	uint64 delay = 50;
+	WeaponObject* weapon = creature->getWeapon();
+
+	if (weapon != nullptr) {
+		float interval = CombatManager::instance()->calculateWeaponAttackSpeed(creature, weapon, 1.0f);
+		uint64 intervalMili = (uint64)(interval * 1000.f);
+		uint64 nextDue = autoAttackCycleAnchor + intervalMili;
+		uint64 now = System::getMiliTime();
+		delay = nextDue > now ? nextDue - now : 0;
+	}
+
+	scheduleAutoAttackEvent(delay);
+}
+
+void PlayerObjectImplementation::scheduleAutoAttackEvent(uint64 delayMili) {
+	if (autoAttackEvent != nullptr) {
+		autoAttackEvent->cancel();
+		autoAttackEvent = nullptr;
+	}
+
+	++autoAttackEventGeneration;
+	autoAttackEvent = new PlayerAutoAttackEvent(asPlayerObject(), autoAttackEventGeneration);
+	autoAttackEvent->schedule(delayMili);
+}
+
+void PlayerObjectImplementation::onAutoAttackTargetChanged(uint64 oldTargetID, uint64 newTargetID) {
+	assert(parent.get() == nullptr || parent.get()->isLockedByCurrentThread());
+
+	if (oldTargetID == newTargetID)
+		return;
+
+	autoAttackTargetID = newTargetID;
+
+	if (newTargetID == 0) {
+		stopAutoAttackEvent();
+		return;
+	}
+
+	startAutoAttackEvent(true);
+}
+
+void PlayerObjectImplementation::onQueuedSpecialAttack(uint32 commandCRC, bool succeeded, uint64 startTimeMili, uint32 durationMili) {
+	if (commandCRC == STRING_HASHCODE("attack") ||
+			commandCRC == STRING_HASHCODE("volleyfireattack") ||
+			commandCRC == STRING_HASHCODE("counterattack"))
+		return;
+
+	CreatureObject* creature = dynamic_cast<CreatureObject*>(parent.get().get());
+	if (creature == nullptr || !creature->isInCombat())
+		return;
+
+	if (succeeded) {
+		autoAttackCycleAnchor = startTimeMili + durationMili;
+	} else {
+		autoAttackCycleAnchor = System::getMiliTime();
+	}
+
+	autoAttackCycleAnchor = Math::max(autoAttackCycleAnchor, getAutoAttackActionLockEnd(creature));
+
+	rescheduleAutoAttackEvent();
+}
+
+void PlayerObjectImplementation::doAutoAttackEvent(uint64 generation) {
+	if (generation != autoAttackEventGeneration)
+		return;
+
+	autoAttackEvent = nullptr;
+
+	CreatureObject* creature = dynamic_cast<CreatureObject*>(parent.get().get());
+	if (creature == nullptr || !isOnline() || isLinkDead() || isLoggingOut() || !creature->isInCombat() ||
+			creature->isDead() || creature->isIncapacitated() || creature->getZone() == nullptr) {
+		stopAutoAttackEvent();
+		return;
+	}
+
+	ZoneServer* zoneServer = creature->getZoneServer();
+	if (zoneServer == nullptr) {
+		stopAutoAttackEvent();
+		return;
+	}
+
+	if (zoneServer->isServerLoading()) {
+		scheduleAutoAttackEvent(50);
+		return;
+	}
+
+	uint64 targetID = creature->getTargetID();
+	if (targetID == 0) {
+		stopAutoAttackEvent();
+		return;
+	}
+
+	if (targetID != autoAttackTargetID) {
+		startAutoAttackEvent(true);
+		return;
+	}
+
+	ManagedReference<SceneObject*> targetObject = zoneServer->getObject(targetID);
+	if (targetObject == nullptr) {
+		creature->setTargetID(0);
+		stopAutoAttackEvent();
+		return;
+	}
+
+	WeaponObject* weapon = creature->getWeapon();
+	if (weapon == nullptr) {
+		scheduleAutoAttackEvent(50);
+		return;
+	}
+
+	float interval = CombatManager::instance()->calculateWeaponAttackSpeed(creature, weapon, 1.0f);
+	uint64 intervalMili = (uint64)(interval * 1000.f);
+	uint64 dueTime = autoAttackCycleAnchor + intervalMili;
+	uint64 now = System::getMiliTime();
+
+	if (dueTime > now) {
+		scheduleAutoAttackEvent(dueTime - now);
+		return;
+	}
+
+	if (creature->isPeaced() || creature->hasBuff(STRING_HASHCODE("private_feign_buff")) ||
+			creature->hasAttackDelay() || creature->hasPostureChangeDelay() || !creature->isNextActionPast() ||
+			creature->getCommandQueueSize() > 0) {
+		scheduleAutoAttackEvent(50);
+		return;
+	}
+
+	float range = Math::max(10, weapon->getMaxRange()) + targetObject->getTemplateRadius() + creature->getTemplateRadius();
+	if (targetObject->isInRange(creature, range))
+		creature->executeObjectControllerAction(STRING_HASHCODE("attack"), targetID, "");
+
+	now = System::getMiliTime();
+	autoAttackCycleAnchor = dueTime;
+	if (dueTime + intervalMili <= now)
+		autoAttackCycleAnchor = now;
+
+	rescheduleAutoAttackEvent();
 }
 
 void PlayerObjectImplementation::activateRecovery() {
@@ -2464,6 +2645,7 @@ void PlayerObjectImplementation::setLinkDead(bool isSafeLogout) {
 	if (creature == nullptr)
 		return;
 
+	stopAutoAttackEvent();
 	onlineStatus = LINKDEAD;
 
 	TransactionLog trx(TrxCode::PLAYERLINKDEAD, getParentRecursively(SceneObjectType::PLAYERCREATURE));
@@ -2500,16 +2682,20 @@ void PlayerObjectImplementation::setOnline() {
 
 	doRecovery(1000);
 
+	startAutoAttackEvent(true);
+
 	activateMissions();
 }
 
 void PlayerObjectImplementation::setOffline() {
+	stopAutoAttackEvent();
 	onlineStatus = OFFLINE;
 
 	TransactionLog trx(TrxCode::PLAYEROFFLINE, getParentRecursively(SceneObjectType::PLAYERCREATURE));
 }
 
 void PlayerObjectImplementation::setLoggingOut() {
+	stopAutoAttackEvent();
 	onlineStatus = LOGGINGOUT;
 
 	TransactionLog trx(TrxCode::PLAYERLOGGINGOUT, getParentRecursively(SceneObjectType::PLAYERCREATURE));

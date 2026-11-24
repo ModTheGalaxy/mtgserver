@@ -11,8 +11,6 @@ intro = ConvoScreen:new {
 	stopConversation = "false",
 	options = {
 		{"@conversation/village_elder_1:s_b6101821", "sith_animals"}, -- Did I see whom?
-		-- Add via convo handler
-		--{"@conversation/village_elder_1:s_9dc8bf5d", ""}, -- I seem to have misplaced my Force crystal. May I have another?
 	}
 }
 villageElderPhase1ConvoTemplate:addScreen(intro);
@@ -115,22 +113,6 @@ bear_witness = ConvoScreen:new {
 	}
 }
 villageElderPhase1ConvoTemplate:addScreen(bear_witness);
-
-already_have_crystal = ConvoScreen:new {
-	id = "already_have_crystal",
-	leftDialog = "@conversation/village_elder_1:s_199fe2af", -- I sense you already have a crystal and do not need another.
-	stopConversation = "true",
-	options = {}
-}
-villageElderPhase1ConvoTemplate:addScreen(already_have_crystal);
-
-give_new_crystal = ConvoScreen:new {
-	id = "give_new_crystal",
-	leftDialog = "@conversation/village_elder_1:s_bdd3bae5", -- Here you are. Remember you may use the crystal to view your progress.
-	stopConversation = "true",
-	options = {}
-}
-villageElderPhase1ConvoTemplate:addScreen(give_new_crystal);
 
 
 -- Initial conversation screens below.

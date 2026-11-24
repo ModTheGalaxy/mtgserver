@@ -58,7 +58,11 @@ DisarmingShot1Command = {
 
 	weaponType = PISTOLWEAPON,
 
-	range = -1
+	range = 20,
+
+	stateEffects = {
+		StateEffect(BLIND_EFFECT, {}, { "blind_defense" }, { "jedi_state_defense", "resistance_states" }, 75, 0, 10)
+	}
 }
 
 AddCommand(DisarmingShot1Command)

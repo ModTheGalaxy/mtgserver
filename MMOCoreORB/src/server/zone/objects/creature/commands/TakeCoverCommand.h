@@ -35,25 +35,21 @@ public:
 
 		creature->inflictDamage(creature, CreatureAttribute::ACTION, actionCost, false);
 
-		if (creature->isDizzied() && System::random(100) < 85) {
-			creature->queueDizzyFallEvent();
-		} else {
-			if (creature->isInCombat()) {
-				float chance = 10 + creature->getSkillMod("take_cover");
+		if (creature->isInCombat()) {
+			float chance = 10 + creature->getSkillMod("take_cover");
 
-				if (System::random(100)  > chance) {
-					if (creature->isPlayerCreature())
-						(creature)->sendSystemMessage("@cbt_spam:cover_fail_single"); // You fail to take cover.
+			if (System::random(100)  > chance) {
+				if (creature->isPlayerCreature())
+					(creature)->sendSystemMessage("@cbt_spam:cover_fail_single"); // You fail to take cover.
 
-					creature->sendStateCombatSpam("cbt_spam", "cover_fail", 0);
-					return GENERALERROR;
-				}
+				creature->sendStateCombatSpam("cbt_spam", "cover_fail", 0);
+				return GENERALERROR;
 			}
-
-			creature->setCoverState();
-
-			creature->sendStateCombatSpam("cbt_spam", "cover_success", 0);
 		}
+
+		creature->setCoverState();
+
+		creature->sendStateCombatSpam("cbt_spam", "cover_success", 0);
 
 		return SUCCESS;
 	}

@@ -175,7 +175,7 @@ tatooine_regions = {
 
 	-- Cities
 	{"@tatooine_region_names:bestine", -1218, -3688, {CIRCLE, 336}, CITY + NOSPAWNAREA},
-	--{"@tatooine_region_names:mos_eisley", 3460, -4768, {CIRCLE, 456}, CITY + NOSPAWNAREA},
+	{"@tatooine_region_names:mos_eisley", 3460, -4768, {CIRCLE, 456}, CITY + NOSPAWNAREA},
 	{"@tatooine_region_names:mos_entha", 1488, 3256, {CIRCLE, 424}, CITY + NOSPAWNAREA},
 	{"@tatooine_region_names:mos_espa", -2940, 2190, {CIRCLE, 533}, CITY + NOSPAWNAREA},
 	{"@tatooine_region_names:mos_taike", 3832, 2360, {CIRCLE, 264}, CITY + NOSPAWNAREA},

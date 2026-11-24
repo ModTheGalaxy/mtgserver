@@ -249,6 +249,7 @@ includeFile("village/convos/phase4/sivarra_phase4_conv_handler.lua")
 -- Jedi Trials
 includeFile("jedi/trialData.lua")
 includeFile("jedi/jedi_trials.lua")
+includeFile("jedi/shrine_old_man.lua")
 includeFile("jedi/knight/knight_trials.lua")
 includeFile("jedi/padawan/padawan_trials.lua")
 includeFile("jedi/padawan/convos/padawan_architect_01_conv_handler.lua")

@@ -198,8 +198,9 @@ function PadawanTrials:startTrial(pPlayer, trialNum, skipNotification)
 	end
 
 	if (trialData.trialType == TRIAL_LIGHTSABER) then
-		if (not CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_01")) then
-			awardSkill(pPlayer, "force_title_jedi_rank_01")
+		if (not JediTrials:awardPadawanRankOne(pPlayer)) then
+			JediTrials:setCurrentTrial(pPlayer, 0)
+			return
 		end
 
 		local trialState = JediTrials:getTrialStateName(pPlayer, trialNum)
@@ -1052,6 +1053,10 @@ function PadawanTrials:passTrial(pPlayer)
 	JediTrials:setTrialsCompleted(pPlayer, trialsCompleted)
 	PlayerObject(pGhost):removeWaypointBySpecialType(WAYPOINTQUESTTASK)
 
+	if (trialsCompleted == #padawanTrialQuests) then
+		JediTrials:unlockJediPadawan(pPlayer)
+		return
+	end
 	CreatureObject(pPlayer):sendSystemMessage("@jedi_trials:padawan_trials_next_trial") -- You have done well and successfully completed the trial you faced. To undertake your next trial, simply meditate at any Force shrine.
 end
 

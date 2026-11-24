@@ -3,17 +3,17 @@ colossal_krayt_dragon = Creature:new {
 	socialGroup = "krayt",
 	faction = "",
 	mobType = MOB_CARNIVORE,
-	level = 360,
-	chanceHit = 95.5,
-	damageMin = 6275,
-	damageMax = 7975,
+	level = 336,
+	chanceHit = 30.0,
+	damageMin = 2270,
+	damageMax = 4250,
 	baseXp = 32549,
-	baseHAM = 1350000,
-	baseHAMmax = 1550000,
+	baseHAM = 410000,
+	baseHAMmax = 501000,
 	armor = 3,
-	resists = {195, 195, 195, 195, 195, 195, 195, 195, -1},
+	resists = {159, 159, 159, 159, 140, 159, 159, 159, -1},
 	meatType = "meat_carnivore",
-	meatAmount = 1000,
+	meatAmount = 1700,
 	hideType = "hide_bristley",
 	hideAmount = 950,
 	boneType = "bone_mammal",
@@ -25,24 +25,25 @@ colossal_krayt_dragon = Creature:new {
 	creatureBitmask = PACK + KILLER + STALKER,
 	optionsBitmask = AIENABLED,
 	diet = CARNIVORE,
-	scale = 4,
+	scale = 2.35,
 	customAiMap = "",
 
 	templates = {
-		"object/mobile/krayt_dragon.iff"
+		"object/mobile/krayt_dragon_hue.iff"
 	},
+	hues = { 16, 17, 18, 19, 20, 21, 22, 23 },
 
 	lootGroups = {
 	},
 
 	-- Primary and secondary weapon should be different types (rifle/carbine, carbine/pistol, rifle/unarmed, etc)
 	-- Unarmed should be put on secondary unless the mobile doesn't use weapons, in which case "unarmed" should be put primary and "none" as secondary
-	primaryWeapon = "creature_spit_heavy_flame",
+	primaryWeapon = "unarmed",
 	secondaryWeapon = "none",
 
 	-- primaryAttacks and secondaryAttacks should be separate skill groups specific to the weapon type listed in primaryWeapon and secondaryWeapon
 	-- Use merge() to merge groups in creatureskills.lua together. If a weapon is set to "none", set the attacks variable to empty brackets
-	primaryAttacks = {},
+	primaryAttacks = { {"creatureareacombo","stateAccuracyBonus=100"}, {"creatureareaknockdown","stateAccuracyBonus=100"} },
 	secondaryAttacks = {},
 	conversationTemplate = ""
 }

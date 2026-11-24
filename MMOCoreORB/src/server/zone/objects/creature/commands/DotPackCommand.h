@@ -16,6 +16,7 @@
 #include "server/zone/managers/player/PlayerManager.h"
 #include "server/zone/managers/collision/CollisionManager.h"
 #include "server/zone/objects/creature/buffs/DelayedBuff.h"
+#include "server/zone/objects/creature/HamCost.h"
 #include "server/zone/packets/object/CombatAction.h"
 #include "QueueCommand.h"
 #include "server/zone/objects/tangible/threat/ThreatMap.h"
@@ -271,12 +272,7 @@ public:
 
 		CreatureObject* player = cast<CreatureObject*>(creature);
 
-		int wpnMind = 150;
-
-		int mindAttackCost = wpnMind - (wpnMind * creature->getHAM(CreatureAttribute::FOCUS) / 1500);
-
-		if (mindAttackCost < 0)
-			mindAttackCost = 0;
+		int mindAttackCost = HamCost::dotPackMindCost(creature->getHAM(CreatureAttribute::FOCUS));
 
 		if (player->getHAM(CreatureAttribute::MIND) < mindAttackCost)
 			return -1;

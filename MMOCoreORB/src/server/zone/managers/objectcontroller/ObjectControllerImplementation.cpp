@@ -11,6 +11,7 @@
 #include "server/zone/managers/skill/SkillModManager.h"
 #include "server/zone/objects/creature/CreatureObject.h"
 #include "server/zone/objects/player/PlayerObject.h"
+#include <system/lang/Time.h>
 
 void ObjectControllerImplementation::loadCommands() {
 	configManager = new CommandConfigManager(server);
@@ -68,7 +69,7 @@ bool ObjectControllerImplementation::transferObject(SceneObject* objectToTransfe
 	return true;
 }
 
-float ObjectControllerImplementation::activateCommand(CreatureObject* object, unsigned int actionCRC, unsigned int actionCount, uint64 targetID, const UnicodeString& arguments) const {
+float ObjectControllerImplementation::activateCommand(CreatureObject* object, unsigned int actionCRC, unsigned int actionCount, uint64 targetID, const UnicodeString& arguments, bool fromQueue) const {
 	// Pre: object is wlocked
 	// Post: object is wlocked
 
@@ -82,6 +83,15 @@ float ObjectControllerImplementation::activateCommand(CreatureObject* object, un
 		return 0.f;
 	}
 
+	auto notifyQueuedSpecial = [&](bool succeeded, uint64 startTimeMili, uint32 durationMili) {
+		if (!fromQueue || !object->isPlayerCreature() || !queueCommand->isCombatCommand())
+			return;
+
+		PlayerObject* playerObject = object->getPlayerObject();
+		if (playerObject != nullptr)
+			playerObject->onQueuedSpecialAttack(actionCRC, succeeded, startTimeMili, durationMili);
+	};
+
 	float commandTime = queueCommand->getCommandDuration(object, arguments);
 	const String& characterAbility = queueCommand->getCharacterAbility();
 
@@ -93,6 +103,7 @@ float ObjectControllerImplementation::activateCommand(CreatureObject* object, un
 
 			if (!playerObject->hasAbility(characterAbility)) {
 				object->clearQueueAction(actionCount, 0, 2);
+				notifyQueuedSpecial(false, 0, 0);
 
 				return 0.f;
 			}
@@ -105,6 +116,7 @@ float ObjectControllerImplementation::activateCommand(CreatureObject* object, un
 		if (commandGroup == 0xe1c9a54a && queueCommand->getQueueCommandName() != "attack") {
 			if (!object->isAiAgent()) {
 				object->clearQueueAction(actionCount, 0, 2);
+				notifyQueuedSpecial(false, 0, 0);
 
 				return 0.f;
 			}
@@ -121,6 +133,7 @@ float ObjectControllerImplementation::activateCommand(CreatureObject* object, un
 
 					object->sendSystemMessage("@error_message:insufficient_permissions");
 					object->clearQueueAction(actionCount, 0, 2);
+					notifyQueuedSpecial(false, 0, 0);
 
 					return 0.f;
 				}
@@ -141,6 +154,9 @@ float ObjectControllerImplementation::activateCommand(CreatureObject* object, un
 		object->addSkillMod(SkillModManager::ABILITYBONUS, skillMod, value, false);
 	}
 
+	Time commandStartTime;
+	commandStartTime.updateToCurrentTime();
+
 	int errorNumber = queueCommand->doQueueCommand(object, targetID, arguments);
 
 	/// Remove Skillmods if any
@@ -153,12 +169,14 @@ float ObjectControllerImplementation::activateCommand(CreatureObject* object, un
 	//onFail onComplete must clear the action from client queue
 	if (errorNumber != QueueCommand::SUCCESS) {
 		queueCommand->onFail(actionCount, object, errorNumber);
+		notifyQueuedSpecial(false, commandStartTime.getMiliTime(), 0);
 		return 0;
 	} else {
 		if (queueCommand->getDefaultPriority() != QueueCommand::IMMEDIATE) {
 			durationTime = commandTime;
 		}
 
+		notifyQueuedSpecial(true, commandStartTime.getMiliTime(), (uint32)(durationTime * 1000.f));
 
 		queueCommand->onComplete(actionCount, object, durationTime);
 	}

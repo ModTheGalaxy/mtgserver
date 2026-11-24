@@ -3,8 +3,11 @@
 		See file COPYING for copying conditions. */
 
 #include "server/zone/objects/creature/CreatureObject.h"
+#include "server/zone/objects/creature/HamCost.h"
+#include "server/zone/objects/creature/HamRegeneration.h"
 #include "server/zone/objects/creature/ai/AiAgent.h"
 #include "server/zone/objects/creature/ai/HelperDroidObject.h"
+#include "server/zone/objects/player/PlayerObject.h"
 #include "templates/params/creature/CreatureState.h"
 #include "templates/params/creature/ObjectFlag.h"
 
@@ -54,7 +57,7 @@
 #include "server/zone/objects/area/CampSiteActiveArea.h"
 #include "server/zone/objects/tangible/weapon/WeaponObject.h"
 #include "server/zone/objects/guild/GuildObject.h"
-#include "server/zone/objects/creature/events/DizzyFallDownEvent.h"
+#include "server/zone/objects/creature/events/KnockdownRecoveryEvent.h"
 #include "server/zone/packets/ui/ExecuteConsoleCommand.h"
 #include "server/zone/objects/creature/buffs/StateBuff.h"
 #include "server/zone/objects/creature/buffs/PrivateSkillMultiplierBuff.h"
@@ -493,6 +496,12 @@ void CreatureObjectImplementation::setWeapon(WeaponObject* newWeapon, bool notif
 
 	weapon = newWeapon;
 
+	if (isPlayerCreature()) {
+		PlayerObject* playerObject = getPlayerObject();
+		if (playerObject != nullptr)
+			playerObject->rescheduleAutoAttackEvent();
+	}
+
 	if (!notifyClient) {
 		return;
 	}
@@ -556,7 +565,14 @@ void CreatureObjectImplementation::setPerformanceType(int type, bool notifyClien
 
 void CreatureObjectImplementation::setTargetID(uint64 targetID,
 		bool notifyClient) {
+	uint64 oldTargetID = CreatureObjectImplementation::targetID;
 	CreatureObjectImplementation::targetID = targetID;
+
+	if (isPlayerCreature()) {
+		PlayerObject* playerObject = getPlayerObject();
+		if (playerObject != nullptr)
+			playerObject->onAutoAttackTargetChanged(oldTargetID, targetID);
+	}
 
 	if (notifyClient) {
 		CreatureObjectDeltaMessage6* msg = new CreatureObjectDeltaMessage6(
@@ -767,12 +783,24 @@ void CreatureObjectImplementation::setCombatState() {
 		if (isRidingMount())
 			addMountedCombatSlow();
 
+		if (isPlayerCreature()) {
+			PlayerObject* playerObject = getPlayerObject();
+			if (playerObject != nullptr)
+				playerObject->startAutoAttackEvent(true);
+		}
+
 		notifyObservers(ObserverEventType::STARTCOMBAT);
 	}
 }
 
 void CreatureObjectImplementation::clearCombatState(bool removedefenders) {
 	debug("trying to clear CombatState");
+
+	if (isPlayerCreature()) {
+		PlayerObject* playerObject = getPlayerObject();
+		if (playerObject != nullptr)
+			playerObject->stopAutoAttackEvent();
+	}
 
 	if (stateBitmask & CreatureState::COMBAT) {
 		if (stateBitmask & CreatureState::PEACE)
@@ -1531,40 +1559,48 @@ void CreatureObjectImplementation::removeSkill(const String& skill,
 }
 
 void CreatureObjectImplementation::addSkillMod(const int modType, const String& skillMod, int value, bool notifyClient) {
-	Locker locker(&skillModMutex);
+	{
+		Locker locker(&skillModMutex);
 
-	SkillModEntry oldMod;
+		SkillModEntry oldMod;
 
-	if (skillModList.contains(skillMod)) {
-		oldMod = skillModList.get(skillMod);
-	}
-
-	skillModList.add(modType, skillMod, value);
-
-	SkillModEntry newMod = skillModList.getVisibleSkillMod(skillMod);
-
-	if (newMod == oldMod) {
-		return;
-	}
-
-	if (notifyClient) {
-		CreatureObjectDeltaMessage4* msg = new CreatureObjectDeltaMessage4(asCreatureObject());
-		msg->startUpdate(0x03);
-
-		if (newMod.getTotalSkill() != 0)
-			skillModList.set(skillMod, newMod, msg, 1);
-		else {
-			skillModList.drop(skillMod, msg, 1);
+		if (skillModList.contains(skillMod)) {
+			oldMod = skillModList.get(skillMod);
 		}
 
-		msg->close();
+		skillModList.add(modType, skillMod, value);
 
-		sendMessage(msg);
-	} else {
-		if (newMod.getTotalSkill() != 0)
-			skillModList.set(skillMod, newMod);
-		else
-			skillModList.drop(skillMod);
+		SkillModEntry newMod = skillModList.getVisibleSkillMod(skillMod);
+
+		if (newMod == oldMod) {
+			return;
+		}
+
+		if (notifyClient) {
+			CreatureObjectDeltaMessage4* msg = new CreatureObjectDeltaMessage4(asCreatureObject());
+			msg->startUpdate(0x03);
+
+			if (newMod.getTotalSkill() != 0)
+				skillModList.set(skillMod, newMod, msg, 1);
+			else {
+				skillModList.drop(skillMod, msg, 1);
+			}
+
+			msg->close();
+
+			sendMessage(msg);
+		} else {
+			if (newMod.getTotalSkill() != 0)
+				skillModList.set(skillMod, newMod);
+			else
+				skillModList.drop(skillMod);
+		}
+	}
+
+	if ((skillMod == "combat_haste" || skillMod.endsWith("_speed")) && isPlayerCreature() && isInCombat()) {
+		PlayerObject* playerObject = getPlayerObject();
+		if (playerObject != nullptr)
+			playerObject->rescheduleAutoAttackEvent();
 	}
 }
 
@@ -1667,11 +1703,19 @@ void CreatureObjectImplementation::setPosture(int newPosture, bool immediate, bo
 	if (posture == newPosture)
 		return;
 
+	removeBuff(STRING_HASHCODE("forced_posture_accuracy"));
+
 	if (posture == CreaturePosture::PRONE && isInCover()) {
 		clearState(CreatureState::COVER);
 	}
 
 	posture = newPosture;
+
+	if ((newPosture == CreaturePosture::DEAD || newPosture == CreaturePosture::INCAPACITATED) && isPlayerCreature()) {
+		PlayerObject* playerObject = getPlayerObject();
+		if (playerObject != nullptr)
+			playerObject->stopAutoAttackEvent();
+	}
 
 	if (!notifyClient) {
 		return;
@@ -1696,6 +1740,9 @@ float CreatureObjectImplementation::getSpeedModifier() const {
 			modifier *= hasSkill("combat_rifleman_speed_03") ? 0.5f : 0.f;
 		}
 	}
+
+	if (isDizzied() && !isRidingMount() && posture != CreaturePosture::DRIVINGVEHICLE)
+		modifier *= 0.80f;
 
 	return modifier;
 }
@@ -2600,6 +2647,7 @@ void CreatureObjectImplementation::setDizziedState(int durationSeconds) {
 		state->setEndFlyText("combat_effects", "no_dizzy", 0xFF, 0, 0);
 
 		addBuff(state);
+		updateSpeedAndAccelerationMods();
 	}
 }
 
@@ -2687,18 +2735,10 @@ void CreatureObjectImplementation::setStunnedState(int durationSeconds) {
 
 		state->setStartFlyText("combat_effects", "go_stunned", 0, 0xFF, 0);
 		state->setEndFlyText("combat_effects", "no_stunned", 0xFF, 0, 0);
-		state->setSkillModifier("private_melee_defense", -50);
-		state->setSkillModifier("private_ranged_defense", -50);
+		state->setSkillModifier("private_melee_defense", -25);
+		state->setSkillModifier("private_ranged_defense", -25);
 
 		addBuff(state);
-
-		Reference<PrivateSkillMultiplierBuff*> multBuff = new PrivateSkillMultiplierBuff(asCreatureObject(), STRING_HASHCODE("private_stun_multiplier"), durationSeconds, BuffType::STATE);
-
-		Locker blocker(multBuff);
-
-		multBuff->setSkillModifier("private_damage_divisor_stun", 20);
-
-		addBuff(multBuff);
 	}
 }
 
@@ -2716,8 +2756,7 @@ void CreatureObjectImplementation::setBlindedState(int durationSeconds) {
 		state->setStartFlyText("combat_effects", "go_blind", 0, 0xFF, 0);
 		state->setEndFlyText("combat_effects", "no_blind", 0xFF, 0, 0);
 
-		state->setSkillModifier("private_attack_accuracy", -60);
-		state->setSkillModifier("private_dodge_attack", -60);
+		state->setSkillModifier("private_attack_accuracy", -30);
 
 		addBuff(state);
 	}
@@ -2742,16 +2781,13 @@ void CreatureObjectImplementation::setIntimidatedState(int durationSeconds) {
 		state->setStartFlyText("combat_effects", "go_intimidated", 0, 0xFF, 0);
 		state->setEndFlyText("combat_effects", "no_intimidated", 0xFF, 0, 0);
 
-		state->setSkillModifier("private_melee_defense", -20);
-		state->setSkillModifier("private_ranged_defense", -20);
-
 		addBuff(state);
 
 		Reference<PrivateSkillMultiplierBuff*> multBuff = new PrivateSkillMultiplierBuff(asCreatureObject(), STRING_HASHCODE("private_intimidate_multiplier"), durationSeconds, BuffType::STATE);
 
 		Locker blocker(multBuff);
 
-		multBuff->setSkillModifier("private_damage_divisor_intimidate", 50);
+		multBuff->setSkillModifier("private_damage_divisor_intimidate", 25);
 
 		addBuff(multBuff);
 	}
@@ -2825,12 +2861,24 @@ void CreatureObjectImplementation::setMeditateState() {
 	setState(CreatureState::ALERT);
 }
 
-void CreatureObjectImplementation::queueDizzyFallEvent() {
-	if (hasDizzyEvent())
+void CreatureObjectImplementation::applyForcedPostureAccuracyPenalty() {
+	const uint32 buffCRC = STRING_HASHCODE("forced_posture_accuracy");
+	if (hasBuff(buffCRC))
 		return;
 
-	dizzyFallDownEvent = new DizzyFallDownEvent(asCreatureObject());
-	dizzyFallDownEvent->schedule(100);
+	Reference<SingleUseBuff*> buff = new SingleUseBuff(asCreatureObject(), buffCRC, std::numeric_limits<float>::max(), BuffType::OTHER, 0);
+	Locker locker(buff);
+
+	buff->setSkillModifier("private_attack_accuracy", -10);
+	addBuff(buff);
+}
+
+void CreatureObjectImplementation::queueKnockdownRecoveryEvent() {
+	if (hasKnockdownRecoveryEvent())
+		clearKnockdownRecoveryEvent();
+
+	knockdownRecoveryEvent = new KnockdownRecoveryEvent(asCreatureObject());
+	knockdownRecoveryEvent->schedule(5000);
 }
 
 void CreatureObjectImplementation::activateStateRecovery() {
@@ -2909,6 +2957,7 @@ void CreatureObjectImplementation::renewBuff(uint32 buffCRC, int duration, bool 
 
 bool CreatureObjectImplementation::removeBuff(uint32 buffcrc) {
 	Reference<Buff*> buff = getBuff(buffcrc);
+	bool isDizzyBuff = buffcrc == Long::hashCode(CreatureState::DIZZY);
 
 	//BuffList::removeBuff checks to see if the buffcrc exists in the map.
 	bool ret = creatureBuffs.removeBuff(buffcrc);
@@ -2920,6 +2969,9 @@ bool CreatureObjectImplementation::removeBuff(uint32 buffcrc) {
 			removeBuff(secondaryCRCs->get(i));
 		}
 	}
+
+	if (ret && isDizzyBuff)
+		updateSpeedAndAccelerationMods();
 
 	return ret;
 }
@@ -2941,13 +2993,21 @@ void CreatureObjectImplementation::removeBuff(Buff* buff) {
 		return;
 
 	uint32 buffcrc = buff->getBuffCRC();
+	bool isDizzyBuff = buffcrc == Long::hashCode(CreatureState::DIZZY);
 
 	//BuffList::removeBuff checks to see if the buffcrc exists in the map.
 	creatureBuffs.removeBuff(buff);
+
+	if (isDizzyBuff)
+		updateSpeedAndAccelerationMods();
 }
 
 void CreatureObjectImplementation::clearBuffs(bool updateclient, bool removeAll) {
+	bool wasDizzied = isDizzied();
 	creatureBuffs.clearBuffs(updateclient, removeAll);
+
+	if (wasDizzied && !isDizzied())
+		updateSpeedAndAccelerationMods();
 }
 
 void CreatureObjectImplementation::notifyPostureChange(int newPosture) {
@@ -3077,22 +3137,10 @@ void CreatureObjectImplementation::activateHAMRegeneration(int latency) {
 	else if (isSitting())
 		modifier *= 1.75f;
 
-	// this formula gives the amount of regen per second
-	uint32 healthTick = (uint32) ceil((float) Math::max(0, getHAM(
-			CreatureAttribute::CONSTITUTION)) * 13.0f / 2100.0f * modifier);
-	uint32 actionTick = (uint32) ceil((float) Math::max(0, getHAM(
-			CreatureAttribute::STAMINA)) * 13.0f / 2100.0f * modifier);
-	uint32 mindTick = (uint32) ceil((float) Math::max(0, getHAM(
-			CreatureAttribute::WILLPOWER)) * 13.0f / 2100.0f * modifier);
-
-	if (healthTick < 1)
-		healthTick = 1;
-
-	if (actionTick < 1)
-		actionTick = 1;
-
-	if (mindTick < 1)
-		mindTick = 1;
+	bool player = isPlayerCreature();
+	uint32 healthTick = HamRegeneration::tick(getHAM(CreatureAttribute::CONSTITUTION), modifier, player);
+	uint32 actionTick = HamRegeneration::tick(getHAM(CreatureAttribute::STAMINA), modifier, player);
+	uint32 mindTick = HamRegeneration::tick(getHAM(CreatureAttribute::WILLPOWER), modifier, player);
 
 	healDamage(asCreatureObject(), CreatureAttribute::HEALTH, healthTick, true, false);
 	healDamage(asCreatureObject(), CreatureAttribute::ACTION, actionTick, true, false);
@@ -4017,12 +4065,7 @@ int CreatureObjectImplementation::handleObjectMenuSelect(CreatureObject* player,
 }
 
 float CreatureObjectImplementation::calculateCostAdjustment(uint8 stat, float baseCost) const {
-	float cost = baseCost - (((float)(this->getHAM(stat) - 300) / 1200.f) * baseCost);
-
-	if (cost < 0)
-		cost = 0;
-
-	return cost;
+	return HamCost::adjustedCost(baseCost, getHAM(stat));
 }
 
 Reference<WeaponObject*> CreatureObjectImplementation::getWeapon() {

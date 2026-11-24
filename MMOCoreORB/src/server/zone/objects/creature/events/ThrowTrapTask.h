@@ -137,7 +137,7 @@ public:
 			for (int i = 0; i < closeObjects.size(); ++i) {
 				auto objectCreature = closeObjects.get(i).castTo<CreatureObject*>();
 
-				if (objectCreature == nullptr || !objectCreature->isCreature() || objectCreature->isPet()) {
+				if (objectCreature == nullptr || !objectCreature->isAiAgent() || objectCreature->isPet()) {
 					continue;
 				}
 
@@ -149,7 +149,7 @@ public:
 
 				auto targetAgent = objectCreature->asAiAgent();
 
-				if (targetAgent == nullptr || !targetAgent->isAttackableBy(attacker) || !targetAgent->isCreature() || !targetAgent->isMonster()) {
+				if (targetAgent == nullptr || !targetAgent->isAttackableBy(attacker)) {
 					continue;
 				}
 

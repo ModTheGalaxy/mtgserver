@@ -6,8 +6,6 @@ jediManagerName = "VillageJediManager"
 
 NOTINABUILDING = 0
 
-NUMBEROFTREESTOMASTER = 6
-
 VillageJediManager = JediManager:new {
 	screenplayName = jediManagerName,
 	jediManagerName = jediManagerName,
@@ -53,17 +51,14 @@ function VillageJediManager:onPlayerLoggedIn(pPlayer)
 		return
 	end
 
+	local routeReady = JediShrineProgression:onLoggedIn(pPlayer)
 	Glowing:onPlayerLoggedIn(pPlayer)
 
-	if (VillageJediManagerCommon.isVillageEligible(pPlayer) and not CreatureObject(pPlayer):hasSkill("force_title_jedi_novice")) then
-		awardSkill(pPlayer, "force_title_jedi_novice")
-	end
-
-	if (FsIntro:isOnIntro(pPlayer)) then
+	if (routeReady and FsIntro:isOnIntro(pPlayer)) then
 		FsIntro:onLoggedIn(pPlayer)
 	end
 
-	if (FsOutro:isOnOutro(pPlayer)) then
+	if (routeReady and FsOutro:isOnOutro(pPlayer)) then
 		FsOutro:onLoggedIn(pPlayer)
 	end
 
@@ -84,6 +79,7 @@ function VillageJediManager:onPlayerLoggedOut(pPlayer)
 	if (pPlayer == nil) then
 		return
 	end
+	JediShrineProgression:onLoggedOut(pPlayer)
 
 	if (FsIntro:isOnIntro(pPlayer)) then
 		FsIntro:onLoggedOut(pPlayer)
@@ -110,7 +106,7 @@ function VillageJediManager:canLearnSkill(pPlayer, skillName)
 		end
 	end
 
-	if skillName == "force_title_jedi_rank_01" and CreatureObject(pPlayer):getForceSensitiveSkillCount(false) < 24 then
+	if skillName == "force_title_jedi_rank_01" and CreatureObject(pPlayer):getForceSensitiveSkillCount(false) < 24 and readData(SceneObject(pPlayer):getObjectID() .. ":padawanTrialRankAward") ~= 1 then
 		return false
 	end
 
@@ -129,11 +125,6 @@ function VillageJediManager:canSurrenderSkill(pPlayer, skillName)
 		return false
 	end
 
-	if string.find(skillName, "force_sensitive_") and CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_02") and CreatureObject(pPlayer):getForceSensitiveSkillCount(false) <= 24 then
-		CreatureObject(pPlayer):sendSystemMessage("@jedi_spam:revoke_force_sensitive")
-		return false
-	end
-
 	if string.find(skillName, "force_discipline_") and CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_03") and not CreatureObject(pPlayer):villageKnightPrereqsMet(skillName) then
 		return false
 	end
@@ -144,18 +135,6 @@ end
 -- Handling of the onFSTreesCompleted event.
 -- @param pPlayer pointer to the creature object of the player
 function VillageJediManager:onFSTreeCompleted(pPlayer, branch)
-	if (pPlayer == nil) then
-		return
-	end
-
-	if (QuestManager.hasCompletedQuest(pPlayer, QuestManager.quests.OLD_MAN_FINAL) or VillageJediManagerCommon.hasJediProgressionScreenPlayState(pPlayer, VILLAGE_JEDI_PROGRESSION_COMPLETED_VILLAGE) or VillageJediManagerCommon.hasJediProgressionScreenPlayState(pPlayer, VILLAGE_JEDI_PROGRESSION_DEFEATED_MELLIACHAE)) then
-		return
-	end
-
-	if (VillageJediManagerCommon.getLearnedForceSensitiveBranches(pPlayer) >= NUMBEROFTREESTOMASTER) then
-		VillageJediManagerCommon.setJediProgressionScreenPlayState(pPlayer, VILLAGE_JEDI_PROGRESSION_COMPLETED_VILLAGE)
-		FsOutro:startOldMan(pPlayer)
-	end
 end
 
 function VillageJediManager:onSkillRevoked(pPlayer, pSkill)

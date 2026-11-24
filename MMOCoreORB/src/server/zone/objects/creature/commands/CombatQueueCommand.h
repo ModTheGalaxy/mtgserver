@@ -663,6 +663,8 @@ public:
 
 				defender->updateKnockdownRecovery();
 				defender->setPostureChangeDelay(5000);
+				if (defender->isKnockedDown())
+					defender->queueKnockdownRecoveryEvent();
 
 				defender->removeBuff(STRING_HASHCODE("burstrun"));
 				defender->removeBuff(STRING_HASHCODE("retreat"));
@@ -670,7 +672,7 @@ public:
 				defender->sendSystemMessage("@cbt_spam:posture_knocked_down");
 				defender->sendStateCombatSpam("cbt_spam", "posture_knocked_down", 0, 0, false);
 				break;
-			case CommandEffect::POSTUREUP:
+			case CommandEffect::POSTUREUP: {
 				if (!defender->checkPostureUpRecovery()) {
 					if (defender->getPosture() != CreaturePosture::UPRIGHT) {
 						defender->setPosture(CreaturePosture::UPRIGHT, false, false);
@@ -683,12 +685,14 @@ public:
 					defender->dismount();
 				}
 
-				if (defender->getPosture() == CreaturePosture::PRONE) {
+				uint8 originalPosture = defender->getPosture();
+
+				if (originalPosture == CreaturePosture::PRONE) {
 					defender->setPosture(CreaturePosture::CROUCHED, false, false);
 
 					defender->sendSystemMessage("@cbt_spam:force_posture_change_1");
 					defender->sendStateCombatSpam("cbt_spam", "force_posture_change_1", 0, 0, false);
-				} else if (defender->getPosture() == CreaturePosture::CROUCHED) {
+				} else if (originalPosture == CreaturePosture::CROUCHED) {
 					defender->setPosture(CreaturePosture::UPRIGHT, false, false);
 
 					defender->sendSystemMessage("@cbt_spam:force_posture_change_0");
@@ -696,12 +700,15 @@ public:
 				}
 
 				defender->updatePostureUpRecovery();
-				defender->setPostureChangeDelay(2500);
+				defender->setPostureChangeDelay(1500);
+				if (defender->getPosture() != originalPosture)
+					defender->applyForcedPostureAccuracyPenalty();
 
 				defender->removeBuff(STRING_HASHCODE("burstrun"));
 				defender->removeBuff(STRING_HASHCODE("retreat"));
 				break;
-			case CommandEffect::POSTUREDOWN:
+			}
+			case CommandEffect::POSTUREDOWN: {
 				if (!defender->checkPostureDownRecovery()) {
 					if (defender->getPosture() != CreaturePosture::UPRIGHT) {
 						defender->setPosture(CreaturePosture::UPRIGHT, false, false);
@@ -714,12 +721,14 @@ public:
 					defender->dismount();
 				}
 
-				if (defender->getPosture() == CreaturePosture::UPRIGHT) {
+				uint8 originalPosture = defender->getPosture();
+
+				if (originalPosture == CreaturePosture::UPRIGHT) {
 					defender->setPosture(CreaturePosture::CROUCHED, false, false);
 
 					defender->sendSystemMessage("@cbt_spam:force_posture_change_1");
 					defender->sendStateCombatSpam("cbt_spam", "force_posture_change_1", 0, 0, false);
-				} else if (defender->getPosture() == CreaturePosture::CROUCHED) {
+				} else if (originalPosture == CreaturePosture::CROUCHED) {
 					defender->setPosture(CreaturePosture::PRONE, false, false);
 
 					defender->sendSystemMessage("@cbt_spam:force_posture_change_2");
@@ -727,11 +736,14 @@ public:
 				}
 
 				defender->updatePostureDownRecovery();
-				defender->setPostureChangeDelay(2500);
+				defender->setPostureChangeDelay(1500);
+				if (defender->getPosture() != originalPosture)
+					defender->applyForcedPostureAccuracyPenalty();
 
 				defender->removeBuff(STRING_HASHCODE("burstrun"));
 				defender->removeBuff(STRING_HASHCODE("retreat"));
 				break;
+			}
 			case CommandEffect::NEXTATTACKDELAY:
 				defender->setNextAttackDelay(attacker, name, mod, duration);
 				break;

@@ -12,8 +12,6 @@ intro = ConvoScreen:new {
 	options = {
 		{"@conversation/village_elder_3:s_78eeb91e", "building_from_scratch"}, -- Phase relay filaments? They are only used for repairing starship shields.
 		{"@conversation/village_elder_3:s_32705167", "building_shield"}, -- What are phase relay filaments?
-	-- Add via convo handler
-	--{"@conversation/village_elder_3:s_9dc8bf5d", ""}, -- I seem to have misplaced my Force crystal. May I have another?
 	}
 }
 villageElderPhase3ConvoTemplate:addScreen(intro);
@@ -91,21 +89,5 @@ shield_resources = ConvoScreen:new {
 	options = {}
 }
 villageElderPhase3ConvoTemplate:addScreen(shield_resources);
-
-already_have_crystal = ConvoScreen:new {
-	id = "already_have_crystal",
-	leftDialog = "@conversation/village_elder_3:s_199fe2af", -- I sense you already have a crystal and do not need another.
-	stopConversation = "true",
-	options = {}
-}
-villageElderPhase3ConvoTemplate:addScreen(already_have_crystal);
-
-give_new_crystal = ConvoScreen:new {
-	id = "give_new_crystal",
-	leftDialog = "@conversation/village_elder_3:s_bdd3bae5", -- Here you are. Remember you may use the crystal to view your progress.
-	stopConversation = "true",
-	options = {}
-}
-villageElderPhase3ConvoTemplate:addScreen(give_new_crystal);
 
 addConversationTemplate("villageElderPhase3ConvoTemplate", villageElderPhase3ConvoTemplate);

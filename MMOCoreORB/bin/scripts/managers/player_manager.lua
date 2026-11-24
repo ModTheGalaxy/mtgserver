@@ -49,7 +49,7 @@ allowSameAccountPvpRatingCredit = 0
 
 --Blue frog / GM buff values
 performanceBuff = 1100
-medicalBuff = 2200
+medicalBuff = 1200
 performanceDuration = 7200 -- in seconds
 medicalDuration = 7200 -- in seconds
 

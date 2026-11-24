@@ -46,6 +46,27 @@ function OldManOutroEncounter:handleScheduledDespawn(pPlayer)
 	self:handleDespawnEvent(pPlayer)
 end
 
+function OldManOutroEncounter:handleDespawnEvent(pPlayer)
+	if (pPlayer ~= nil and CreatureObject(pPlayer):hasScreenPlayState(JediShrineProgression.OUTRO_STARTED, "JediShrineProgression")) then
+		return
+	end
+	Encounter.handleDespawnEvent(self, pPlayer)
+end
+
+function OldManOutroEncounter:handleEncounterInRangeCheck(pPlayer)
+	if (pPlayer ~= nil and CreatureObject(pPlayer):hasScreenPlayState(JediShrineProgression.OUTRO_STARTED, "JediShrineProgression")) then
+		return
+	end
+	Encounter.handleEncounterInRangeCheck(self, pPlayer)
+end
+
+function OldManOutroEncounter:doDespawn(pPlayer)
+	if (pPlayer ~= nil and CreatureObject(pPlayer):hasScreenPlayState(JediShrineProgression.OUTRO_STARTED, "JediShrineProgression")) then
+		return
+	end
+	Encounter.doDespawn(self, pPlayer)
+end
+
 -- Schedule despawn of old man due to player conversation has ended.
 -- @param pPlayer pointer to the creature object of the player.
 function OldManOutroEncounter:scheduleDespawnOfOldMan(pPlayer)

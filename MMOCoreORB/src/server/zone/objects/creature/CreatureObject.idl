@@ -15,7 +15,7 @@ include server.zone.objects.intangible.ControlDevice;
 import server.zone.objects.area.CampSiteActiveArea;
 import system.util.VectorMap;
 import system.lang.Time;
-import server.zone.objects.creature.events.DizzyFallDownEvent;
+import server.zone.objects.creature.events.KnockdownRecoveryEvent;
 include templates.SharedObjectTemplate;
 import server.zone.objects.creature.buffs.Buff;
 import server.zone.ZoneClientSession;
@@ -179,7 +179,7 @@ class CreatureObject extends TangibleObject {
 	@dereferenced
 	protected Time lastSuccessfulCombatAction;
 
-	protected transient DizzyFallDownEvent dizzyFallDownEvent;
+	protected transient KnockdownRecoveryEvent knockdownRecoveryEvent;
 
 	@dereferenced
 	protected Time timeOfDeath;
@@ -1458,6 +1458,8 @@ class CreatureObject extends TangibleObject {
 
 	public void updatePostureDownRecovery() {
 		cooldownTimerMap.updateToCurrentAndAddMili("postureDownRecovery", 30000);
+		cooldownTimerMap.updateToCurrentAndAddMili("postureUpRecovery", 30000);
+		cooldownTimerMap.updateToCurrentAndAddMili("knockdownRecovery", 30000);
 	}
 
 	@read
@@ -1466,7 +1468,9 @@ class CreatureObject extends TangibleObject {
 	}
 
 	public void updatePostureUpRecovery() {
+		cooldownTimerMap.updateToCurrentAndAddMili("postureDownRecovery", 30000);
 		cooldownTimerMap.updateToCurrentAndAddMili("postureUpRecovery", 30000);
+		cooldownTimerMap.updateToCurrentAndAddMili("knockdownRecovery", 30000);
 	}
 
 	@read
@@ -1475,6 +1479,8 @@ class CreatureObject extends TangibleObject {
 	}
 
 	public void updateKnockdownRecovery() {
+		cooldownTimerMap.updateToCurrentAndAddMili("postureDownRecovery", 30000);
+		cooldownTimerMap.updateToCurrentAndAddMili("postureUpRecovery", 30000);
 		cooldownTimerMap.updateToCurrentAndAddMili("knockdownRecovery", 30000);
 	}
 
@@ -1500,18 +1506,21 @@ class CreatureObject extends TangibleObject {
 
 	// misc methods
 	@preLocked
-	public abstract native void queueDizzyFallEvent();
+	public abstract native void applyForcedPostureAccuracyPenalty();
+
+	@preLocked
+	public abstract native void queueKnockdownRecoveryEvent();
 
 	@read
-	public boolean hasDizzyEvent() {
-		return dizzyFallDownEvent;
+	public boolean hasKnockdownRecoveryEvent() {
+		return knockdownRecoveryEvent;
 	}
 
 	@preLocked
-	public void clearDizzyEvent() {
-		if (hasDizzyEvent()) {
-			dizzyFallDownEvent.cancel();
-			dizzyFallDownEvent = null;
+	public void clearKnockdownRecoveryEvent() {
+		if (hasKnockdownRecoveryEvent()) {
+			knockdownRecoveryEvent.cancel();
+			knockdownRecoveryEvent = null;
 		}
 	}
 

@@ -8,6 +8,7 @@
 #include "server/zone/objects/tangible/wearables/ArmorObject.h"
 #include "templates/tangible/ArmorObjectTemplate.h"
 #include "server/zone/objects/player/sessions/SlicingSession.h"
+#include "server/zone/objects/player/sessions/SlicingPermissions.h"
 #include "templates/tangible/SharedWeaponObjectTemplate.h"
 
 void ArmorObjectImplementation::initializeTransientMembers() {
@@ -307,7 +308,7 @@ float ArmorObjectImplementation::getTypeValue(int type, float value) const {
 }
 
 int ArmorObjectImplementation::handleObjectMenuSelect(CreatureObject* player, byte selectedID) {
-	if (selectedID == 69 && player->hasSkill("combat_smuggler_slicing_03") && isASubChildOf(player)) {
+	if (selectedID == 69 && SlicingPermissions::canSliceArmor(player) && isASubChildOf(player)) {
 		if (isSliced()) {
 			player->sendSystemMessage("@slicing/slicing:already_sliced");
 			return 0;
@@ -453,47 +454,68 @@ String ArmorObjectImplementation::getStringType(int type) const {
 
 float ArmorObjectImplementation::getKinetic() const {
 	float value = getTypeValue(SharedWeaponObjectTemplate::KINETIC, kinetic);
-	return value - getConditionReduction(value);
+	return value - getResilienceConditionReduction(value);
+}
+
+float ArmorObjectImplementation::getResilienceConditionReduction(float value) const {
+	if (isBroken())
+		return 0.5 * value;
+
+	float ratio = (float)getConditionDamage() / (float)getMaxCondition() * 100.0;
+	float threshold = 25.0;
+
+	if (resilienceSliceRank == 1)
+		threshold = 15.0;
+	else if (resilienceSliceRank == 2)
+		threshold = 5.0;
+	else if (resilienceSliceRank == 3)
+		threshold = 0.0;
+
+	if (ratio < (100.0 - threshold))
+		return 0;
+
+	float reductionPercent = (ratio - (100.0 - threshold)) / (100.0 - (100.0 - threshold));
+	return reductionPercent * value;
 }
 
 float ArmorObjectImplementation::getEnergy() const {
 	float value = getTypeValue(SharedWeaponObjectTemplate::ENERGY, energy);
-	return value - getConditionReduction(value);
+	return value - getResilienceConditionReduction(value);
 }
 
 float ArmorObjectImplementation::getElectricity() const {
 	float value = getTypeValue(SharedWeaponObjectTemplate::ELECTRICITY, electricity);
-	return value - getConditionReduction(value);
+	return value - getResilienceConditionReduction(value);
 }
 
 float ArmorObjectImplementation::getStun() const {
 	float value = getTypeValue(SharedWeaponObjectTemplate::STUN, stun);
-	return value - getConditionReduction(value);
+	return value - getResilienceConditionReduction(value);
 }
 
 float ArmorObjectImplementation::getBlast() const {
 	float value = getTypeValue(SharedWeaponObjectTemplate::BLAST, blast);
-	return value - getConditionReduction(value);
+	return value - getResilienceConditionReduction(value);
 }
 
 float ArmorObjectImplementation::getHeat() const {
 	float value = getTypeValue(SharedWeaponObjectTemplate::HEAT, heat);
-	return value - getConditionReduction(value);
+	return value - getResilienceConditionReduction(value);
 }
 
 float ArmorObjectImplementation::getCold() const {
 	float value = getTypeValue(SharedWeaponObjectTemplate::COLD, cold);
-	return value - getConditionReduction(value);
+	return value - getResilienceConditionReduction(value);
 }
 
 float ArmorObjectImplementation::getAcid() const {
 	float value = getTypeValue(SharedWeaponObjectTemplate::ACID, acid);
-	return value - getConditionReduction(value);
+	return value - getResilienceConditionReduction(value);
 }
 
 float ArmorObjectImplementation::getLightSaber() const {
 	float value = getTypeValue(SharedWeaponObjectTemplate::LIGHTSABER, lightSaber);
-	return value - getConditionReduction(value);
+	return value - getResilienceConditionReduction(value);
 }
 
 void ArmorObjectImplementation::setProtectionValue(int type, float value) {

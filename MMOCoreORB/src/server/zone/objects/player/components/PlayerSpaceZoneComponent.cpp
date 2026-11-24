@@ -30,6 +30,26 @@ void PlayerSpaceZoneComponent::notifyInsertToZone(SceneObject* sceneObject, Spac
 	}
 
 	SpaceZoneComponent::notifyInsertToZone(sceneObject, newSpaceZone);
+
+	if (sceneObject->isPlayerCreature()) {
+		CreatureObject* player = sceneObject->asCreatureObject();
+		PlayerObject* ghost = player != nullptr ? player->getPlayerObject() : nullptr;
+
+		if (ghost != nullptr && ghost->isOnline() && player->isInCombat())
+			ghost->startAutoAttackEvent(true);
+	}
+}
+
+void PlayerSpaceZoneComponent::notifyRemoveFromZone(SceneObject* sceneObject) const {
+	if (sceneObject->isPlayerCreature()) {
+		CreatureObject* player = sceneObject->asCreatureObject();
+		PlayerObject* ghost = player != nullptr ? player->getPlayerObject() : nullptr;
+
+		if (ghost != nullptr)
+			ghost->stopAutoAttackEvent();
+	}
+
+	SpaceZoneComponent::notifyRemoveFromZone(sceneObject);
 }
 
 void PlayerSpaceZoneComponent::notifyInsert(SceneObject* sceneObject, TreeEntry* entry) const {

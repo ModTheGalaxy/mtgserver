@@ -34,6 +34,66 @@
 
 #define COMBAT_SPAM_RANGE 85 // Range at which players will see Combat Log Info
 
+namespace {
+
+constexpr float ARMOR_RESIST_CURVE_START = 70.f;
+constexpr float ARMOR_RESIST_CURVE_SLOPE = 0.5f;
+
+bool usesForceDamageSkill(const CreatureAttackData& data) {
+	return data.isForceAttack() && data.getCommandCRC() == STRING_HASHCODE("forcelightningsingle2");
+}
+
+float applyArmorResistCurve(float resist) {
+	if (resist <= ARMOR_RESIST_CURVE_START)
+		return resist;
+
+	return ARMOR_RESIST_CURVE_START + ((resist - ARMOR_RESIST_CURVE_START) * ARMOR_RESIST_CURVE_SLOPE);
+}
+
+float getMinimumAttackSpeed(WeaponObject* weapon) {
+	if (weapon->isFlameThrower())
+		return 1.75f;
+	if (weapon->isHeavyAcidRifle())
+		return 1.50f;
+	if (weapon->isLightningRifle())
+		return 1.25f;
+	if (weapon->isBeamRifle())
+		return 1.00f;
+	if (weapon->isHeavyWeapon())
+		return 1.00f;
+	if (weapon->isPistolWeapon())
+		return 0.50f;
+	if (weapon->isCarbineWeapon())
+		return 0.60f;
+	if (weapon->isRifleWeapon())
+		return 0.65f;
+	if (weapon->isUnarmedWeapon())
+		return 1.00f;
+	if (weapon->isOneHandMeleeWeapon())
+		return 0.35f;
+	if (weapon->isTwoHandMeleeWeapon())
+		return 0.55f;
+	if (weapon->isPolearmWeaponObject())
+		return 0.45f;
+
+	return 1.00f;
+}
+
+float getBeamRifleDamageMultiplier(WeaponObject* weapon, const CreatureAttackData& data) {
+	if (weapon == nullptr || !weapon->isBeamRifle())
+		return 1.0f;
+
+	uint32 commandCRC = data.getCommandCRC();
+	if (commandCRC == STRING_HASHCODE("attack") ||
+			commandCRC == STRING_HASHCODE("volleyfireattack") ||
+			commandCRC == STRING_HASHCODE("counterattack"))
+		return 2.0f;
+
+	return 4.0f;
+}
+
+} // namespace
+
 /*
 * Notes:
 * Every player that uses an attack ability, including peace, is considered the attacker in a CombatManager instance.
@@ -437,7 +497,7 @@ int CombatManager::creoTargetCombatAction(CreatureObject* attacker, WeaponObject
 	int damage = 0;
 
 	if (damageMultiplier != 0) {
-		damage = calculateDamage(attacker, weapon, defender, data) * damageMultiplier;
+		damage = calculateDamage(attacker, weapon, defender, data) * damageMultiplier * getBeamRifleDamageMultiplier(weapon, data);
 		targetHitList->setInitialDamage(damage);
 	}
 
@@ -606,7 +666,7 @@ int CombatManager::tanoTargetCombatAction(TangibleObject* attacker, WeaponObject
 	int damage = 0;
 
 	if (damageMultiplier != 0) {
-		damage = calculateDamage(attacker, weapon, defenderObject, data) * damageMultiplier;
+		damage = calculateDamage(attacker, weapon, defenderObject, data) * damageMultiplier * getBeamRifleDamageMultiplier(weapon, data);
 	}
 
 	damageMultiplier = 1.0f;
@@ -1130,8 +1190,23 @@ float CombatManager::calculateDamage(CreatureObject* attacker, WeaponObject* wea
 		damage = minDamage;
 	}
 
-	if (diff > 0)
-		damage += System::random(diff);
+	if (diff > 0) {
+		const int roll = System::random(diff);
+		damage += roll;
+
+		if (usesForceDamageSkill(data) && attacker->isPlayerCreature() && defender->isAiAgent() && !defender->isPet() && !defender->isVehicleObject()) {
+			const int netAccuracy = attacker->getSkillMod("force_accuracy") - defender->getSkillMod("force_defense");
+			const int rerollChance = Math::clamp(0, netAccuracy, 50);
+			const float baseRange = data.getMaxDamage() - data.getMinDamage();
+
+			if (baseRange > 0.f && rerollChance > 0 && System::random(99) < rerollChance) {
+				// Improve only the listed roll; keep the FRS contribution at the original percentile.
+				const float baseRoll = baseRange * (static_cast<float>(roll) / diff);
+				const float reroll = System::random(static_cast<int>(baseRange));
+				damage += Math::max(0.f, reroll - baseRoll);
+			}
+		}
+	}
 
 	damage = applyDamageModifiers(attacker, weapon, damage, data);
 
@@ -1148,7 +1223,7 @@ float CombatManager::calculateDamage(CreatureObject* attacker, WeaponObject* wea
 		damage *= 1.25;
 
 	if (defender->isKnockedDown()) {
-		damage *= 1.5f;
+		damage *= 1.2f;
 	} else if (data.isForceAttack() && data.getCommandName().hashCode() == STRING_HASHCODE("forcechoke")) {
 		if (defender->isProne())
 			damage *= 1.5f;
@@ -1250,7 +1325,7 @@ float CombatManager::calculateDamage(TangibleObject* attacker, WeaponObject* wea
 	damage += defender->getSkillMod("private_damage_susceptibility");
 
 	if (defender->isKnockedDown())
-		damage *= 1.5f;
+		damage *= 1.2f;
 
 	// Toughness reduction
 	damage = getDefenderToughnessModifier(defender, weapon->getAttackType(), weapon->getDamageType(), damage);
@@ -1319,6 +1394,8 @@ float CombatManager::applyDamageModifiers(CreatureObject* attacker, WeaponObject
 			damage += attacker->getSkillMod("private_melee_damage_bonus");
 		if (attackType == SharedWeaponObjectTemplate::RANGEDATTACK)
 			damage += attacker->getSkillMod("private_ranged_damage_bonus");
+	} else if (usesForceDamageSkill(data) && attacker->isPlayerCreature()) {
+		damage += Math::clamp(0, attacker->getSkillMod("force_damage"), 200);
 	}
 
 	damage += attacker->getSkillMod("private_damage_bonus");
@@ -1335,11 +1412,10 @@ float CombatManager::applyDamageModifiers(CreatureObject* attacker, WeaponObject
 
 	// States Damage Reduction
 	float intimidateMod = attacker->getSkillMod("private_damage_divisor_intimidate");
-	float stunMod = attacker->getSkillMod("private_damage_divisor_stun");
 	float preDamage = damage;
 
 #ifdef DEBUG_STATE_REDUCTION
-	info(true) << "\n\nTotal Before Damage: " <<  damage << " Intimidate Mod: " << intimidateMod << " Stun Mod: " << stunMod;
+	info(true) << "\n\nTotal Before Damage: " <<  damage << " Intimidate Mod: " << intimidateMod;
 #endif // DEBUG_STATE_REDUCTION
 
 	if (intimidateMod > 0) {
@@ -1351,17 +1427,6 @@ float CombatManager::applyDamageModifiers(CreatureObject* attacker, WeaponObject
 	intimMsg << (((preDamage * (intimidateMod / 100.f)) / preDamage) * 100.f);
 
 	info(true) << "Damage After Intimidate: " << damage << " Intimidate Reduction: " << ((intimidateMod > 0) ? intimMsg.toString() : "0") << "%";
-#endif // DEBUG_STATE_REDUCTION
-
-	if (stunMod > 0) {
-		damage -= (preDamage * (stunMod / 100.f));
-	}
-
-#ifdef DEBUG_STATE_REDUCTION
-	StringBuffer stunMsg;
-	stunMsg << (((preDamage * (stunMod / 100.f)) / preDamage) * 100.f);
-
-	info(true) << "Damage After Stun: " << damage << " Stun Reduction: " << ((stunMod > 0) ? stunMsg.toString() : "0") << "%\n\n";
 #endif // DEBUG_STATE_REDUCTION
 
 	return damage;
@@ -1634,7 +1699,7 @@ int CombatManager::applyDamage(CreatureObject* attacker, WeaponObject* weapon, T
 	float damageMultiplier = data.getDamageMultiplier();
 
 	if (damageMultiplier != 0)
-		damage *= damageMultiplier;
+		damage *= damageMultiplier * getBeamRifleDamageMultiplier(weapon, data);
 
 	defenderHitList->setInitialDamage(damage);
 
@@ -2045,7 +2110,7 @@ int CombatManager::getDefenderDefenseModifier(CreatureObject* defender, WeaponOb
 }
 
 int CombatManager::getDefenderSecondaryDefenseModifier(CreatureObject* defender) const {
-	if (defender->isIntimidated() || defender->isBerserked() || defender->isVehicleObject())
+	if (defender->isBerserked() || defender->isVehicleObject())
 		return 0;
 
 	int targetDefense = defender->getLevel();
@@ -2061,6 +2126,9 @@ int CombatManager::getDefenderSecondaryDefenseModifier(CreatureObject* defender)
 
 	if (targetDefense > 125)
 		targetDefense = 125;
+
+	if (defender->isDizzied())
+		targetDefense *= 0.70f;
 
 	return targetDefense;
 }
@@ -2483,6 +2551,16 @@ int CombatManager::getArmorReduction(TangibleObject* attacker, WeaponObject* wea
 	}
 
 	float jediMit = hitList->getJediMitigation();
+	bool applyArmorCurve = false;
+
+	if (defender->isPlayerCreature() && attacker != nullptr && attacker->isAiAgent() && !attacker->isPet()) {
+		PlayerObject* ghost = defender->getPlayerObject();
+
+		if (ghost == nullptr)
+			defender->error() << "CombatManager::getArmorReduction player defender has no PlayerObject; skipping armor resistance curve.";
+		else
+			applyArmorCurve = !ghost->isJedi();
+	}
 
 	if (!data.isForceAttack()) {
 		// Force Armor
@@ -2545,6 +2623,10 @@ int CombatManager::getArmorReduction(TangibleObject* attacker, WeaponObject* wea
 
 	if (psg != nullptr && !psg->isVulnerable(damageType)) {
 		float armorReduction = getArmorObjectReduction(psg, damageType);
+
+		if (applyArmorCurve)
+			armorReduction = applyArmorResistCurve(armorReduction);
+
 		float dmgAbsorbed = damage;
 
 		damage *= getArmorPiercing(psg, armorPiercing);
@@ -2561,8 +2643,15 @@ int CombatManager::getArmorReduction(TangibleObject* attacker, WeaponObject* wea
 		}
 
 		Locker plocker(psg);
+		float armorConditionDamage = damage * 0.2;
+		uint8 deflectionRank = psg->getDeflectionSliceRank();
+		int deflectionChance = deflectionRank > 0 ? deflectionRank * 20 : 0;
+		if (deflectionChance > 0 && System::random(99) < deflectionChance)
+			armorConditionDamage *= 0.5;
+		if (psg->getHardeningSliceRank() > 0 && System::random(99) < psg->getHardeningSliceRank())
+			damage *= 0.5;
 
-		psg->inflictDamage(psg, 0, damage * 0.2, true, true);
+		psg->inflictDamage(psg, 0, armorConditionDamage, true, true);
 	}
 
 	// Standard Armor
@@ -2572,6 +2661,10 @@ int CombatManager::getArmorReduction(TangibleObject* attacker, WeaponObject* wea
 
 	if (armor != nullptr && !armor->isVulnerable(damageType)) {
 		float armorReduction = getArmorObjectReduction(armor, damageType);
+
+		if (applyArmorCurve)
+			armorReduction = applyArmorResistCurve(armorReduction);
+
 		float dmgAbsorbed = damage;
 
 		// use only the damage applied to the armor for piercing (after the PSG takes some off)
@@ -2589,8 +2682,15 @@ int CombatManager::getArmorReduction(TangibleObject* attacker, WeaponObject* wea
 
 		// inflict condition damage
 		Locker alocker(armor);
+		float armorConditionDamage = damage * 0.2;
+		uint8 deflectionRank = armor->getDeflectionSliceRank();
+		int deflectionChance = deflectionRank > 0 ? deflectionRank * 20 : 0;
+		if (deflectionChance > 0 && System::random(99) < deflectionChance)
+			armorConditionDamage *= 0.5;
+		if (armor->getHardeningSliceRank() > 0 && System::random(99) < armor->getHardeningSliceRank())
+			damage *= 0.5;
 
-		armor->inflictDamage(armor, 0, damage * 0.2, true, true);
+		armor->inflictDamage(armor, 0, armorConditionDamage, true, true);
 	}
 
 	return damage;
@@ -2666,10 +2766,10 @@ float CombatManager::getArmorPiercing(TangibleObject* defender, int armorPiercin
 		}
 	}
 
-	if (armorPiercing > armorReduction)
-		return pow(1.25, armorPiercing - armorReduction);
-	else
-		return pow(0.50, armorReduction - armorPiercing);
+	if (armorPiercing >= armorReduction)
+		return 1.0f;
+
+	return Math::max(0.7f, 1.0f - 0.1f * (armorReduction - armorPiercing));
 }
 
 // Mine & Bomb Droid Detonation
@@ -2763,8 +2863,15 @@ float CombatManager::doObjectDetonation(TangibleObject* attackerTanO, CreatureOb
 				}
 
 				Locker plocker(psgArmor, attackerTanO);
+				float armorConditionDamage = damage * 0.2;
+				uint8 deflectionRank = psgArmor->getDeflectionSliceRank();
+				int deflectionChance = deflectionRank > 0 ? deflectionRank * 20 : 0;
+				if (deflectionChance > 0 && System::random(99) < deflectionChance)
+					armorConditionDamage *= 0.5;
+				if (psgArmor->getHardeningSliceRank() > 0 && System::random(99) < psgArmor->getHardeningSliceRank())
+					damage *= 0.5;
 
-				psgArmor->inflictDamage(psgArmor, 0, damage * 0.2, true, true);
+				psgArmor->inflictDamage(psgArmor, 0, armorConditionDamage, true, true);
 			}
 
 			ManagedReference<ArmorObject*> armor = getArmorObject(defender, hitLocation);
@@ -2782,8 +2889,15 @@ float CombatManager::doObjectDetonation(TangibleObject* attackerTanO, CreatureOb
 
 				// inflict condition damage
 				Locker alocker(armor, attackerTanO);
+				float armorConditionDamage = damage * 0.2;
+				uint8 deflectionRank = armor->getDeflectionSliceRank();
+				int deflectionChance = deflectionRank > 0 ? deflectionRank * 20 : 0;
+				if (deflectionChance > 0 && System::random(99) < deflectionChance)
+					armorConditionDamage *= 0.5;
+				if (armor->getHardeningSliceRank() > 0 && System::random(99) < armor->getHardeningSliceRank())
+					damage *= 0.5;
 
-				armor->inflictDamage(armor, 0, damage * 0.2, true, true);
+				armor->inflictDamage(armor, 0, armorConditionDamage, true, true);
 			}
 		}
 
@@ -2839,7 +2953,7 @@ float CombatManager::calculateWeaponAttackSpeed(CreatureObject* attacker, Weapon
 	if (jediSpeed > 0)
 		attackSpeed = attackSpeed - (attackSpeed * jediSpeed);
 
-	return Math::max(attackSpeed, 1.0f);
+	return Math::max(attackSpeed, getMinimumAttackSpeed(weapon));
 }
 
 // Fly Text - Miss, Counterattack, Block, Hit Location
@@ -2950,6 +3064,11 @@ bool CombatManager::applySpecialAttackCost(CreatureObject* attacker, WeaponObjec
 	action = attacker->calculateCostAdjustment(CreatureAttribute::QUICKNESS, action);
 	mind = attacker->calculateCostAdjustment(CreatureAttribute::FOCUS, mind);
 
+	if (attacker->isStunned() && data.getCommandCRC() != STRING_HASHCODE("attack")) {
+		action *= 1.15f;
+		mind *= 1.15f;
+	}
+
 	if (attacker->getHAM(CreatureAttribute::HEALTH) <= health)
 		return false;
 
@@ -3012,6 +3131,9 @@ void CombatManager::applyStates(CreatureObject* creature, CreatureObject* target
 #endif
 
 		float accuracyMod = effect.getStateChance() + stateAccuracyBonus;
+		if (creature->isBlinded())
+			accuracyMod -= 10;
+
 		if (data.isStateOnlyAttack()) {
 			accuracyMod += creature->getSkillMod(data.getCommand()->getAccuracySkillMod());
 		}

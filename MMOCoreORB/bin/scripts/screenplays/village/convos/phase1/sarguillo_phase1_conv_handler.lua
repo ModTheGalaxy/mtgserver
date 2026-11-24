@@ -13,7 +13,7 @@ function villageSarguilloPhase1ConvoHandler:getInitialScreen(pPlayer, pNpc, pCon
 	local currentQuestID = QuestManager.getCurrentVillageQuestID(pPlayer)
 	local reachedAllWaypoints = readData(playerID .. ":patrolWaypointsReached") == 8
 
-	if (VillageJediManagerTownship:getCurrentPhase() ~= 1 or not VillageJediManagerCommon.isVillageEligible(pPlayer)) then
+	if (VillageJediManagerTownship:getCurrentPhase() ~= 1) then
 		return convoTemplate:getScreen("intro_noteligible")
 	elseif (completedCount == 20) then
 		return convoTemplate:getScreen("intro_didallpatrols")

@@ -2131,11 +2131,6 @@ void AiAgentImplementation::healTangibleTarget(TangibleObject* healTarget) {
 	healTarget->notifyObservers(ObserverEventType::HEALINGRECEIVED, healTarget, damageToHeal);
 }
 
-void AiAgentImplementation::queueDizzyFallEvent() {
-	if (isNonPlayerCreatureObject())
-		CreatureObjectImplementation::queueDizzyFallEvent();
-}
-
 void AiAgentImplementation::addDefender(SceneObject* defender) {
 	if (defender == nullptr) {
 		return;
@@ -2442,12 +2437,6 @@ void AiAgentImplementation::activateRecovery() {
 }
 
 void AiAgentImplementation::activatePostureRecovery() {
-	// Handle AI being Knocked down
-	if (isKnockedDown() && !hasPostureChangeDelay() && (!isNpc() || System::random(100) < 40)) {
-		enqueueCommand(STRING_HASHCODE("stand"), 0, 0, "");
-		return;
-	}
-
 	// Prone and kneeling, used for ranged NPC AI
 	if (isProne() || isKneeling()) {
 		if (isInCombat()) {

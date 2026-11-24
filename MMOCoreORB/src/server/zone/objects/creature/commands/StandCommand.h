@@ -19,6 +19,9 @@ public:
 			return INVALIDSTATE;
 		}
 
+		if (creature->isKnockedDown())
+			return INVALIDLOCOMOTION;
+
 		if (!checkInvalidLocomotions(creature)) {
 			if (creature->isFeigningDeath() && !creature->hasIncapTimer()) {
 				creature->removeFeignedDeath();
@@ -42,11 +45,6 @@ public:
 	}
 
 	int setAiAgentPosture(CreatureObject* creature) const {
-		if (creature->isNonPlayerCreatureObject() && creature->isDizzied() && System::random(100) < 85) {
-			creature->queueDizzyFallEvent();
-			return SUCCESS;
-		}
-
 		creature->setPosture(CreaturePosture::UPRIGHT);
 		return SUCCESS;
 	}
@@ -56,11 +54,6 @@ public:
 
 		if (creature->getQueueCommandDeltaTime(commandName) < StandCommand::MINDELTA) {
 			return GENERALERROR;
-		}
-
-		if (creature->isDizzied() && System::random(100) < 85) {
-			creature->queueDizzyFallEvent();
-			return SUCCESS;
 		}
 
 		creature->setQueueCommandDeltaTime(commandName, "setPosture");

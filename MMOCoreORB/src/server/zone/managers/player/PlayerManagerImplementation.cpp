@@ -18,6 +18,7 @@
 #include "server/zone/managers/object/ObjectManager.h"
 #include "server/zone/managers/faction/FactionManager.h"
 #include "server/zone/managers/frs/FrsManager.h"
+#include "server/zone/managers/frs/JediFrsExperience.h"
 #include "server/db/ServerDatabase.h"
 #include "server/chat/ChatManager.h"
 #include "server/zone/packets/chat/ChatRoomMessage.h"
@@ -2581,6 +2582,7 @@ int PlayerManagerImplementation::awardExperience(CreatureObject* player, const S
 		buffMultiplier += player->getSkillModFromBuffs("xp_increase") / 100.f;
 
 	int xp = 0;
+	int calculatedXp = amount;
 
 	trx.addState("applyModifiers", applyModifiers);
 
@@ -2590,9 +2592,26 @@ int PlayerManagerImplementation::awardExperience(CreatureObject* player, const S
 		trx.addState("localMultiplier", localMultiplier);
 		trx.addState("globalExpMultiplier", globalExpMultiplier);
 
-		xp = playerObject->addExperience(trx, xpType, (int) (amount * speciesModifier * buffMultiplier * localMultiplier * globalExpMultiplier));
+		calculatedXp = (int) (amount * speciesModifier * buffMultiplier * localMultiplier * globalExpMultiplier);
+		xp = playerObject->addExperience(trx, xpType, calculatedXp);
 	} else {
 		xp = playerObject->addExperience(trx, xpType, (int)amount);
+	}
+
+	if (xpType == "jedi_general" && amount > 0 && calculatedXp > 0 && player->hasSkill("force_title_jedi_rank_03")) {
+		FrsManager* frsManager = server->getFrsManager();
+		if (frsManager == nullptr) {
+			error("Unable to award Force Rank experience: FRS manager is unavailable.");
+			player->sendSystemMessage("Unable to award Force Rank experience. Please contact a CSR.");
+		} else {
+			Locker crossLock(frsManager, player);
+			String remainderData = playerObject->getScreenPlayData("JediFrsExperience", "remainder");
+			int remainder = remainderData.isEmpty() ? 0 : Integer::valueOf(remainderData);
+			int frsXp = convertJediExperienceToFrs(calculatedXp, remainder);
+			playerObject->setScreenPlayData("JediFrsExperience", "remainder", String::valueOf(remainder));
+			if (frsXp > 0)
+				frsManager->adjustFrsExperience(player, frsXp, sendSystemMessage);
+		}
 	}
 
 	player->notifyObservers(ObserverEventType::XPAWARDED, player, xp);

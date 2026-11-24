@@ -12,8 +12,6 @@ intro = ConvoScreen:new {
 	options = {
 		{"@conversation/village_elder_2:s_8caad960", "recent_attack"}, -- What supplies? I didn't bring you any supplies.
 		{"@conversation/village_elder_2:s_5e0af20b", "sitting_ducks"}, -- You bet. Anything else I can do to help?
-		-- Add via convo handler
-		--{"@conversation/village_elder_2:s_9dc8bf5d", ""}, -- I seem to have misplaced my Force crystal. May I have another?
 	}
 }
 villageElderPhase2ConvoTemplate:addScreen(intro);
@@ -137,21 +135,5 @@ dangerously_low = ConvoScreen:new {
 	options = {}
 }
 villageElderPhase2ConvoTemplate:addScreen(dangerously_low);
-
-already_have_crystal = ConvoScreen:new {
-	id = "already_have_crystal",
-	leftDialog = "@conversation/village_elder_2:s_199fe2af", -- I sense you already have a crystal and do not need another.
-	stopConversation = "true",
-	options = {}
-}
-villageElderPhase2ConvoTemplate:addScreen(already_have_crystal);
-
-give_new_crystal = ConvoScreen:new {
-	id = "give_new_crystal",
-	leftDialog = "@conversation/village_elder_2:s_bdd3bae5", -- Here you are. Remember you may use the crystal to view your progress.
-	stopConversation = "true",
-	options = {}
-}
-villageElderPhase2ConvoTemplate:addScreen(give_new_crystal);
 
 addConversationTemplate("villageElderPhase2ConvoTemplate", villageElderPhase2ConvoTemplate);

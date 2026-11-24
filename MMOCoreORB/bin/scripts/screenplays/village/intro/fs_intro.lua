@@ -33,7 +33,7 @@ function FsIntro:setCurrentStep(pPlayer, step)
 end
 
 function FsIntro:isOnIntro(pPlayer)
-	return VillageJediManagerCommon.hasJediProgressionScreenPlayState(pPlayer, VILLAGE_JEDI_PROGRESSION_GLOWING) and not QuestManager.hasCompletedQuest(pPlayer, QuestManager.quests.FS_VILLAGE_ELDER)
+	return VillageJediManagerCommon.hasJediProgressionScreenPlayState(pPlayer, VILLAGE_JEDI_PROGRESSION_GLOWING) and not QuestManager.hasCompletedQuest(pPlayer, QuestManager.quests.FS_VILLAGE_ELDER) and not CreatureObject(pPlayer):hasScreenPlayState(JediShrineProgression.INTRO_COMPLETE, "JediShrineProgression") and not CreatureObject(pPlayer):hasScreenPlayState(JediShrineProgression.OUTRO_STARTED, "JediShrineProgression")
 end
 
 function FsIntro:hasDelayPassed(pPlayer)
@@ -83,13 +83,15 @@ function FsIntro:doDelayedStep(pPlayer)
 	if (pGhost == nil or not PlayerObject(pGhost):isOnline()) then
 		return
 	end
+	local curStep = self:getCurrentStep(pPlayer)
+	if (curStep == self.OLDMANWAIT or curStep == self.OLDMANMEET or not self:isOnIntro(pPlayer)) then
+		return
+	end
 
 	if (CreatureObject(pPlayer):isDead() or CreatureObject(pPlayer):isIncapacitated() or not Encounter:isPlayerInPositionForEncounter(pPlayer)) then
 		createEvent(getRandomNumber(300, 900) * 1000, "FsIntro", "doDelayedStep", pPlayer, "")
 		return
 	end
-
-	local curStep = self:getCurrentStep(pPlayer)
 
 	if (not OldManIntroEncounter:hasForceCrystal(pPlayer)) then
 		QuestManager.resetQuest(pPlayer, QuestManager.quests.OLD_MAN_INITIAL)
@@ -110,18 +112,11 @@ function FsIntro:doDelayedStep(pPlayer)
 		end
 
 
-		self:setCurrentStep(pPlayer, self.OLDMANWAIT)
-		curStep = self.OLDMANWAIT
+		JediShrineProgression:startIntro(pPlayer)
+		return
 	end
 
-	local encounterResult = true
-	if (curStep == self.OLDMANWAIT) then
-		encounterResult = OldManIntroEncounter:start(pPlayer)
-	elseif (curStep == self.SITHWAIT) then
-		encounterResult = SithShadowEncounter:start(pPlayer)
-	end
-
-	if (not encounterResult) then
+	if (curStep == self.SITHWAIT and not SithShadowEncounter:start(pPlayer)) then
 		local rescheduleDelay = getRandomNumber(15, 30) * 60 * 1000
 		createEvent(rescheduleDelay, "FsIntro", "doDelayedStep", pPlayer, "")
 	end
@@ -132,7 +127,7 @@ function FsIntro:startPlayerOnIntro(pPlayer)
 		return
 	end
 
-	self:startStepDelay(pPlayer, 1)
+	JediShrineProgression:startIntro(pPlayer)
 end
 
 function FsIntro:onLoggedIn(pPlayer)
@@ -144,7 +139,20 @@ function FsIntro:onLoggedIn(pPlayer)
 
 	-- Extra check in case the player's current step gets messed up
 	if ((curStep == self.OLDMANWAIT or curStep == self.OLDMANMEET) and OldManIntroEncounter:hasForceCrystal(pPlayer)) then
-		self:setCurrentStep(pPlayer, self.SITHWAIT)
+		if (not QuestManager.hasCompletedQuest(pPlayer, QuestManager.quests.OLD_MAN_FORCE_CRYSTAL)) then
+			if (not OldManIntroEncounter:giveForceCrystalToPlayer(pPlayer)) then
+				return
+			end
+			self:startStepDelay(pPlayer, self.SITHWAIT)
+		else
+			if (not JediShrineProgression:grantNovice(pPlayer)) then
+				return
+			end
+			self:setCurrentStep(pPlayer, self.SITHWAIT)
+		end
+		JediShrineProgression:despawn(pPlayer, "intro", false)
+		JediShrineProgression:removeArea(pPlayer, "intro")
+		JediShrineProgression:removeWaypoint(pPlayer, "intro")
 		curStep = self.SITHWAIT
 	end
 
@@ -170,22 +178,15 @@ function FsIntro:onLoggedIn(pPlayer)
 			self:removeSecondDatapad(pPlayer)
 		end
 
-		if (self:hasDelayPassed(pPlayer)) then
-			createEvent(getRandomNumber(300, 900) * 1000, "FsIntro", "startOldMan", pPlayer, "")
-		end
-
-		self:setCurrentStep(pPlayer, self.OLDMANWAIT)
+		JediShrineProgression:startIntro(pPlayer)
 		return
 	end
 
-	if (curStep == self.OLDMANWAIT) then
-		if (self:hasDelayPassed(pPlayer)) then
-			createEvent(getRandomNumber(300, 900) * 1000, "FsIntro", "startOldMan", pPlayer, "")
-			self:setCurrentStep(pPlayer, curStep + 1)
+	if (curStep == self.OLDMANWAIT or curStep == self.OLDMANMEET) then
+		if (readData(SceneObject(pPlayer):getObjectID() .. ":shrineOldMan:intro:mobile") == 0) then
+			QuestManager.resetQuest(pPlayer, QuestManager.quests.OLD_MAN_INITIAL)
+			JediShrineProgression:startIntro(pPlayer)
 		end
-	elseif (curStep == self.OLDMANMEET) then
-		QuestManager.resetQuest(pPlayer, QuestManager.quests.OLD_MAN_INITIAL)
-		createEvent(getRandomNumber(300, 900) * 1000, "FsIntro", "startOldMan", pPlayer, "")
 	elseif (curStep == self.SITHWAIT) then
 		if (self:hasDelayPassed(pPlayer)) then
 			createEvent(getRandomNumber(300, 900) * 1000, "FsIntro", "startSithAttack", pPlayer, "")
@@ -224,7 +225,7 @@ function FsIntro:onLoggedIn(pPlayer)
 		end
 	elseif (curStep == self.VILLAGE and not QuestManager.hasCompletedQuest(pPlayer, QuestManager.quests.FS_VILLAGE_ELDER)) then
 		GoToDathomir:finish(pPlayer)
-		GoToDathomir:start(pPlayer)
+		JediShrineProgression:startPadawanTrials(pPlayer)
 	end
 end
 
@@ -301,11 +302,8 @@ function FsIntro:startOldMan(pPlayer)
 		return
 	end
 
-	local result = OldManIntroEncounter:start(pPlayer)
-
-	if (not result) then
-		createEvent(getRandomNumber(300, 900) * 1000, "FsIntro", "startOldMan", pPlayer, "")
-		return
+	if (self:isOnIntro(pPlayer) and (self:getCurrentStep(pPlayer) == self.OLDMANWAIT or self:getCurrentStep(pPlayer) == self.OLDMANMEET)) then
+		JediShrineProgression:prepareMeeting(pPlayer, "intro")
 	end
 end
 
@@ -317,6 +315,14 @@ function FsIntro:startSithAttack(pPlayer)
 	local pGhost = CreatureObject(pPlayer):getPlayerObject()
 
 	if (pGhost == nil or not PlayerObject(pGhost):isOnline()) then
+		return
+	end
+	local step = self:getCurrentStep(pPlayer)
+	if (not self:isOnIntro(pPlayer) or (step ~= self.SITHWAIT and step ~= self.SITHATTACK)) then
+		return
+	end
+	if (not OldManIntroEncounter:hasForceCrystal(pPlayer)) then
+		self:doDelayedStep(pPlayer)
 		return
 	end
 

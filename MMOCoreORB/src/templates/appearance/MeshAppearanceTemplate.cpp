@@ -15,7 +15,9 @@ void MeshAppearanceTemplate::parse(IffStream* iffStream) {
 	uint32 version = iffStream->getNextFormType();
 	iffStream->openForm(version);
 
-	AppearanceTemplate::readObject(iffStream);
+	// Legacy meshes store their bounds after the geometry instead of in APPR.
+	if (version != '0003')
+		AppearanceTemplate::readObject(iffStream);
 
 	parseSPS(iffStream);
 
@@ -91,7 +93,10 @@ bool MeshAppearanceTemplate::testCollide(float x, float z, float y, float radius
 
 void MeshAppearanceTemplate::parseSPS(IffStream* iffStream) {
 	iffStream->openForm('SPS ');
-	iffStream->openForm('0001');
+	uint32 version = iffStream->getNextFormType();
+	if (version != '0000' && version != '0001')
+		throw Exception("Unsupported SPS version in " + iffStream->getFileName());
+	iffStream->openForm(version);
 
 	int count = 0;
 
@@ -105,7 +110,7 @@ void MeshAppearanceTemplate::parseSPS(IffStream* iffStream) {
 		parseVertexData(iffStream, i);
 	}
 
-	iffStream->closeForm('0001');
+	iffStream->closeForm(version);
 	iffStream->closeForm('SPS ');
 }
 

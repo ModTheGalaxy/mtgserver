@@ -57,7 +57,7 @@ PolearmSweep2Command = {
 		{ "knockdownRecovery", "lastKnockdown" }, 
 		{ "knockdown_defense" }, 
 		{},
-		100, 
+		50,
 		0, 
 		0 
 	  )

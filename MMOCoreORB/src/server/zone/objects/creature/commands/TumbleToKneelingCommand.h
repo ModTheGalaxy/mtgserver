@@ -38,22 +38,18 @@ public:
 		else
 			creature->doCombatAnimation(defender,STRING_HASHCODE("tumble_facing"),0,0xFF);
 
-		if (creature->isDizzied() && System::random(100) < 85) {
-			creature->queueDizzyFallEvent();
-		} else {
-			Reference<StateBuff*> buff = new StateBuff(creature, CreatureState::TUMBLING, 1);
+		Reference<StateBuff*> buff = new StateBuff(creature, CreatureState::TUMBLING, 1);
 
-			Locker locker(buff);
+		Locker locker(buff);
 
-			buff->setSkillModifier("melee_defense", 50);
-			buff->setSkillModifier("ranged_defense", 50);
+		buff->setSkillModifier("melee_defense", 50);
+		buff->setSkillModifier("ranged_defense", 50);
 
-			creature->addBuff(buff);
+		creature->addBuff(buff);
 
-			locker.release();
+		locker.release();
 
-			creature->sendStateCombatSpam("cbt_spam", "tum_kneel", 0);
-		}
+		creature->sendStateCombatSpam("cbt_spam", "tum_kneel", 0);
 
 		return SUCCESS;
 	}

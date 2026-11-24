@@ -573,24 +573,48 @@ float WeaponObjectImplementation::getDamageRadius(bool withPup) const {
 
 
 int WeaponObjectImplementation::getHealthAttackCost(bool withPup) const {
-	if (powerupObject != nullptr && withPup)
-		return healthAttackCost - (abs(healthAttackCost) * powerupObject->getPowerupStat("healthAttackCost"));
+	float multiplier = 1.0f;
+	if (hamSliceRank == 1)
+		multiplier = 0.97f;
+	else if (hamSliceRank == 2)
+		multiplier = 0.95f;
+	else if (hamSliceRank == 3)
+		multiplier = 0.92f;
 
-	return healthAttackCost;
+	if (powerupObject != nullptr && withPup)
+		return (int)(healthAttackCost * multiplier) - (abs((int)(healthAttackCost * multiplier)) * powerupObject->getPowerupStat("healthAttackCost"));
+
+	return (int)(healthAttackCost * multiplier);
 }
 
 int WeaponObjectImplementation::getActionAttackCost(bool withPup) const {
-	if (powerupObject != nullptr && withPup)
-		return actionAttackCost - (abs(actionAttackCost) * powerupObject->getPowerupStat("actionAttackCost"));
+	float multiplier = 1.0f;
+	if (hamSliceRank == 1)
+		multiplier = 0.97f;
+	else if (hamSliceRank == 2)
+		multiplier = 0.95f;
+	else if (hamSliceRank == 3)
+		multiplier = 0.92f;
 
-	return actionAttackCost;
+	if (powerupObject != nullptr && withPup)
+		return (int)(actionAttackCost * multiplier) - (abs((int)(actionAttackCost * multiplier)) * powerupObject->getPowerupStat("actionAttackCost"));
+
+	return (int)(actionAttackCost * multiplier);
 }
 
 int WeaponObjectImplementation::getMindAttackCost(bool withPup) const {
-	if (powerupObject != nullptr && withPup)
-		return mindAttackCost - (abs(mindAttackCost) * powerupObject->getPowerupStat("mindAttackCost"));
+	float multiplier = 1.0f;
+	if (hamSliceRank == 1)
+		multiplier = 0.97f;
+	else if (hamSliceRank == 2)
+		multiplier = 0.95f;
+	else if (hamSliceRank == 3)
+		multiplier = 0.92f;
 
-	return mindAttackCost;
+	if (powerupObject != nullptr && withPup)
+		return (int)(mindAttackCost * multiplier) - (abs((int)(mindAttackCost * multiplier)) * powerupObject->getPowerupStat("mindAttackCost"));
+
+	return (int)(mindAttackCost * multiplier);
 }
 
 void WeaponObjectImplementation::updateCraftingValues(CraftingValues* values, bool firstUpdate) {

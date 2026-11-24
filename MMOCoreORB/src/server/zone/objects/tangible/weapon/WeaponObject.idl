@@ -63,6 +63,10 @@ class WeaponObject extends TangibleObject {
 
 	protected float damageSlice;
 	protected float speedSlice;
+	protected unsigned byte damageSliceRank;
+	protected unsigned byte speedSliceRank;
+	protected unsigned byte hamSliceRank;
+	protected unsigned byte weaponSlicePoints;
 
 	@dereferenced
 	protected Vector<int> dotType;
@@ -119,6 +123,10 @@ class WeaponObject extends TangibleObject {
 
 		damageSlice = 1;
 		speedSlice = 1;
+		damageSliceRank = 0;
+		speedSliceRank = 0;
+		hamSliceRank = 0;
+		weaponSlicePoints = 0;
 
 		wearableSkillMods.setAllowOverwriteInsertPlan();
 	}
@@ -479,6 +487,11 @@ class WeaponObject extends TangibleObject {
 	}
 
 	@read
+	public boolean isBeamRifle() {
+		return weaponTemplate.isDerivedFrom("object/weapon/ranged/rifle/rifle_beam.iff");
+	}
+
+	@read
 	public boolean isLightningRifle() {
 		return weaponTemplate.getServerObjectCRC() == 397924793; // String("object/weapon/ranged/rifle/rifle_lightning.iff").hashCode()
 	}
@@ -579,6 +592,66 @@ class WeaponObject extends TangibleObject {
 		if(value > 0.5f || value < 0)
 			return;
 		speedSlice = 1 - value;
+	}
+
+	public unsigned byte getDamageSliceRank() {
+		return damageSliceRank;
+	}
+
+	public boolean setDamageSliceRank(unsigned byte rank) {
+		if (rank > 3)
+			return false;
+		damageSliceRank = rank;
+		if (rank == 0)
+			damageSlice = 1;
+		else if (rank == 1)
+			damageSlice = 1.02;
+		else if (rank == 2)
+			damageSlice = 1.04;
+		else
+			damageSlice = 1.08;
+		return true;
+	}
+
+	public unsigned byte getSpeedSliceRank() {
+		return speedSliceRank;
+	}
+
+	public boolean setSpeedSliceRank(unsigned byte rank) {
+		if (rank > 4)
+			return false;
+		speedSliceRank = rank;
+		if (rank == 0)
+			speedSlice = 1;
+		else if (rank == 1)
+			speedSlice = 0.98;
+		else if (rank == 2)
+			speedSlice = 0.96;
+		else if (rank == 3)
+			speedSlice = 0.93;
+		else
+			speedSlice = 0.88;
+		return true;
+	}
+
+	public unsigned byte getHamSliceRank() {
+		return hamSliceRank;
+	}
+
+	public boolean setHamSliceRank(unsigned byte rank) {
+		if (rank > 3)
+			return false;
+		hamSliceRank = rank;
+		return true;
+	}
+
+	public unsigned byte getWeaponSlicePoints() {
+		return weaponSlicePoints;
+	}
+
+	public void setWeaponSlicePoints(unsigned byte value) {
+		if (value <= 100)
+			weaponSlicePoints = value;
 	}
 
 	@read

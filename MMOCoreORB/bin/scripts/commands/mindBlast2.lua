@@ -49,7 +49,7 @@ MindBlast2Command = {
 	speed = 4.0,
 	forceCost = 160,
 	visMod = 25,
-	accuracySkillMod = "mindblast_accuracy";
+	accuracySkillMod = "force_accuracy",
 	coneAngle = 40,
 	coneAction = true,
 

@@ -7,11 +7,7 @@ function paemosConvoHandler:getInitialScreen(pPlayer, pNpc, pConvTemplate)
 
 	CreatureObject(pNpc):doAnimation("beckon")
 
-	if (VillageJediManagerCommon.isVillageEligible(pPlayer)) then
-		return convoTemplate:getScreen("intro")
-	else
-		return convoTemplate:getScreen("cant_convert")
-	end
+	return convoTemplate:getScreen("intro")
 end
 
 function paemosConvoHandler:runScreenHandlers(pConvTemplate, pPlayer, pNpc, selectedOption, pConvScreen)

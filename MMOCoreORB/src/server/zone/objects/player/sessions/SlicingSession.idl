@@ -37,6 +37,7 @@ class SlicingSession extends Facade {
 
 	protected boolean baseSlice;
 	protected boolean keypadSlice;
+	protected boolean rankSelection;
 
 	public SlicingSession(CreatureObject parent) {
 		Logger.setLoggingName("SlicingSession");
@@ -66,6 +67,7 @@ class SlicingSession extends Facade {
 	public native void endSlicing();
 
 	private native void generateSliceMenu(SuiListBox suiBox);
+	private native void generateRankMenu(SuiListBox suiBox);
 
 	private string getPrefix(TangibleObject obj) {
 		if (obj.isMissionTerminal())

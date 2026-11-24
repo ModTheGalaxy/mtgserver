@@ -60,15 +60,6 @@ ConfusionShotCommand = {
 		0, 
 		10 
 	  ),
-	  StateEffect( 
-		STUN_EFFECT, 
-		{}, 
-		{ "stun_defense" }, 
-		{ "jedi_state_defense", "resistance_states" },
-		100, 
-		0, 
-		10 
-	  )
 	},
 
 	animation = "fire_5_special_single", 

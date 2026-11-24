@@ -14,6 +14,7 @@ include server.zone.objects.creature.ai.AiAgent;
 import server.zone.objects.intangible.IntangibleObject;
 import server.zone.objects.player.events.PlayerDisconnectEvent;
 import server.zone.objects.player.events.PlayerRecoveryEvent;
+import server.zone.objects.player.events.PlayerAutoAttackEvent;
 import server.zone.objects.player.events.ForceRegenerationEvent;
 import server.zone.objects.player.events.PvpTefRemovalTask;
 import server.zone.objects.scene.SceneObject;
@@ -212,6 +213,13 @@ class PlayerObject extends IntangibleObject {
 
 	@dereferenced
 	protected transient Reference<PlayerRecoveryEvent> recoveryEvent;
+
+	@dereferenced
+	protected transient Reference<PlayerAutoAttackEvent> autoAttackEvent;
+
+	protected transient unsigned long autoAttackEventGeneration;
+	protected transient unsigned long autoAttackCycleAnchor;
+	protected transient unsigned long autoAttackTargetID;
 
 	@dereferenced
 	protected transient Reference<ForceRegenerationEvent> forceRegenerationEvent;
@@ -800,6 +808,28 @@ class PlayerObject extends IntangibleObject {
 	public native void clearScreenPlayData(final string screenPlay);
 
 	public native void activateRecovery();
+
+	// Auto-attack state is guarded by the parent creature's lock, not the PlayerObject's lock.
+	@dirty
+	public native void startAutoAttackEvent(boolean freshAnchor = true);
+
+	@dirty
+	public native void stopAutoAttackEvent();
+
+	@dirty
+	public native void rescheduleAutoAttackEvent();
+
+	@dirty
+	public native void scheduleAutoAttackEvent(unsigned long delayMili);
+
+	@dirty
+	public native void onAutoAttackTargetChanged(unsigned long oldTargetID, unsigned long newTargetID);
+
+	@dirty
+	public native void onQueuedSpecialAttack(unsigned int commandCRC, boolean succeeded, unsigned long startTimeMili, unsigned int durationMili);
+
+	@dirty
+	public native void doAutoAttackEvent(unsigned long generation);
 
 	public native void activateForcePowerRegen();
 

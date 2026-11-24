@@ -7,6 +7,7 @@
 
 #include "TangibleObjectMenuComponent.h"
 #include "server/zone/objects/player/sessions/SlicingSession.h"
+#include "server/zone/objects/player/sessions/SlicingPermissions.h"
 #include "server/zone/packets/object/ObjectMenuResponse.h"
 #include "server/zone/objects/player/PlayerObject.h"
 
@@ -32,9 +33,9 @@ void TangibleObjectMenuComponent::fillObjectMenuResponse(SceneObject* sceneObjec
 			hasSkill = false; // Let the container handle our slice menu
 		else if (sceneObject->isMissionTerminal() && !player->hasSkill("combat_smuggler_slicing_01"))
 			hasSkill = false;
-		else if (sceneObject->isWeaponObject() && (!inventory->hasObjectInContainer(sceneObject->getObjectID()) || !player->hasSkill("combat_smuggler_slicing_02")))
+		else if (sceneObject->isWeaponObject() && (inventory == nullptr || !inventory->hasObjectInContainer(sceneObject->getObjectID()) || SlicingPermissions::weaponPointLimit(player) == 0))
 			hasSkill = false;
-		else if (sceneObject->isArmorObject() && (!inventory->hasObjectInContainer(sceneObject->getObjectID()) || !player->hasSkill("combat_smuggler_slicing_03")))
+		else if (sceneObject->isArmorObject() && (inventory == nullptr || !inventory->hasObjectInContainer(sceneObject->getObjectID()) || !SlicingPermissions::canSliceArmor(player)))
 			hasSkill = false;
 
 		if(hasSkill)

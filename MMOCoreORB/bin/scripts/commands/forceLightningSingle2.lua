@@ -44,12 +44,13 @@
 ForceLightningSingle2Command = {
 	name = "forcelightningsingle2",
 
+	-- CombatManager adds up to 200 Force Damage and can reroll the listed range against PvE targets.
 	minDamage = 600,
 	maxDamage = 1200,
 	speed = 4.0,
 	forceCost = 150,
 	visMod = 25,
-	accuracySkillMod = "forcelightning_accuracy",
+	accuracySkillMod = "force_accuracy",
 
 	stateEffects = {
 		StateEffect(

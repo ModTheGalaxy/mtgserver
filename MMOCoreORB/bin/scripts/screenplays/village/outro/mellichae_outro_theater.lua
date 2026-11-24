@@ -52,7 +52,23 @@ MellichaeOutroTheater = GoToTheater:new {
 	flattenLayer = true
 }
 
--- Event handler for the enter active area event.
+function MellichaeOutroTheater:taskStart(pPlayer)
+	if (not JediTrials:hasCompletedPadawanTasks(pPlayer)) then
+		CreatureObject(pPlayer):sendSystemMessage("Complete all Padawan trials before seeking Mellichae.")
+		return false
+	end
+	return GoToTheater.taskStart(self, pPlayer)
+end
+
+function MellichaeOutroTheater:spawnTheaterObjects(pPlayer)
+	if (not JediTrials:hasCompletedPadawanTasks(pPlayer)) then
+		CreatureObject(pPlayer):sendSystemMessage("Complete all Padawan trials before seeking Mellichae.")
+		self:finish(pPlayer)
+		return
+	end
+	return GoToTheater.spawnTheaterObjects(self, pPlayer)
+end
+
 function MellichaeOutroTheater:onEnteredActiveArea(pPlayer, spawnedSithShadowsList)
 	if (pPlayer == nil or spawnedSithShadowsList == nil or spawnedSithShadowsList[1] == nil) then
 		return
@@ -116,6 +132,13 @@ function MellichaeOutroTheater:onMellichaeKilled(pMellichae, pKiller)
 		return 1
 	end
 
+	if (not JediTrials:hasCompletedPadawanTasks(pOwner)) then
+		printLuaError("MellichaeOutroTheater: owner has not completed Padawan trials: " .. ownerID)
+		CreatureObject(pOwner):sendSystemMessage("Complete all Padawan trials before seeking Mellichae.")
+		createEvent(1000, "MellichaeOutroTheater", "finish", pOwner, "")
+		return 1
+	end
+
 	local pInventory = SceneObject(pMellichae):getSlottedObject("inventory")
 
 	if (pInventory ~= nil) then
@@ -125,10 +148,10 @@ function MellichaeOutroTheater:onMellichaeKilled(pMellichae, pKiller)
 
 	dropObserver(OBJECTDESTRUCTION, self.taskName, "onPlayerKilled", pOwner)
 	QuestManager.completeQuest(pOwner, QuestManager.quests.FS_THEATER_FINAL)
-	CreatureObject(pOwner):sendSystemMessage("@quest/force_sensitive/exit:final_complete") --	Congratulations, you have completed the Force sensitive quests! You are now qualified to begin the Jedi Padawan Trials.
+	CreatureObject(pOwner):sendSystemMessage("You have defeated Mellichae.")
 	VillageJediManagerCommon.setJediProgressionScreenPlayState(pOwner, VILLAGE_JEDI_PROGRESSION_DEFEATED_MELLIACHAE) -- Killed him.
 	FsOutro:setCurrentStep(pOwner, 4)
-	PadawanTrials:doPadawanTrialsSetup(pOwner)
+	JediTrials:unlockJediPadawan(pOwner)
 
 	local pActiveArea = spawnActiveArea(CreatureObject(pOwner):getZoneName(), "object/active_area.iff", SceneObject(pTheater):getWorldPositionX(), 0, SceneObject(pTheater):getWorldPositionY(), 150, 0)
 

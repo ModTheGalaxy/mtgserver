@@ -11,6 +11,7 @@
 #include "WeaponObjectMenuComponent.h"
 #include "server/zone/packets/object/ObjectMenuResponse.h"
 #include "server/zone/objects/player/sessions/SlicingSession.h"
+#include "server/zone/objects/player/sessions/SlicingPermissions.h"
 
 void WeaponObjectMenuComponent::fillObjectMenuResponse(SceneObject* sceneObject, ObjectMenuResponse* menuResponse, CreatureObject* player) const {
 
@@ -46,7 +47,7 @@ int WeaponObjectMenuComponent::handleObjectMenuSelect(SceneObject* sceneObject, 
 
 	if(weapon->isASubChildOf(player)) {
 
-		if (selectedID == 69 && player->hasSkill("combat_smuggler_slicing_02")) {
+		if (selectedID == 69 && SlicingPermissions::weaponPointLimit(player) > 0) {
 			if (weapon->isSliced()) {
 				player->sendSystemMessage("@slicing/slicing:already_sliced");
 				return 0;

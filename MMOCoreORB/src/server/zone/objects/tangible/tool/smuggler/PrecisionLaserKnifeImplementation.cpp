@@ -9,6 +9,7 @@
 #include "server/zone/packets/scene/AttributeListMessage.h"
 #include "server/zone/ZoneServer.h"
 #include "server/zone/objects/player/sessions/SlicingSession.h"
+#include "server/zone/objects/player/sessions/SlicingPermissions.h"
 #include "server/zone/objects/region/CityRegion.h"
 #include "server/zone/objects/tangible/terminal/mission/MissionTerminal.h"
 #include "server/zone/managers/gcw/GCWManager.h"
@@ -19,7 +20,7 @@ int PrecisionLaserKnifeImplementation::handleObjectMenuSelect(CreatureObject* pl
 	if (!isASubChildOf(player))
 		return 0;
 
-	if(!player->hasSkill("combat_smuggler_novice")){
+	if (selectedID != 20 && !player->hasSkill("combat_smuggler_novice")) {
 		player->sendSystemMessage("You must be at least a Novice Smuggler to use this tool.");
 		return 0;
 	}
@@ -33,6 +34,11 @@ int PrecisionLaserKnifeImplementation::handleObjectMenuSelect(CreatureObject* pl
 
 	if (target == nullptr || (!target->isSliceable() && !target->isSecurityTerminal())) {
 		player->sendSystemMessage("You cannot slice that.");
+		return 0;
+	}
+
+	if (!target->isWeaponObject() && !target->isArmorObject() && !player->hasSkill("combat_smuggler_novice")) {
+		player->sendSystemMessage("You must be at least a Novice Smuggler to use this tool.");
 		return 0;
 	}
 
@@ -60,9 +66,11 @@ int PrecisionLaserKnifeImplementation::handleObjectMenuSelect(CreatureObject* pl
 			return 0;
 		}
 
-	} else if (target->isWeaponObject() && !player->hasSkill("combat_smuggler_slicing_02")) {
+	} else if (target->isWeaponObject() && SlicingPermissions::weaponPointLimit(player) == 0) {
+		player->sendSystemMessage("You lack the ability to slice weapons.");
 		return 0;
-	} else if (target->isArmorObject() && !player->hasSkill("combat_smuggler_slicing_03")) {
+	} else if (target->isArmorObject() && !SlicingPermissions::canSliceArmor(player)) {
+		player->sendSystemMessage("You lack the ability to slice armor.");
 		return 0;
 	} else if (target->isSecurityTerminal()) {
 		Zone* zone = target->getZone();

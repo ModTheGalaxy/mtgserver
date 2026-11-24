@@ -3,6 +3,19 @@ trainerConvHandler = conv_handler:new {}
 function trainerConvHandler:getInitialScreen(pPlayer, pNpc, pConvTemplate)
 	local convoTemplate = LuaConversationTemplate(pConvTemplate)
 	local trainerType = SkillTrainer:getTrainerType(pPlayer, pNpc, pConvTemplate)
+
+	if (trainerType == "trainer_fs") then
+		local pGhost = CreatureObject(pPlayer):getPlayerObject()
+		if (pGhost == nil) then
+			printLuaError("trainerConvHandler: missing player object for Force-sensitive trainer conversation")
+			CreatureObject(pPlayer):sendSystemMessage("Your Force-sensitive training could not be prepared. Please contact a CSR.")
+			return convoTemplate:getScreen("trainer_unknown")
+		end
+		if (PlayerObject(pGhost):getJediState() < 1) then
+			PlayerObject(pGhost):setJediState(1)
+		end
+	end
+
 	local prereqSkills = SkillTrainer:getPrerequisiteTrainerSkills(trainerType)
 
 	if (trainerType == "") then

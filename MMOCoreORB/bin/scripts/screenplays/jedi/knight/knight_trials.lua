@@ -3,12 +3,11 @@ local ObjectManager = require("managers.object.object_manager")
 KnightTrials = ScreenPlay:new {}
 
 function KnightTrials:startKnightTrials(pPlayer)
-	local randomShrinePlanet = JediTrials:getRandomDifferentShrinePlanet(pPlayer)
-	local pRandShrine = JediTrials:getRandomShrineOnPlanet(randomShrinePlanet)
-
+	local pRandShrine = self:ensureTrialShrine(pPlayer)
 	if (pRandShrine == nil) then
 		return
 	end
+	local randomShrinePlanet = SceneObject(pRandShrine):getZoneName()
 
 	JediTrials:setStartedTrials(pPlayer)
 	JediTrials:setTrialsCompleted(pPlayer, 0)
@@ -23,6 +22,27 @@ function KnightTrials:startKnightTrials(pPlayer)
 	sui.setOkButtonText("@jedi_trials:button_close")
 	sui.hideCancelButton()
 	sui.sendTo(pPlayer)
+end
+
+function KnightTrials:ensureTrialShrine(pPlayer)
+	local shrine = self:getTrialShrine(pPlayer)
+	if (shrine ~= nil and isZoneEnabled(SceneObject(shrine):getZoneName())) then
+		return shrine
+	end
+
+	local planet = JediTrials:getRandomDifferentShrinePlanet(pPlayer)
+	if (planet ~= nil) then
+		shrine = JediTrials:getRandomShrineOnPlanet(planet)
+	end
+	if (shrine == nil) then
+		printLuaError("KnightTrials: unable to assign a shrine for " .. SceneObject(pPlayer):getObjectID())
+		CreatureObject(pPlayer):sendSystemMessage("Your Knight trial shrine is unavailable. Please contact a CSR.")
+		return nil
+	end
+
+	self:setTrialShrine(pPlayer, shrine)
+	CreatureObject(pPlayer):sendSystemMessage("Your Knight trial shrine is on " .. planet .. ".")
+	return shrine
 end
 
 function KnightTrials:noCallback(pPlayer, pSui, eventIndex, ...)
@@ -435,6 +455,9 @@ function KnightTrials:onPlayerLoggedIn(pPlayer)
 		local trialNumber = JediTrials:getCurrentTrial(pPlayer)
 
 		if (trialNumber <= 0) then
+			if (JediTrials:getTrialsCompleted(pPlayer) == 0) then
+				self:ensureTrialShrine(pPlayer)
+			end
 			return
 		end
 

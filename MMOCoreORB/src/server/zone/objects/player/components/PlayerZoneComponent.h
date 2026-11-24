@@ -24,6 +24,8 @@ public:
 
 	void notifyInsertToZone(SceneObject* sceneObject, Zone* newZone) const;
 
+	void notifyRemoveFromZone(SceneObject* sceneObject) const;
+
 	void teleport(SceneObject* sceneObject, float newPositionX, float newPositionZ, float newPositionY, uint64 parentID = 0) const;
 
 	/**

@@ -28,7 +28,7 @@ function FsOutro:setCurrentStep(pPlayer, step)
 end
 
 function FsOutro:isOnOutro(pPlayer)
-	return VillageJediManagerCommon.hasJediProgressionScreenPlayState(pPlayer, VILLAGE_JEDI_PROGRESSION_COMPLETED_VILLAGE) and not VillageJediManagerCommon.hasJediProgressionScreenPlayState(pPlayer, VILLAGE_JEDI_PROGRESSION_DEFEATED_MELLIACHAE)
+	return JediTrials:hasCompletedPadawanTasks(pPlayer) and CreatureObject(pPlayer):hasScreenPlayState(JediShrineProgression.OUTRO_STARTED, "JediShrineProgression") and not VillageJediManagerCommon.hasJediProgressionScreenPlayState(pPlayer, VILLAGE_JEDI_PROGRESSION_DEFEATED_MELLIACHAE)
 end
 
 function FsOutro:hasDelayPassed(pPlayer)
@@ -48,14 +48,12 @@ function FsOutro:onLoggedIn(pPlayer)
 
 	local curStep = self:getCurrentStep(pPlayer)
 
-	if (curStep == self.OLDMANWAIT) then
-		if (self:hasDelayPassed(pPlayer)) then
-			createEvent(getRandomNumber(300, 900) * 1000, "FsOutro", "doOldManSpawn", pPlayer, "")
+	if (curStep == self.OLDMANWAIT or curStep == self.OLDMANMEET) then
+		if (readData(SceneObject(pPlayer):getObjectID() .. ":shrineOldMan:outro:mobile") == 0) then
+			QuestManager.resetQuest(pPlayer, QuestManager.quests.OLD_MAN_FINAL)
+			self:setCurrentStep(pPlayer, self.OLDMANWAIT)
+			JediShrineProgression:prepareMeeting(pPlayer, "outro")
 		end
-	elseif (curStep == self.OLDMANMEET) then
-		QuestManager.resetQuest(pPlayer, QuestManager.quests.OLD_MAN_FINAL)
-		createEvent(getRandomNumber(300, 900) * 1000, "FsOutro", "doOldManSpawn", pPlayer, "")
-		self:setCurrentStep(pPlayer, self.OLDMANWAIT)
 	elseif (curStep == self.MELLICHAETHEATER) then
 		if (MellichaeOutroTheater:hasTaskStarted(pPlayer)) then
 			MellichaeOutroTheater:finish(pPlayer)
@@ -67,24 +65,9 @@ function FsOutro:onLoggedIn(pPlayer)
 end
 
 function FsOutro:startOldMan(pPlayer)
-	local curStep = self:getCurrentStep(pPlayer)
-
-	if (curStep ~= self.OLDMANWAIT) then
-		return
+	if (pPlayer ~= nil and self:isOnOutro(pPlayer) and self:getCurrentStep(pPlayer) == self.OLDMANWAIT) then
+		JediShrineProgression:prepareMeeting(pPlayer, "outro")
 	end
-
-	local stepData = self.stepDelay[self.OLDMANWAIT]
-	
-	if (stepData == nil) then
-		printLuaError("FsOutro:startOldMan, invalid step data.")
-		return
-	end
-
-	local stepDelay = getRandomNumber(stepData[1], stepData[2])
-
-	QuestManager.resetQuest(pPlayer, QuestManager.quests.OLD_MAN_FINAL)
-	writeScreenPlayData(pPlayer, "VillageJediProgression", "FsOutroDelay", stepDelay + os.time())
-	createEvent(stepDelay * 1000, "FsOutro", "doOldManSpawn", pPlayer, "")
 end
 
 function FsOutro:onLoggedOut(pPlayer)
@@ -104,29 +87,7 @@ function FsOutro:doOldManSpawn(pPlayer)
 		return
 	end
 
-	local curStep = self:getCurrentStep(pPlayer)
-
-	if (curStep == self.OLDMANMEET) then
-		return
-	end
-
-	local pGhost = CreatureObject(pPlayer):getPlayerObject()
-
-	if (pGhost == nil or not PlayerObject(pGhost):isOnline()) then
-		return
-	end
-
-	if (CreatureObject(pPlayer):isDead() or CreatureObject(pPlayer):isIncapacitated() or not Encounter:isPlayerInPositionForEncounter(pPlayer)) then
-		createEvent(getRandomNumber(300, 900) * 1000, "FsOutro", "doOldManSpawn", pPlayer, "")
-		return
-	end
-
-	local result = OldManOutroEncounter:start(pPlayer)
-
-	if (not result) then
-		createEvent(getRandomNumber(300, 900) * 1000, "FsOutro", "doOldManSpawn", pPlayer, "")
-		return
-	end
+	self:startOldMan(pPlayer)
 end
 
 function FsOutro:completeVillageOutroFrog(pPlayer)
@@ -145,5 +106,7 @@ function FsOutro:completeVillageOutroFrog(pPlayer)
 
 	VillageJediManagerCommon.setJediProgressionScreenPlayState(pPlayer, VILLAGE_JEDI_PROGRESSION_DEFEATED_MELLIACHAE)
 
-	PadawanTrials:doPadawanTrialsSetup(pPlayer)
+	if (JediTrials:hasCompletedPadawanTasks(pPlayer)) then
+		JediTrials:unlockJediPadawan(pPlayer)
+	end
 end

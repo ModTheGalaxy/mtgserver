@@ -9,6 +9,7 @@
 #include "server/zone/Zone.h"
 #include "server/zone/managers/resource/ResourceManager.h"
 #include "server/zone/objects/creature/CreatureObject.h"
+#include "server/zone/objects/creature/HamCost.h"
 #include "server/zone/objects/player/PlayerObject.h"
 #include "server/zone/objects/tangible/tool/SurveyTool.h"
 #include "server/zone/packets/scene/PlayClientEffectLocMessage.h"
@@ -103,7 +104,7 @@ void SurveySessionImplementation::startSurvey(const String& resname) {
 	}
 
 	//Get actual cost based upon player's Focus
-	int mindCost = 100 - (int)(surveyer->getHAM(CreatureAttribute::FOCUS)/15.f);
+	int mindCost = HamCost::surveyMindCost(surveyer->getHAM(CreatureAttribute::FOCUS));
 
 	if (surveyer->getHAM(CreatureAttribute::MIND) < mindCost) {
 		surveyer->setPosture(CreaturePosture::UPRIGHT, true);
@@ -192,7 +193,7 @@ void SurveySessionImplementation::startSample(const String& resname) {
 	}
 
 	//Get actual cost based upon player's Quickness
-	int actionCost = 124 - (int)(surveyer->getHAM(CreatureAttribute::QUICKNESS)/12.5f);
+	int actionCost = HamCost::sampleActionCost(surveyer->getHAM(CreatureAttribute::QUICKNESS));
 
 	if (surveyer->getHAM(CreatureAttribute::ACTION) < actionCost) {
 		surveyer->setPosture(CreaturePosture::UPRIGHT, true);

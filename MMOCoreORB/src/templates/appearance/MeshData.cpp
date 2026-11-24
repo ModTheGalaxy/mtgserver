@@ -99,7 +99,10 @@ Vector <MeshTriangle>* MeshData::getMeshWithinBounds(AABB& bounds) const {
 
 void MeshData::readObject(IffStream* iffStream) {
 	iffStream->openForm('VTXA');
-	iffStream->openForm('0003');
+	uint32 version = iffStream->getNextFormType();
+	if (version != '0002' && version != '0003')
+		throw Exception("Unsupported VTXA version in " + iffStream->getFileName());
+	iffStream->openForm(version);
 	iffStream->openChunk('INFO');
 
 	iffStream->getInt(); //unk
@@ -123,19 +126,23 @@ void MeshData::readObject(IffStream* iffStream) {
 	}
 
 	iffStream->closeChunk('DATA');
-	iffStream->closeForm('0003');
+	iffStream->closeForm(version);
 	iffStream->closeForm('VTXA');
 
 	Chunk* indexData = iffStream->openChunk('INDX');
 
-	int indexCount = iffStream->getInt();
+	// VTXA 0002 meshes have uncounted 32-bit indices; 0003 uses counted 16-bit indices.
+	bool legacyIndices = version == '0002';
+	if (legacyIndices && indexData->getChunkSize() % (3 * sizeof(uint32)) != 0)
+		throw Exception("Invalid legacy mesh index data in " + iffStream->getFileName());
+	int indexCount = legacyIndices ? indexData->getChunkSize() / sizeof(uint32) : iffStream->getInt();
 
 	triangles.removeAll(indexCount / 3);
 
 	for (int i = 1; i <= indexCount; i += 3) {
-		int a = indexData->readShort();
-		int b = indexData->readShort();
-		int c = indexData->readShort();
+		int a = legacyIndices ? iffStream->getInt() : indexData->readShort();
+		int b = legacyIndices ? iffStream->getInt() : indexData->readShort();
+		int c = legacyIndices ? iffStream->getInt() : indexData->readShort();
 
 		MeshTriangle triangle;
 		triangle.verts[0] = a;

@@ -36,7 +36,7 @@ function ForceShrineMenuComponent:doMeditate(pObject, pPlayer)
 		KnightTrials:resetCompletedTrialsToStart(pPlayer)
 	end
 
-	if (not CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_02") and CreatureObject(pPlayer):hasScreenPlayState(32, "VillageJediProgression")) then
+	if (not CreatureObject(pPlayer):hasSkill("force_title_jedi_rank_02") and JediTrials:isPadawanTrialsReady(pPlayer)) then
 		local currentTrial = JediTrials:getCurrentTrial(pPlayer)
 
 		if (not JediTrials:isOnPadawanTrials(pPlayer)) then
@@ -47,7 +47,19 @@ function ForceShrineMenuComponent:doMeditate(pObject, pPlayer)
 			PadawanTrials:showCurrentTrial(pObject, pPlayer)
 		end
 	elseif (JediTrials:isOnKnightTrials(pPlayer)) then
+		local trialsCompleted = JediTrials:getTrialsCompleted(pPlayer)
+		if (trialsCompleted >= #knightTrialQuests) then
+			KnightTrials:startNextKnightTrial(pPlayer)
+			return
+		end
+
 		local pPlayerShrine = KnightTrials:getTrialShrine(pPlayer)
+		if (JediTrials:getCurrentTrial(pPlayer) == 0 and trialsCompleted == 0) then
+			pPlayerShrine = KnightTrials:ensureTrialShrine(pPlayer)
+			if (pPlayerShrine == nil) then
+				return
+			end
+		end
 
 		if (pPlayerShrine ~= nil and pObject ~= pPlayerShrine) then
 			local correctShrineZone = SceneObject(pPlayerShrine):getZoneName()
@@ -62,7 +74,6 @@ function ForceShrineMenuComponent:doMeditate(pObject, pPlayer)
 		end
 
 		local currentTrial = JediTrials:getCurrentTrial(pPlayer)
-		local trialsCompleted = JediTrials:getTrialsCompleted(pPlayer)
 
 		if (currentTrial == 0 and trialsCompleted == 0) then
 			local sui = SuiMessageBox.new("KnightTrials", "startNextKnightTrial")

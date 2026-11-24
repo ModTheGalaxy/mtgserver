@@ -60,6 +60,15 @@ LowBlowCommand = {
 		100, 
 		0, 
 		0 
+	  ),
+	  StateEffect(
+		DIZZY_EFFECT,
+		{},
+		{ "dizzy_defense" },
+		{ "jedi_state_defense", "resistance_states" },
+		100,
+		0,
+		10
 	  )
 	},
 

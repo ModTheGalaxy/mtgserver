@@ -49,6 +49,27 @@ function OldManIntroEncounter:handleScheduledDespawn(pPlayer)
 	self:handleDespawnEvent(pPlayer)
 end
 
+function OldManIntroEncounter:handleDespawnEvent(pPlayer)
+	if (pPlayer ~= nil and CreatureObject(pPlayer):hasScreenPlayState(JediShrineProgression.INTRO_ASSIGNED, "JediShrineProgression")) then
+		return
+	end
+	Encounter.handleDespawnEvent(self, pPlayer)
+end
+
+function OldManIntroEncounter:handleEncounterInRangeCheck(pPlayer)
+	if (pPlayer ~= nil and CreatureObject(pPlayer):hasScreenPlayState(JediShrineProgression.INTRO_ASSIGNED, "JediShrineProgression")) then
+		return
+	end
+	Encounter.handleEncounterInRangeCheck(self, pPlayer)
+end
+
+function OldManIntroEncounter:doDespawn(pPlayer)
+	if (pPlayer ~= nil and CreatureObject(pPlayer):hasScreenPlayState(JediShrineProgression.INTRO_ASSIGNED, "JediShrineProgression")) then
+		return
+	end
+	Encounter.doDespawn(self, pPlayer)
+end
+
 -- Schedule despawn of old man due to player conversation has ended.
 -- @param pPlayer pointer to the creature object of the player.
 function OldManIntroEncounter:scheduleDespawnOfOldMan(pPlayer)
@@ -72,21 +93,32 @@ function OldManIntroEncounter:giveForceCrystalToPlayer(pPlayer)
 	local pInventory = SceneObject(pPlayer):getSlottedObject("inventory")
 
 	if (pInventory == nil) then
-		return
+		printLuaError("OldManIntroEncounter: missing inventory for " .. SceneObject(pPlayer):getObjectID())
+		CreatureObject(pPlayer):sendSystemMessage("Your Force crystal could not be granted. Please contact a CSR.")
+		return false
 	end
 
-	local pCrystal = giveItem(pInventory, OLD_MAN_FORCE_CRYSTAL_STRING, -1)
+	local pCrystal = getSceneObject(CreatureObject(pPlayer):getScreenPlayState(self.taskName .. OLD_MAN_FORCE_CRYSTAL_ID_STRING))
+	if (pCrystal == nil) then
+		pCrystal = giveItem(pInventory, OLD_MAN_FORCE_CRYSTAL_STRING, -1)
+	end
 
 	if (pCrystal ~= nil) then
 		CreatureObject(pPlayer):removeScreenPlayState(0xFFFFFFFFFFFFFFFF, self.taskName .. OLD_MAN_FORCE_CRYSTAL_ID_STRING)
 		CreatureObject(pPlayer):setScreenPlayState(SceneObject(pCrystal):getObjectID(), self.taskName .. OLD_MAN_FORCE_CRYSTAL_ID_STRING)
 
+		if (not JediShrineProgression:grantNovice(pPlayer)) then
+			return false
+		end
 		VillageJediManagerCommon.setJediProgressionScreenPlayState(pPlayer, VILLAGE_JEDI_PROGRESSION_HAS_CRYSTAL)
 		QuestManager.completeQuest(pPlayer, QuestManager.quests.OLD_MAN_INITIAL)
 		QuestManager.completeQuest(pPlayer, QuestManager.quests.OLD_MAN_FORCE_CRYSTAL)
 		CreatureObject(pPlayer):sendSystemMessage("@quest/force_sensitive/intro:crystal_message")
 		writeScreenPlayData(pPlayer, "VillageJediProgression", "FsIntroOldManVisits", 0)
+		return true
 	end
+	CreatureObject(pPlayer):sendSystemMessage("Your Force crystal could not be granted. Please make room in your inventory and try again.")
+	return false
 end
 
 function OldManIntroEncounter:hasForceCrystal(pPlayer)

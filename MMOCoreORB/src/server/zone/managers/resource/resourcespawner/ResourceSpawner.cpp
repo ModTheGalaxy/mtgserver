@@ -5,6 +5,7 @@
 #include "ResourceSpawner.h"
 #include "server/zone/Zone.h"
 #include "server/zone/objects/player/PlayerObject.h"
+#include "server/zone/objects/creature/HamCost.h"
 #include "server/zone/objects/tangible/tool/SurveyTool.h"
 #include "server/zone/objects/tangible/tool/recycle/RecycleTool.h"
 #include "server/zone/objects/resource/ResourceContainer.h"
@@ -804,7 +805,7 @@ void ResourceSpawner::sendSurvey(CreatureObject* player, const String& resname) 
 	}*/
 
 	//Adjust cost based upon player's focus
-	int mindCost = 100 - (int)(player->getHAM(CreatureAttribute::FOCUS)/15.f);
+	int mindCost = HamCost::surveyMindCost(player->getHAM(CreatureAttribute::FOCUS));
 
 	player->inflictDamage(player, CreatureAttribute::MIND, mindCost, false, true);
 
@@ -909,7 +910,7 @@ void ResourceSpawner::sendSample(CreatureObject* player, const String& resname,
 	ManagedReference<PlayerObject*> ghost = player->getPlayerObject();
 
 	//Adjust cost based upon player's quickness
-	int actionCost = 124 - (int)(player->getHAM(CreatureAttribute::QUICKNESS)/12.5f);
+	int actionCost = HamCost::sampleActionCost(player->getHAM(CreatureAttribute::QUICKNESS));
 
 	player->inflictDamage(player, CreatureAttribute::ACTION, actionCost, false, true);
 

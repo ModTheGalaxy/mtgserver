@@ -108,8 +108,9 @@ public:
 
 		String restype = creature->getMilkType();
 		int quantity = creature->getMilk();
-
-		int quantityExtracted = Math::max(quantity, 3);
+		int harvestingSkill = player->getSkillMod("creature_harvesting");
+		int quantityExtracted = (int)(quantity * (harvestingSkill / 100.0f));
+		quantityExtracted = Math::max(quantityExtracted, 3);
 
 		ManagedReference<ResourceSpawn*> resourceSpawn = resourceManager->getCurrentSpawn(restype, player->getZone()->getZoneName());
 
@@ -128,6 +129,11 @@ public:
 			quantityExtracted = int(quantityExtracted * 0.75f);
 		} else {
 			quantityExtracted = int(quantityExtracted * 0.50f);
+		}
+
+		if (player->isGrouped()) {
+			float modifier = player->getGroup()->getGroupHarvestModifier(player);
+			quantityExtracted = (int)(quantityExtracted * modifier);
 		}
 
 		TransactionLog trx(TrxCode::HARVESTED, player, resourceSpawn);
